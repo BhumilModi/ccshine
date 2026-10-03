@@ -1,15 +1,17 @@
 {
   "name": "ccshine",
-  "description": "ccshine: a clearer Claude Code terminal.",
+  "description": "ccshine: a clearer, better-looking Claude Code terminal.",
   "owner": {
-    "name": "Bhumil Modi"
+    "name": "Bhumil Modi",
+    "url": "https://github.com/BhumilModi"
   },
   "plugins": [
     {
       "name": "ccshine",
       "source": "./",
-      "description": "Plan and agent progress, compact tool rows, a live spinner, turn receipts and usage for the Claude Code terminal.",
-      "version": "0.1.0"
+      "description": "Live task and agent progress, one-line tool calls, an honest spinner, turn receipts, usage and cache state, chimes and a matching status line for Claude Code.",
+      "version": "0.1.0",
+      "homepage": "https://github.com/BhumilModi/ccshine"
     }
   ]
 }

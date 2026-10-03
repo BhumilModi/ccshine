@@ -1,13 +1,12 @@
 # ccshine
 
-A plugin that makes the Claude Code terminal easier to follow. It shows what Claude is doing and what it costs, things the terminal normally keeps hidden, in one consistent colour theme.
+**A clearer, better-looking Claude Code terminal.**
 
-![ccshine in a session](docs/screenshot.png)
-<!-- TODO: capture docs/screenshot.png from a real session with a plan running -->
+Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, where a turn's time went, what it cost, and whether your prompt cache just expired. ccshine puts that on screen and restyles the rest of the terminal to match.
 
-## What it adds
-
-**Tasks band, above the prompt.** When Claude works through a task list, the band shows every task with what is done, what is running and how long each took. It also estimates the time left. The estimate learns from your past plans in each project, so it is ready before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once finished.
+<!-- Screenshot: add docs/screenshot.png from a real session with a plan running, then uncomment.
+![ccshine in a Claude Code session](docs/screenshot.png)
+-->
 
 ```
  Plan  2/5 ━━━━╸─────── ~18m left
@@ -15,53 +14,71 @@ A plugin that makes the Claude Code terminal easier to follow. It shows what Cla
  ▶ 2. Engine tests  4m 12s
      ◆ general-purpose  Running engine and orchestrator tests  2m 47s
  · 3. API routes
-```
-
-**Usage line.** Tokens used by the last turn (summed over every request in the turn, so cache reads count each time), how much of it the prompt cache covered, and how long until the cache goes cold. When a turn re-sent your context at full price because the cache had expired, it says so. When subagents ran, it splits the tokens by agent.
-
-```
  Usage  101.2k last turn  cache 91% ━━━━━━━━━━╸─  warm 52m
- ⚠ cache was cold · this turn re-sent 41.0k at full price
 ```
 
-**Compact tool rows.** Each tool call is one line with an icon, its target, `+added −removed` for edits and how long it took. Claude Code still draws the result (diffs, output) underneath. Folded runs of reads and searches become `◇ Read ×6  ⌕ Grep ×2`. MCP tools keep their usual look.
+## What you get
 
-**Spinner that says what is happening.** `Editing queue.ts`, `Run the test suite`, `3 tools running` instead of a random word. Claude Code's own timer and token count stay.
-
-**Turn receipt.** The `Baked for 1m 3s` line becomes a receipt: duration, a timeline of thinking versus tools, tokens and cache rate, and the three biggest parts of the turn.
+| Where | Before | With ccshine |
+|---|---|---|
+| Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once done. |
+| Above the prompt | Nothing | **Usage line.** Tokens used by the last turn, how much the prompt cache covered, how long until the cache expires, and a warning when a turn re-sent your context at full price because the cache had gone cold. Splits tokens by agent when subagents ran. |
+| Each tool call | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`. |
+| Spinner | A random word (`Sauteing…`) | **What is actually running:** `Editing queue.ts`, `Run the test suite`, `Agent: Find entry points`. Claude Code's timer and token count stay. |
+| End of each turn | `Baked for 1m 3s` | **A receipt:** duration, a timeline of thinking versus tools, tokens and cache rate, and the three biggest parts of the turn. |
+| When you are away | Silence | **A chime and a toast** when a turn longer than 30 seconds finishes or fails, and when Claude needs your permission. |
+| Status line | Whatever you set up | **A matching status line:** model, effort, folder, git branch and changes, context meter, cache countdown, and your session and weekly limits with reset times. |
 
 ```
-1m 03s  ▇▇▇▇▇▇▇▇▇▇▇▒▒▒▒▒▒▒▒▒▒▒░░  101.2k tokens · cache 91%
-Bash 31s · thinking 28s · Read ×6 4s
+ 1m 03s  ▇▇▇▇▇▇▇▇▇▇▇▒▒▒▒▒▒▒▒▒▒▒░░  101.2k tokens · cache 91%
+ Bash 31s · thinking 28s · Read ×6 4s
 ```
 
-**Attention alerts.** A chime and a toast when a turn longer than 30 seconds finishes, and when Claude needs your permission or input.
+```
+ Opus 5.5  high  my-app  main +2 ?1 ↑1  ctx ━━╸───────── 22% 44k/200k  warm 52m
+ Session 40% · resets 1h 26m  Weekly 68% · resets 1d 17h
+```
+
+Everything runs locally. ccshine sends nothing anywhere.
 
 ## Install
 
-From GitHub, inside Claude Code:
+You need **Claude Code 2.1.288 or later**.
+
+**1. Add the plugin.** Inside Claude Code:
 
 ```
-/plugin marketplace add <owner>/<repo>
+/plugin marketplace add BhumilModi/ccshine
 /plugin install ccshine@ccshine
 ```
 
-Or from a local folder:
+Start a new session. The tool rows, spinner and receipts work right away. The tasks band appears the first time Claude works through a task list.
+
+**2. Turn on the status line (optional).** Claude Code only runs a status line that `settings.json` points to, and plugins cannot edit that file. So, inside Claude Code, run:
 
 ```
-claude --plugin-dir /path/to/ccshine
+/ccshine-statusline
 ```
 
-Requires **Claude Code 2.1.288 or later**. ccshine uses Claude Code's function-hooks plugin API, which is early access and may change between releases.
+It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json`, replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`.
+
+When ccshine updates, its install folder changes. If your status line still points at the old one, ccshine shows a reminder at startup: run `/ccshine-statusline` again and paste the new block.
+
+**From a local copy** (for trying changes):
+
+```
+git clone https://github.com/BhumilModi/ccshine
+claude --plugin-dir ./ccshine
+```
 
 ## Settings
 
-Open `/config` and find the ccshine rows.
+Open `/config` and find the ccshine rows. Every switched-off feature leaves Claude Code's own display exactly as it was.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Theme | `claude` | Colour palette: `claude`, `nord`, `dracula`, `mono` |
-| Powerline glyphs | off | Arrow and rounded-cap separators in headers. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal |
+| Theme | `claude` | Colours for everything ccshine draws, including the status line: `claude`, `nord`, `dracula`, `mono` |
+| Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, otherwise you see empty boxes |
 | Tasks band | on | Tasks, time left and agents above the prompt |
 | Tool rows | on | One-line tool calls |
 | Spinner activity | on | Spinner says what is running |
@@ -69,24 +86,35 @@ Open `/config` and find the ccshine rows.
 | Usage line | on | Tokens, cache rate and cold-cache warnings above the prompt |
 | Attention alerts | on | Chime and toast |
 | Alert after (seconds) | `30` | Only alert for turns at least this long |
-| Prompt cache lifetime | `1h` | `1h` on a Claude subscription, `5m` on an API key |
+| Prompt cache lifetime | `1h` | Used for the countdown above the prompt: `1h` on a Claude subscription, `5m` on an API key. The status line reads the real expiry from Claude Code. |
 
-Every feature that is off leaves Claude Code's own display exactly as it was.
+## Good to know
 
-## Notes
+- **Tasks band empty?** It only shows while Claude has a task list. Ask for a plan, or anything with several steps.
+- **Token counts look large.** A turn's tokens add up every request in that turn, and each request re-reads the cached context. That is how Claude Code bills usage, which is why the cache state matters.
+- **No chime?** Sounds play through `afplay` on macOS. Linux and Windows get the toast only.
+- **Dark terminals.** The palettes are designed for dark backgrounds.
+- **The `bypass permissions on` line** is drawn by Claude Code where plugins cannot restyle it, so ccshine leaves it alone.
+- **Early-access API.** ccshine uses Claude Code's function-hooks plugin API, which may change between releases. If something stops drawing after a Claude Code update, switch that feature off in `/config` and open an issue.
 
-- Chimes play through `afplay` on macOS. Linux and Windows terminals have no player, so alerts there are toasts only.
-- The palettes are built for dark terminals.
-- Usage covers the current session only. Account-wide plan limits are not visible to plugins.
-- The permission-mode label (`bypass permissions on`) is drawn by Claude Code outside anything a plugin can restyle, so ccshine leaves it alone.
+## Uninstall
+
+```
+/plugin uninstall ccshine@ccshine
+```
+
+Then remove the `"statusLine"` block from `~/.claude/settings.json` if you added it.
 
 ## Development
 
 ```
+git clone https://github.com/BhumilModi/ccshine && cd ccshine
 CLAUDE_CODE_TYPES=/path/to/claude-code.d.ts ./verify.sh
 ```
 
-`verify.sh` validates the manifest, runs the tests with `claude plugin test` and type-checks with `tsc`. Once Claude Code has loaded the plugin, it writes the types into `.claude-plugin/types/` and `CLAUDE_CODE_TYPES` is no longer needed.
+`verify.sh` validates the manifest, runs the tests with `claude plugin test`, type-checks with `tsc`, and smoke-runs the status line script. Once Claude Code has loaded the plugin, it writes its API types into `.claude-plugin/types/` and `CLAUDE_CODE_TYPES` is no longer needed. `docs/spike.md` records what was checked live against Claude Code 2.1.288.
+
+Layout: `hooks/features/*.tsx` are the hooks, one file per feature; `hooks/*.ts` are the pure helpers they use; `statusline/` is the status line script; `tests/` has one file per feature.
 
 ## Licence
 
