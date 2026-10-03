@@ -27,7 +27,7 @@ export type CallTiming = {
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
 
-export type Step = { tool: string; ms: number }
+export type Step = { tool: string; ms: number; count: number }
 
 export type TurnRecord = {
   turnId: string

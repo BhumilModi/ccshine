@@ -22,8 +22,8 @@ test('closeTurn sums step time per tool in call order', async () => {
   const turn = closeTurn(calls, { turnId: 't', durationMs: 5000, endedAt: 5000 })
   expect(turn.startedAt).toBe(0)
   expect(turn.steps).toEqual([
-    { tool: 'Read', ms: 500 },
-    { tool: 'Bash', ms: 3000 },
+    { tool: 'Read', ms: 500, count: 2 },
+    { tool: 'Bash', ms: 3000, count: 1 },
   ])
 })
 
@@ -33,7 +33,7 @@ test('closeTurn on a turn with no calls has empty steps', async () => {
 
 test('closeTurn ignores calls from before the turn', async () => {
   const calls = { old: call('Read', 0, 50), now: call('Bash', 600, 700) }
-  expect(closeTurn(calls, { turnId: 't', durationMs: 500, endedAt: 1000 }).steps).toEqual([{ tool: 'Bash', ms: 100 }])
+  expect(closeTurn(calls, { turnId: 't', durationMs: 500, endedAt: 1000 }).steps).toEqual([{ tool: 'Bash', ms: 100, count: 1 }])
 })
 
 test('trim keeps the newest 500 calls', async () => {

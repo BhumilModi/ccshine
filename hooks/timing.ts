@@ -33,8 +33,10 @@ export function closeTurn(
   for (const c of inTurn) {
     const ms = (c.endedAt ?? c.startedAt) - c.startedAt
     const step = steps.find(s => s.tool === c.tool)
-    if (step) step.ms += ms
-    else steps.push({ tool: c.tool, ms })
+    if (step) {
+      step.ms += ms
+      step.count += 1
+    } else steps.push({ tool: c.tool, ms, count: 1 })
   }
   const record: TurnRecord = { turnId: turn.turnId, startedAt, durationMs: turn.durationMs, steps }
   if (turn.agentId !== undefined) record.agentId = turn.agentId
