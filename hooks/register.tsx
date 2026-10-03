@@ -1,5 +1,6 @@
 import type { Register } from 'claude-code'
 
+import { registerAlerts } from './features/alerts'
 import { registerReceipt } from './features/receipt'
 import { registerSpinner } from './features/spinner'
 import { registerTasks } from './features/tasks'
@@ -14,4 +15,5 @@ export const register: Register = (on, options) => {
   registerTools(on)
   registerSpinner(on)
   registerReceipt(on)
+  registerAlerts(on)
 }
