@@ -93,3 +93,11 @@ test('prompts and reply blocks keep a blank line above them', async ($, on) => {
   expect(await top('AssistantMessage', reply('first', true))).toBe(1)
   expect(await top('AssistantMessage', reply('later', false))).toBe(1)
 })
+
+test('the you marker never shrinks beside a long prompt', async ($, on) => {
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component: 'UserMessage', props: prompt('x'.repeat(300)) as any, viewport: { columns: 40, rows: 40 } })
+  const boxes = await ui.findAll({ type: 'Box' })
+  await ui.unmount()
+  const marker = boxes.filter((b: any) => JSON.stringify(b.children).includes('▌ you')).at(-1)
+  expect(marker?.props.flexShrink).toBe(0)
+})

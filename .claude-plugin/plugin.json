@@ -58,7 +58,7 @@
     "usage": {
       "type": "boolean",
       "title": "Usage line",
-      "description": "Last turn tokens, cache state and cold-cache warnings above the prompt",
+      "description": "Cold-cache warnings and the token split by agent above the prompt",
       "default": true
     },
     "alerts": {
@@ -82,7 +82,7 @@
     "chrome": {
       "type": "boolean",
       "title": "Prompt chrome",
-      "description": "Themed hint line, mode labels, notices; hides the turn duration line",
+      "description": "Themed mode labels, notices and background hint; hides the turn duration line",
       "default": true
     }
   }

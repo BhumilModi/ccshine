@@ -26,18 +26,10 @@ const hint = (text: string) => ({ hint: text, isDraft: false, isWorking: true })
 const pill = { kind: 'background_hint', hint: '(ctrl+b to run in background)', tool_use_id: 'x' }
 const notice = { text: 'Using model from settings', command: '/model' }
 
-test('hint line colours keys and words', async ($, on) => {
+// A tree or a rewritten hint replaces the line and its live pills, so the engine keeps drawing it.
+test('hint line keeps the engine drawing', async ($, on) => {
   engine(on)
-  const { texts } = await draw($, 'PromptHint', hint('? for shortcuts · esc to interrupt'))
-  expect(texts.map((t: any) => t.text)).toEqual(['?', ' for shortcuts', ' · ', 'esc', ' to interrupt'])
-  expect(texts[0].props.color).toBe(C.accent)
-  expect(texts[3].props.color).toBe(C.accent)
-  expect(texts[1].props.color).toBe(C.faint)
-})
-
-test('empty hint keeps the engine drawing', async ($, on) => {
-  engine(on)
-  expect((await draw($, 'PromptHint', hint(''))).text).toBe('ENGINE')
+  expect((await draw($, 'PromptHint', hint('? for shortcuts · esc to interrupt'))).text).toBe('ENGINE')
 })
 
 test('modes draw as chips', async ($, on) => {

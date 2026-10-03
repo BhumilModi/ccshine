@@ -24,7 +24,7 @@ Claude Code tracks a lot it never shows you: how far along a plan is, what each 
 | Your prompts and replies | `> fix the queue test`, `●` before each reply | **A styled transcript:** `▌ you` before your prompts and `◆ claude` above each reply, in the theme's accent colour. Replies still go through Claude Code's own markdown renderer, so code blocks and links look the same. Slash command output (`/cost` and others) gets a title line. |
 | Each tool call | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`, with `· 1 failed` when any of them failed. |
 | Spinner | A random word (`Sauteing…`) | **What is actually running:** `Editing queue.ts`, `Run the test suite`, `Agent: Find entry points`. Claude Code's timer and token count stay. |
-| Under the prompt | Dim hints and labels | **Themed hints:** keys in the accent colour (`esc to interrupt`), mode labels as small chips, the run-in-background hint as `⇣ ctrl+b to run in background`. |
+| Under the prompt | Dim labels | **Themed labels:** mode labels as small chips, notices with their `/command` in the accent colour, the run-in-background hint as `⇣ ctrl+b to run in background`. The hint line (`? for shortcuts`) stays Claude Code's, so its keys keep working. |
 | Between turns | `Baked for 1m 3s` | **Nothing.** The spinner already shows the time while a turn runs. |
 | When you are away | Silence | **A chime and a toast** when a turn longer than 30 seconds finishes or fails, and when Claude needs your permission. |
 | Status line | Whatever you set up | **A matching status line:** model, effort, folder, git branch and changes, the branch's pull request (`#5 MERGED`), context meter, cache countdown, and your session and weekly limits with reset times. |
@@ -80,7 +80,7 @@ Open `/config` and find the ccshine rows. Every switched-off feature leaves Clau
 | Tool rows | on | One-line tool calls |
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
-| Prompt chrome | on | Themed hint line, mode chips and notices; hides the `Baked for` line between turns |
+| Prompt chrome | on | Mode chips, notices and the background hint; hides the `Baked for` line between turns |
 | Usage line | on | Cold-cache warnings and the token split by agent above the prompt |
 | Attention alerts | on | Chime and toast |
 | Alert after (seconds) | `30` | Only alert for turns at least this long |

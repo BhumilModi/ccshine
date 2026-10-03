@@ -18,7 +18,9 @@ export function registerTranscript(on: On) {
     // marginTop keeps the blank line the engine puts between messages.
     return (
       <Box marginTop={1}>
-        <Text color={C.accent} bold>{'▌ you  '}</Text>
+        <Box flexShrink={0}>
+          <Text color={C.accent} bold>{'▌ you  '}</Text>
+        </Box>
         <Text color={C.ink} wrap="wrap">{p.text}</Text>
       </Box>
     )

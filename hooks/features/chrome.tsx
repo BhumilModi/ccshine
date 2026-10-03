@@ -3,30 +3,8 @@ import type { On } from 'claude-code'
 import { opts } from '../options'
 import { palette } from '../theme'
 
-// `? for shortcuts · esc to interrupt` → each part's first word is its key, the rest describes it.
-function hintParts(hint: string): { key: string; words: string }[] {
-  return hint.split(' · ').map(part => {
-    const space = part.indexOf(' ')
-    return space < 0 ? { key: part, words: '' } : { key: part.slice(0, space), words: part.slice(space) }
-  })
-}
-
+// The hint line under the prompt stays the engine's: a tree or a rewritten hint replaces its live pills.
 export function registerChrome(on: On) {
-  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
-    if (!opts.chrome || e.props.hint.trim() === '') return next(e)
-    const { Box, Text } = $.ui.resolve(e)
-    const C = palette()
-    return (
-      <Box>
-        {hintParts(e.props.hint).flatMap((p, i) => [
-          ...(i ? [<Text key={`s${i}`} color={C.track}>{' · '}</Text>] : []),
-          <Text key={`k${i}`} color={C.accent}>{p.key}</Text>,
-          ...(p.words ? [<Text key={`w${i}`} color={C.faint} wrap="truncate-end">{p.words}</Text>] : []),
-        ])}
-      </Box>
-    )
-  })
-
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     if (!opts.chrome || e.props.modes.length === 0) return next(e)
     const { Box, Text } = $.ui.resolve(e)

@@ -9,7 +9,7 @@
     {
       "name": "ccshine",
       "source": "./",
-      "description": "Live task and agent progress, one-line tool calls, an honest spinner, turn receipts, usage and cache state, chimes and a matching status line for Claude Code.",
+      "description": "Live task and agent progress, one-line tool calls, an honest spinner, usage and cache state, chimes and a matching status line for Claude Code.",
       "version": "0.1.0",
       "homepage": "https://github.com/BhumilModi/ccshine"
     }
