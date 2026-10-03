@@ -53,7 +53,7 @@ function draw(segments, glyphs) {
 const width = (segments, glyphs) =>
   segments.reduce((n, s) => n + s.parts.reduce((m, p) => m + [...p.text].length, 0), 0) + (glyphs ? segments.length + 1 : 0)
 
-export function render(input, options, git) {
+export function render(input, options, git, pr) {
   const C = Object.hasOwn(palettes, options.theme) ? palettes[options.theme] : palettes.claude
   const glyphs = options.powerline
   const now = options.now
@@ -61,14 +61,14 @@ export function render(input, options, git) {
 
   const str = v => (typeof v === 'string' && v ? v : undefined)
   const model = str(input?.model?.display_name) ?? str(input?.model?.id)
-  if (model) segments.push({ bg: C.accent, parts: [{ text: ` ${model} `, color: C.onAccent, bold: true }] })
+  if (model) segments.push({ keep: 100, bg: C.accent, parts: [{ text: ` ${model} `, color: C.onAccent, bold: true }] })
 
   const effort = str(input?.effort?.level)
-  if (effort) segments.push({ bg: C.seg, parts: [{ text: ` ${effort} `, color: C.mid }] })
+  if (effort) segments.push({ keep: 40, bg: C.seg, parts: [{ text: ` ${effort} `, color: C.mid }] })
 
   // Folder name only, for POSIX and Windows paths.
   const dir = str(input?.workspace?.current_dir) ?? str(input?.cwd)
-  if (dir) segments.push({ bg: C.segAlt, parts: [{ text: ` ${dir.split(/[\\/]/).filter(Boolean).pop() ?? dir} `, color: C.ink }] })
+  if (dir) segments.push({ keep: 90, bg: C.segAlt, parts: [{ text: ` ${dir.split(/[\\/]/).filter(Boolean).pop() ?? dir} `, color: C.ink }] })
 
   if (git?.branch) {
     const parts = [{ text: ` ${git.branch}`, color: C.soft }]
@@ -77,7 +77,12 @@ export function render(input, options, git) {
     if (git.ahead) parts.push({ text: ` ↑${git.ahead}`, color: C.info })
     if (git.behind) parts.push({ text: ` ↓${git.behind}`, color: C.info })
     parts.push({ text: ' ', color: C.soft })
-    segments.push({ bg: C.seg, parts })
+    segments.push({ keep: 70, bg: C.seg, parts })
+  }
+
+  if (pr && typeof pr.number === 'number') {
+    const color = { OPEN: C.info, DRAFT: C.mid, MERGED: C.accent, CLOSED: C.crit }[pr.state] ?? C.mid
+    segments.push({ keep: 50, bg: C.segAlt, parts: [{ text: ` #${pr.number} ${pr.state} `, color }] })
   }
 
   const cw = input?.context_window
@@ -97,18 +102,21 @@ export function render(input, options, git) {
     ]
     if (used !== undefined && size) parts.push({ text: ` ${tokens(used)}/${tokens(size)}`, color: C.faint })
     parts.push({ text: ' ', color: C.faint })
-    segments.push({ bg: C.segAlt, parts })
+    segments.push({ keep: 80, bg: C.seg, parts })
   }
 
   const expires = num(input?.prompt_cache?.expires_at)
   if (expires !== undefined && now !== undefined) {
     const left = expires * 1000 - now
     const text = left <= 0 ? ' cold ' : ` warm ${Math.ceil(left / 60_000)}m `
-    segments.push({ bg: C.seg, parts: [{ text, color: left <= 0 ? C.crit : left < 5 * 60_000 ? C.warn : C.mid }] })
+    segments.push({ keep: 60, bg: C.segAlt, parts: [{ text, color: left <= 0 ? C.crit : left < 5 * 60_000 ? C.warn : C.mid }] })
   }
 
-  // Narrow terminal: drop segments from the right, never the model.
-  while (segments.length > 1 && width(segments, glyphs) > options.columns) segments.pop()
+  // Narrow terminal: drop the least useful segment first (effort, PR badge, cache, git, context, folder), never the model.
+  while (segments.length > 1 && width(segments, glyphs) > options.columns) {
+    const least = segments.reduce((min, s, i) => (s.keep < segments[min].keep ? i : min), 0)
+    segments.splice(least, 1)
+  }
 
   const line2 = []
   const limits = input?.rate_limits
