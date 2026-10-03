@@ -92,6 +92,7 @@ export function registerTasks(on: On) {
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
     const task: PlanTask = { id: ran.result.task.id, subject: e.subject, status: 'pending', createdAt: now }
+    if (e.activeForm) task.activeForm = e.activeForm
     // A new task after everything finished starts a new plan.
     await apply($, list => [...(list.every(t => t.status === 'completed') ? [] : list), task])
     return ran
@@ -106,7 +107,7 @@ export function registerTasks(on: On) {
       status === 'deleted'
         ? list.filter(t => t.id !== e.taskId)
         : list.map(t =>
-            t.id !== e.taskId ? t : setStatus({ ...t, subject: e.subject ?? t.subject }, status ?? t.status, now),
+            t.id !== e.taskId ? t : setStatus({ ...t, subject: e.subject ?? t.subject, activeForm: e.activeForm ?? t.activeForm }, status ?? t.status, now),
           ),
     )
     return ran

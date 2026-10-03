@@ -1,6 +1,8 @@
 export type PlanTask = {
   id: string
   subject: string
+  // Present-tense label from TaskCreate/TodoWrite (`Running tests`), shown by the spinner.
+  activeForm?: string
   status: 'pending' | 'in_progress' | 'completed'
   createdAt: number
   startedAt?: number

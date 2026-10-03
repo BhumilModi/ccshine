@@ -13,13 +13,13 @@ export function setStatus(task: PlanTask, status: Status, now: number): PlanTask
 // TodoWrite sends the whole list each time; keep timestamps of todos we already know.
 export function syncTodos(
   old: PlanTask[],
-  todos: ReadonlyArray<{ content: string; status: Status }>,
+  todos: ReadonlyArray<{ content: string; status: Status; activeForm?: string }>,
   now: number,
 ): PlanTask[] {
   return todos.map(todo => {
     const known = old.find(t => t.id === todo.content)
     const base = known ?? { id: todo.content, subject: todo.content, status: 'pending' as Status, createdAt: now }
-    return setStatus(base, todo.status, now)
+    return setStatus(todo.activeForm ? { ...base, activeForm: todo.activeForm } : base, todo.status, now)
   })
 }
 
