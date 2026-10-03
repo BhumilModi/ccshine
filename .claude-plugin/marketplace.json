@@ -1,0 +1,15 @@
+{
+  "name": "terminal-plus",
+  "description": "terminal-plus: a clearer Claude Code terminal.",
+  "owner": {
+    "name": "Bhumil Modi"
+  },
+  "plugins": [
+    {
+      "name": "terminal-plus",
+      "source": "./",
+      "description": "Plan and agent progress, compact tool rows, a live spinner, turn receipts and usage for the Claude Code terminal.",
+      "version": "0.1.0"
+    }
+  ]
+}
