@@ -56,3 +56,11 @@ test('receipt off returns next(e)', { options: { receipt: false } }, async ($, o
   const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(4000) })
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['Baked for 4000'])
 })
+
+test('receipt usage text truncates on narrow terminals', async ($, on) => {
+  const clock = engine(on)
+  await oneTurn($, clock)
+  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(4000) })
+  const usage = await ui.find({ type: 'Text', text: /tokens · cache/ })
+  expect(usage?.props.wrap).toBe('truncate-end')
+})

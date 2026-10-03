@@ -118,6 +118,7 @@ export type AgentRow = PlanAgent & { status: 'running' | 'done' | 'stopped'; end
 // ponytail: a background agent woken again by SendMessage reads as done until that turn ends too.
 export function agentRows(agents: PlanAgent[], turns: TurnRecord[]): AgentRow[] {
   return agents.map(a => {
+    if (a.endedAt !== undefined) return { ...a, status: a.stopped ? 'stopped' : 'done', endedAt: a.endedAt, tokens: a.tokens ?? 0 }
     const own = turns.filter(t => t.agentId === a.id)
     const last = own[own.length - 1]
     if (!last) return { ...a, status: 'running' }

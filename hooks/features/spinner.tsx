@@ -4,15 +4,17 @@ import type { On } from 'claude-code'
 import { activity } from '../activity'
 import { currentTaskId } from '../plan'
 import { opts } from '../options'
-import { running } from './track'
 
 const tasks = atom({ plugin: 'terminal-plus', key: 'tasks' } as const, [])
+// Written by the tracker (features/track.tsx); reading it re-runs this hook whenever a call starts or ends.
+const liveCalls = atom({ plugin: 'terminal-plus', key: 'live' } as const, {})
 
 export function registerSpinner(on: On) {
   // Rewrites only the message: the engine keeps drawing elapsed time and tokens after it.
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
     if (!opts.spinner || e.props.message !== null) return next(e)
-    const live = [...running.values()]
+    // Main-loop calls only: a running subagent's own calls belong to its Agent call.
+    const live = Object.values(await read($, liveCalls)).filter(c => c.agentId === undefined)
     let message = activity(live)
     if (message === undefined && live.length === 0) {
       const list = await read($, tasks)

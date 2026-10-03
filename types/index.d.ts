@@ -16,7 +16,14 @@ export type PlanAgent = {
   // The task that was running when the agent started; undefined when none was.
   taskId?: string
   startedAt: number
+  // Set by the tracker when the agent's turn completes, so status survives trimming of old turn records.
+  endedAt?: number
+  tokens?: number
+  stopped?: boolean
 }
+
+// A tool call in flight, as the spinner reads it.
+export type LiveCall = { tool: string; input: Record<string, unknown>; agentId?: string }
 
 export type CallTiming = {
   tool: string
@@ -47,6 +54,7 @@ declare module 'claude-code' {
       tick: number
       calls: Record<string, CallTiming>
       turns: TurnRecord[]
+      live: Record<string, LiveCall>
     }
   }
 }

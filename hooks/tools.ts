@@ -22,7 +22,7 @@ export function describeCall(tool: string, input: unknown, root: string): { icon
     case 'Read': case 'Edit': case 'MultiEdit': case 'Write':
       return { icon, target: rel(str(i.file_path), root) }
     case 'Bash':
-      return { icon, target: str(i.description) || str(i.command).slice(0, 60) }
+      return { icon, target: str(i.description) || (str(i.command).split('\n')[0] ?? '').slice(0, 60) }
     case 'Grep':
       return { icon, target: i.path ? `${str(i.pattern)} in ${rel(str(i.path), root)}` : str(i.pattern) }
     case 'Glob':
@@ -48,7 +48,7 @@ export function describeCall(tool: string, input: unknown, root: string): { icon
   return undefined
 }
 
-const lines = (s: unknown): number => (typeof s === 'string' && s !== '' ? s.split('\n').length : 0)
+const lines = (s: unknown): number => (typeof s === 'string' && s !== '' ? s.replace(/\n$/, '').split('\n').length : 0)
 
 export function editStats(tool: string, input: unknown): { added: number; removed: number } | undefined {
   if (input === null || typeof input !== 'object') return undefined
@@ -69,6 +69,10 @@ export function fmtShort(ms: number): string {
   if (ms < 1000) return `${(ms / 1000).toFixed(1)}s`
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`
   return fmtClock(ms)
+}
+
+export function isKnownTool(tool: string): boolean {
+  return tool in ICONS
 }
 
 export function groupSummary(calls: ReadonlyArray<{ tool: string }>): { tool: string; icon: string; count: number }[] {

@@ -59,3 +59,16 @@ test('alerts off plays nothing', { options: { alerts: false } }, async ($, on) =
   await $.classic.Notification({ message: 'x', notification_type: 'idle_prompt' })
   expect(played).toEqual([])
 })
+
+test('a long turn that ended in an API error still alerts', async ($, on) => {
+  const { played, toasts } = engine(on)
+  await $.turn.complete(turn(120_000, { reason: 'error' }))
+  expect(played).toEqual(['sounds/done.wav'])
+  expect(toasts).toEqual(['Claude stopped on an error · 2m 00s'])
+})
+
+test('idle reminders do not chime again', async ($, on) => {
+  const { played } = engine(on)
+  await $.classic.Notification({ message: 'Claude is waiting for your input', notification_type: 'idle_prompt' })
+  expect(played).toEqual([])
+})

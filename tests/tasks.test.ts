@@ -114,3 +114,8 @@ test('agentRows derives status, end time and tokens from turn records', async ()
     { ...agents[2], status: 'running' },
   ])
 })
+
+test('an agent marked finished stays finished after its turns are trimmed', async () => {
+  const agents = [{ id: 'a', description: 'd', type: 'Explore', startedAt: 0, endedAt: 9000, tokens: 50, stopped: false }]
+  expect(agentRows(agents, [])).toEqual([{ ...agents[0], status: 'done', endedAt: 9000, tokens: 50 }])
+})

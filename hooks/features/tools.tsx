@@ -3,7 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import { opts } from '../options'
 import { palette } from '../theme'
-import { describeCall, editStats, fmtShort, groupSummary } from '../tools'
+import { describeCall, editStats, fmtShort, groupSummary, isKnownTool } from '../tools'
 
 // Written by the tracker (features/track.tsx).
 const calls = atom({ plugin: 'terminal-plus', key: 'calls' } as const, {})
@@ -43,7 +43,8 @@ export function registerTools(on: On) {
   })
 
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
-    if (!opts.tools || e.props.isExpanded) return next(e)
+    // MCP and other unknown tools keep the engine's own wording.
+    if (!opts.tools || e.props.isExpanded || !e.props.calls.every(c => isKnownTool(c.tool))) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     const C = palette()
     const parts = groupSummary(e.props.calls)
@@ -51,12 +52,12 @@ export function registerTools(on: On) {
     return (
       <Box>
         {parts.map((g, i) => (
-          <Text key={`g${i}`} color={C.soft}>
+          <Text key={`g${i}`} color={C.soft} wrap="truncate-end">
             {`${i ? '  ' : ''}${g.icon} ${g.tool}${g.count > 1 ? ` ×${g.count}` : ''}`}
           </Text>
         ))}
-        {e.props.isActive && <Text color={C.faint}>{'  …'}</Text>}
-        {errored && <Text color={C.crit}>{'  ✕'}</Text>}
+        {e.props.isActive && <Text color={C.faint} wrap="truncate-end">{'  …'}</Text>}
+        {errored && <Text color={C.crit} wrap="truncate-end">{'  ✕'}</Text>}
       </Box>
     )
   })

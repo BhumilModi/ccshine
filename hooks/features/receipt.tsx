@@ -29,7 +29,7 @@ export function registerReceipt(on: On) {
           {cells.map((c, i) => (
             <Text key={`c${i}`} color={c.tool === 'thinking' ? C.accent : C.mid}>{c.char}</Text>
           ))}
-          {usage && <Text color={C.mid}>{`  ${usage}`}</Text>}
+          {usage && <Text color={C.mid} wrap="truncate-end">{`  ${usage}`}</Text>}
         </Box>
         <Text color={C.faint} wrap="truncate-end">{legend(turn.steps, turn.durationMs)}</Text>
       </Box>

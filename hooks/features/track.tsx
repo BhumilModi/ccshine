@@ -1,9 +1,9 @@
 import { atom, read, update } from 'claude-code'
 import type { On, Timer } from 'claude-code'
 
-import type { TurnRecord } from '../../types'
+import type { LiveCall, TurnRecord } from '../../types'
 import { opts } from '../options'
-import { addCall, closeTurn, endCall } from '../timing'
+import { addCall, closeTurn, endCall, totalTokens } from '../timing'
 import { cacheLeftMs } from '../usage'
 
 export const calls = atom({ plugin: 'terminal-plus', key: 'calls' } as const, {})
@@ -16,8 +16,10 @@ const tick = atom({ plugin: 'terminal-plus', key: 'tick' } as const, 0)
 // Started here, not while drawing: a render hook may not start timers.
 let warmTimer: Timer | undefined
 
-// Calls in flight, by tool_use_id: the spinner reads what is running right now.
-export const running = new Map<string, { tool: string; input: unknown }>()
+// Calls in flight, by tool_use_id. State (not a module map) so the spinner redraws when one starts or ends.
+const live = atom({ plugin: 'terminal-plus', key: 'live' } as const, {})
+// Agent rows (features/tasks.tsx); the tracker records when each agent's turn completes.
+const agents = atom({ plugin: 'terminal-plus', key: 'agents' } as const, [])
 
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {
@@ -27,11 +29,15 @@ export function registerTrack(on: On) {
     const { consent: _consent, ...input } = rest as Record<string, unknown>
     const startedAt = await $.clock.now()
     await update($, calls, list => addCall(list, id, agentId === undefined ? { tool, startedAt } : { tool, startedAt, agentId }))
-    running.set(id, { tool, input })
+    const call: LiveCall = agentId === undefined ? { tool, input } : { tool, input, agentId }
+    await update($, live, map => ({ ...map, [id]: call }))
     try {
       return await next(e)
     } finally {
-      running.delete(id)
+      await update($, live, map => {
+        const { [id]: _done, ...rest } = map
+        return rest
+      })
       const at = await $.clock.now()
       await update($, calls, list => endCall(list, id, at))
     }
@@ -50,6 +56,14 @@ export function registerTrack(on: On) {
     })
     if (e.isAborted) turn.aborted = true
     await update($, turns, list => [...list, turn].slice(-MAX_TURNS))
+    if (e.agentId !== undefined) {
+      const id = e.agentId
+      const endedAt = turn.startedAt + turn.durationMs
+      const used = usage ? totalTokens(usage) : 0
+      await update($, agents, list =>
+        list.map(a => (a.id === id ? { ...a, endedAt, tokens: (a.tokens ?? 0) + used, stopped: e.isAborted } : a)),
+      )
+    }
     if (e.agentId === undefined && opts.usage) {
       warmTimer?.cancel()
       const endedAt = turn.startedAt + turn.durationMs

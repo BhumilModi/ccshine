@@ -75,3 +75,12 @@ test('groupSummary counts calls per tool in first-use order', async () => {
     { tool: 'mcp__x__y', icon: '·', count: 1 },
   ])
 })
+
+test('multi-line Bash command uses its first line', async () => {
+  expect(describeCall('Bash', { command: "cat <<'EOF' > a.txt\nhello\nEOF" }, ROOT)?.target).toBe("cat <<'EOF' > a.txt")
+})
+
+test('a trailing newline is not an extra line', async () => {
+  expect(editStats('Write', { content: 'a\nb\n' })).toEqual({ added: 2, removed: 0 })
+  expect(editStats('Edit', { old_string: 'x\n', new_string: 'y\nz\n' })).toEqual({ added: 2, removed: 1 })
+})

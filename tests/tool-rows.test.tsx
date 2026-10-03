@@ -79,3 +79,24 @@ test('tool group line lists tools with counts', async ($, on) => {
   const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
   expect(await textOf(ui)).toBe('◇ Read ×2  ❯ Bash')
 })
+
+test('a group containing an mcp tool is left to the engine', async ($, on) => {
+  on('ui.render', { component: 'ToolGroup' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
+  const calls = [
+    { tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
+    { tool: 'mcp__linear__list_issues', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
+  ]
+  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+  expect(await textOf(ui)).toBe('ENGINE')
+})
+
+test('group line truncates instead of wrapping', async ($, on) => {
+  mock.store(on)
+  const calls = [{ tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false }]
+  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+  const texts = await ui.findAll({ type: 'Text' })
+  expect(texts.every((t: any) => t.props.wrap === 'truncate-end')).toBe(true)
+})
