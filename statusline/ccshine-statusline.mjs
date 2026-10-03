@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { gitArgs, parseGitStatus } from './git.mjs'
 import { render } from './render.mjs'
 
 function readInput() {
@@ -31,25 +32,11 @@ function readOptions() {
 
 // Branch, changes and ahead/behind from one git call; nothing when not a repo, git is missing or slow.
 function readGit(dir) {
-  if (!dir) return undefined
+  if (typeof dir !== 'string' || !dir) return undefined
   try {
-    const out = execFileSync('git', ['-C', dir, 'status', '--porcelain=v2', '--branch'], {
-      encoding: 'utf8',
-      timeout: 500,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    const git = { branch: '', dirty: 0, untracked: 0, ahead: 0, behind: 0 }
-    for (const line of out.split('\n')) {
-      if (line.startsWith('# branch.head ')) git.branch = line.slice(14)
-      else if (line.startsWith('# branch.ab ')) {
-        const [, a, b] = line.match(/\+(\d+) -(\d+)/) ?? []
-        git.ahead = Number(a ?? 0)
-        git.behind = Number(b ?? 0)
-      } else if (/^[12u] /.test(line)) git.dirty++
-      else if (line.startsWith('? ')) git.untracked++
-    }
-    if (git.branch === '(detached)') git.branch = 'detached'
-    return git.branch ? git : undefined
+    return parseGitStatus(
+      execFileSync('git', gitArgs(dir), { encoding: 'utf8', timeout: 500, stdio: ['ignore', 'pipe', 'ignore'] }),
+    )
   } catch {
     return undefined
   }
@@ -67,8 +54,9 @@ try {
   )
   process.stdout.write(line + '\n')
 } catch {
-  // Never fail Claude Code's footer: fall back to a plain line.
-  const model = input?.model?.display_name ?? ''
-  const dir = (input?.workspace?.current_dir ?? input?.cwd ?? '').split('/').pop() ?? ''
-  process.stdout.write([model, dir].filter(Boolean).join(' · ') + '\n')
+  // Never fail Claude Code's footer: fall back to a plain line built only from strings.
+  const str = v => (typeof v === 'string' ? v : '')
+  const model = str(input?.model?.display_name)
+  const dir = str(input?.workspace?.current_dir) || str(input?.cwd)
+  process.stdout.write([model, dir.split(/[\\/]/).filter(Boolean).pop() ?? ''].filter(Boolean).join(' · ') + '\n')
 }

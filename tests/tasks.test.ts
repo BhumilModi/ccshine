@@ -91,7 +91,7 @@ test('powerline chains segments with caps and coloured separators', async () => 
   expect(powerline([{ bg: '#111', parts: [{ text: 'a', color: '#fff' }] }], false)).toEqual([{ text: 'a', color: '#fff', backgroundColor: '#111' }])
 })
 
-test('bar matches ctx-meter: half-cell precision, never empty once started', async () => {
+test('bar has half-cell precision and is never empty once started', async () => {
   expect(bar(0.5)).toEqual({ filled: '━━━━━━', track: '──────' })
   expect(bar(1 / 9).filled).toBe('━╸')
   expect(bar(0.01).filled).toBe('╸')

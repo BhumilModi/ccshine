@@ -35,7 +35,7 @@ export function powerline(segments: Segment[], glyphs: boolean): Run[] {
   return runs
 }
 
-// Same bar as ctx-meter.sh: 12 cells, half-cell precision, heavy line on a thin track.
+// Context-meter style bar: 12 cells, half-cell precision, heavy line on a thin track.
 export function bar(fraction: number, width = 12): { filled: string; track: string } {
   const units = Math.min(width * 2, Math.max(fraction > 0 ? 1 : 0, Math.round(fraction * width * 2)))
   const full = units >> 1

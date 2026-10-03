@@ -52,7 +52,7 @@ You need **Claude Code 2.1.288 or later**.
 /plugin install ccshine@ccshine
 ```
 
-Start a new session. The tool rows, spinner and receipts work right away. The tasks band appears the first time Claude works through a task list.
+Claude Code may say the options are not set yet; every option has a default, so you can skip `/plugin configure`. Start a new session. The tool rows, spinner and receipts work right away. The tasks band appears the first time Claude works through a task list.
 
 **2. Turn on the status line (optional).** Claude Code only runs a status line that `settings.json` points to, and plugins cannot edit that file. So, inside Claude Code, run:
 
@@ -60,7 +60,7 @@ Start a new session. The tool rows, spinner and receipts work right away. The ta
 /ccshine-statusline
 ```
 
-It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json`, replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`.
+It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json` if you use a custom config folder), replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`. It reads the ccshine theme from your user settings, so set the theme there rather than in a project's settings.
 
 When ccshine updates, its install folder changes. If your status line still points at the old one, ccshine shows a reminder at startup: run `/ccshine-statusline` again and paste the new block.
 
@@ -112,7 +112,9 @@ git clone https://github.com/BhumilModi/ccshine && cd ccshine
 CLAUDE_CODE_TYPES=/path/to/claude-code.d.ts ./verify.sh
 ```
 
-`verify.sh` validates the manifest, runs the tests with `claude plugin test`, type-checks with `tsc`, and smoke-runs the status line script. Once Claude Code has loaded the plugin, it writes its API types into `.claude-plugin/types/` and `CLAUDE_CODE_TYPES` is no longer needed. `docs/spike.md` records what was checked live against Claude Code 2.1.288.
+`verify.sh` validates the manifest, runs the tests with `claude plugin test`, type-checks with `tsc`, and smoke-runs the status line script.
+
+Claude Code writes its plugin API types into `.claude-plugin/types/` the first time it loads the plugin (run `claude --plugin-dir .` once). Until then, editors show type errors and `verify.sh` needs `CLAUDE_CODE_TYPES` pointing at a `claude-code.d.ts`: Claude Code's built-in plugin-authoring skill prints that file's path when it loads. `docs/spike.md` records what was checked live against Claude Code 2.1.288.
 
 Layout: `hooks/features/*.tsx` are the hooks, one file per feature; `hooks/*.ts` are the pure helpers they use; `statusline/` is the status line script; `tests/` has one file per feature.
 

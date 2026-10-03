@@ -54,19 +54,21 @@ const width = (segments, glyphs) =>
   segments.reduce((n, s) => n + s.parts.reduce((m, p) => m + [...p.text].length, 0), 0) + (glyphs ? segments.length + 1 : 0)
 
 export function render(input, options, git) {
-  const C = palettes[options.theme] ?? palettes.claude
+  const C = Object.hasOwn(palettes, options.theme) ? palettes[options.theme] : palettes.claude
   const glyphs = options.powerline
   const now = options.now
   const segments = []
 
-  const model = input?.model?.display_name ?? input?.model?.id
+  const str = v => (typeof v === 'string' && v ? v : undefined)
+  const model = str(input?.model?.display_name) ?? str(input?.model?.id)
   if (model) segments.push({ bg: C.accent, parts: [{ text: ` ${model} `, color: C.onAccent, bold: true }] })
 
-  const effort = input?.effort?.level
+  const effort = str(input?.effort?.level)
   if (effort) segments.push({ bg: C.seg, parts: [{ text: ` ${effort} `, color: C.mid }] })
 
-  const dir = input?.workspace?.current_dir ?? input?.cwd
-  if (dir) segments.push({ bg: C.segAlt, parts: [{ text: ` ${dir.split('/').filter(Boolean).pop() ?? dir} `, color: C.ink }] })
+  // Folder name only, for POSIX and Windows paths.
+  const dir = str(input?.workspace?.current_dir) ?? str(input?.cwd)
+  if (dir) segments.push({ bg: C.segAlt, parts: [{ text: ` ${dir.split(/[\\/]/).filter(Boolean).pop() ?? dir} `, color: C.ink }] })
 
   if (git?.branch) {
     const parts = [{ text: ` ${git.branch}`, color: C.soft }]
@@ -82,7 +84,8 @@ export function render(input, options, git) {
   const size = num(cw?.context_window_size)
   const u = cw?.current_usage
   const used = u ? (num(u.input_tokens) ?? 0) + (num(u.cache_creation_input_tokens) ?? 0) + (num(u.cache_read_input_tokens) ?? 0) : undefined
-  const pct = num(cw?.used_percentage) ?? (used !== undefined && size ? Math.round((used / size) * 100) : undefined)
+  const raw = num(cw?.used_percentage) ?? (used !== undefined && size ? (used / size) * 100 : undefined)
+  const pct = raw === undefined ? undefined : Math.min(100, Math.max(0, Math.round(raw)))
   if (pct !== undefined) {
     const b = bar(pct / 100)
     const color = level(C, pct)
@@ -125,6 +128,12 @@ export function render(input, options, git) {
   if (windows.length === 0 && cost !== undefined) {
     line2.push({ bg: C.seg, parts: [{ text: ` Session $${cost.toFixed(2)} `, color: C.ink }] })
   }
+
+  // Narrow terminal: drop the reset times first, then the weekly window.
+  if (width(line2, glyphs) > options.columns) {
+    for (const seg of line2) seg.parts = seg.parts.filter(p => !p.text.startsWith(' · resets'))
+  }
+  while (line2.length > 1 && width(line2, glyphs) > options.columns) line2.pop()
 
   return [draw(segments, glyphs), draw(line2, glyphs)].filter(Boolean).join('\n')
 }
