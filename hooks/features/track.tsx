@@ -6,20 +6,20 @@ import { opts } from '../options'
 import { addCall, closeTurn, endCall, totalTokens } from '../timing'
 import { cacheLeftMs } from '../usage'
 
-export const calls = atom({ plugin: 'terminal-plus', key: 'calls' } as const, {})
-export const turns = atom({ plugin: 'terminal-plus', key: 'turns' } as const, [])
+export const calls = atom({ plugin: 'ccshine', key: 'calls' } as const, {})
+export const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
 const MAX_TURNS = 200
 // Bumped to redraw the band; the tasks feature bumps it every second while something runs.
-const tick = atom({ plugin: 'terminal-plus', key: 'tick' } as const, 0)
+const tick = atom({ plugin: 'ccshine', key: 'tick' } as const, 0)
 
 // After each main turn, redraw twice a minute until the prompt cache has gone cold, so the countdown moves.
 // Started here, not while drawing: a render hook may not start timers.
 let warmTimer: Timer | undefined
 
 // Calls in flight, by tool_use_id. State (not a module map) so the spinner redraws when one starts or ends.
-const live = atom({ plugin: 'terminal-plus', key: 'live' } as const, {})
+const live = atom({ plugin: 'ccshine', key: 'live' } as const, {})
 // Agent rows (features/tasks.tsx); the tracker records when each agent's turn completes.
-const agents = atom({ plugin: 'terminal-plus', key: 'agents' } as const, [])
+const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
 
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {

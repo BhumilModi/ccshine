@@ -5,9 +5,9 @@ import { activity } from '../activity'
 import { currentTaskId } from '../plan'
 import { opts } from '../options'
 
-const tasks = atom({ plugin: 'terminal-plus', key: 'tasks' } as const, [])
+const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
 // Written by the tracker (features/track.tsx); reading it re-runs this hook whenever a call starts or ends.
-const liveCalls = atom({ plugin: 'terminal-plus', key: 'live' } as const, {})
+const liveCalls = atom({ plugin: 'ccshine', key: 'live' } as const, {})
 
 export function registerSpinner(on: On) {
   // Rewrites only the message: the engine keeps drawing elapsed time and tokens after it.

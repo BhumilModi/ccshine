@@ -1,8 +1,8 @@
-# terminal-plus
+# ccshine
 
 A plugin that makes the Claude Code terminal easier to follow. It shows what Claude is doing and what it costs, things the terminal normally keeps hidden, in one consistent colour theme.
 
-![terminal-plus in a session](docs/screenshot.png)
+![ccshine in a session](docs/screenshot.png)
 <!-- TODO: capture docs/screenshot.png from a real session with a plan running -->
 
 ## What it adds
@@ -43,20 +43,20 @@ From GitHub, inside Claude Code:
 
 ```
 /plugin marketplace add <owner>/<repo>
-/plugin install terminal-plus@terminal-plus
+/plugin install ccshine@ccshine
 ```
 
 Or from a local folder:
 
 ```
-claude --plugin-dir /path/to/terminal-plus
+claude --plugin-dir /path/to/ccshine
 ```
 
-Requires **Claude Code 2.1.288 or later**. terminal-plus uses Claude Code's function-hooks plugin API, which is early access and may change between releases.
+Requires **Claude Code 2.1.288 or later**. ccshine uses Claude Code's function-hooks plugin API, which is early access and may change between releases.
 
 ## Settings
 
-Open `/config` and find the terminal-plus rows.
+Open `/config` and find the ccshine rows.
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -78,7 +78,7 @@ Every feature that is off leaves Claude Code's own display exactly as it was.
 - Chimes play through `afplay` on macOS. Linux and Windows terminals have no player, so alerts there are toasts only.
 - The palettes are built for dark terminals.
 - Usage covers the current session only. Account-wide plan limits are not visible to plugins.
-- The permission-mode label (`bypass permissions on`) is drawn by Claude Code outside anything a plugin can restyle, so terminal-plus leaves it alone.
+- The permission-mode label (`bypass permissions on`) is drawn by Claude Code outside anything a plugin can restyle, so ccshine leaves it alone.
 
 ## Development
 

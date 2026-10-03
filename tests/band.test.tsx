@@ -17,7 +17,7 @@ test('band lists tasks once a plan starts', { options: { powerline: true } }, as
   await $.tool.call({ tool: 'TaskUpdate', taskId: 'routes', status: 'in_progress' })
 
   for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: 'terminal-plus', surface, ...BAND })
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface, ...BAND })
     const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
     expect(text).toContain(' Plan ')
     expect(text).toContain(' 1/2 ━━━━━━──────')
@@ -38,7 +38,7 @@ test('history is kept per project, borrowed by a project with none', async ($, o
   on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
   on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
   const header = async () => {
-    const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
     const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
     await ui.unmount()
     return text.match(/~\S+ left \(from past plans\)/)?.[0]
@@ -73,7 +73,7 @@ test('agents nest under the running task and fold away after finishing', async (
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
   on('turn.complete', () => ({ text: 'ok' }))
   const text = async () => {
-    const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
     const all = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
     await ui.unmount()
     return all
@@ -113,7 +113,7 @@ async function onePlan($: any, on: any) {
 
 test('band uses no powerline glyphs when the option is off', async ($, on) => {
   await onePlan($, on)
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
   expect(text).toContain(' Plan ')
   expect(text.includes('\uE0B0') || text.includes('\uE0B6')).toBe(false)
@@ -122,7 +122,7 @@ test('band uses no powerline glyphs when the option is off', async ($, on) => {
 test('band header drops the time-left segment at 40 columns', async ($, on) => {
   await onePlan($, on)
   const narrow = { ...BAND, props: { ...BAND.props, bodyColumns: 40 } }
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...narrow })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...narrow })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
   expect(text).toContain('0/1')
   expect(text).not.toContain('ETA')
@@ -135,6 +135,6 @@ test('tasks off: band hook returns next(e)', { options: { tasks: false, usage: f
     return <Text>ENGINE</Text>
   })
   await $.tool.call({ tool: 'TaskCreate', subject: 'only', description: '' })
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['ENGINE'])
 })

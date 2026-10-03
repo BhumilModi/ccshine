@@ -35,7 +35,7 @@ function engine(on: any) {
 test('receipt shows duration, timeline, tokens and cache rate', async ($, on) => {
   const clock = engine(on)
   await oneTurn($, clock)
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(4000) })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...LINE(4000) })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
   expect(text).toContain('4.0s')
   expect(text).toContain('101.2k tokens · cache 91%')
@@ -46,21 +46,21 @@ test('receipt shows duration, timeline, tokens and cache rate', async ($, on) =>
 test('TurnDuration with no matching record returns next(e)', async ($, on) => {
   const clock = engine(on)
   await oneTurn($, clock)
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(1234) })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...LINE(1234) })
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['Baked for 1234'])
 })
 
 test('receipt off returns next(e)', { options: { receipt: false } }, async ($, on) => {
   const clock = engine(on)
   await oneTurn($, clock)
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(4000) })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...LINE(4000) })
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['Baked for 4000'])
 })
 
 test('receipt usage text truncates on narrow terminals', async ($, on) => {
   const clock = engine(on)
   await oneTurn($, clock)
-  const ui = await $.ui.mount({ plugin: 'terminal-plus', surface: 'terminal', ...LINE(4000) })
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...LINE(4000) })
   const usage = await ui.find({ type: 'Text', text: /tokens · cache/ })
   expect(usage?.props.wrap).toBe('truncate-end')
 })

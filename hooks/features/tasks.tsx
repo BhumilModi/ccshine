@@ -24,12 +24,12 @@ import { totalTokens } from '../timing'
 import { bySource, cacheLeftMs, lastTurn, wasCold } from '../usage'
 import type { Segment } from '../theme'
 
-const tasks = atom({ plugin: 'terminal-plus', key: 'tasks' } as const, [])
-const agents = atom({ plugin: 'terminal-plus', key: 'agents' } as const, [])
+const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
+const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
 // Written by the tracker (features/track.tsx); atoms must be declared in the file that reads them.
-const turns = atom({ plugin: 'terminal-plus', key: 'turns' } as const, [])
+const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
 // Bumped every second while something runs, so live timers redraw.
-const tick = atom({ plugin: 'terminal-plus', key: 'tick' } as const, 0)
+const tick = atom({ plugin: 'ccshine', key: 'tick' } as const, 0)
 const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 

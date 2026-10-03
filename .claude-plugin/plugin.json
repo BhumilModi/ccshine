@@ -1,12 +1,12 @@
 {
-  "name": "terminal-plus",
+  "name": "ccshine",
   "version": "0.1.0",
   "description": "Makes the Claude Code terminal clearer: plan and agent progress, compact tool rows, a live spinner, turn receipts and usage, in one theme. Needs Claude Code 2.1.288 or later (function hooks are early access).",
   "author": { "name": "Bhumil Modi" },
   "license": "MIT",
   "types": "./types/index.d.ts",
   "userConfig": {
-    "theme": { "type": "string", "title": "Theme", "description": "Colour palette for everything terminal-plus draws", "default": "claude", "options": ["claude", "nord", "dracula", "mono"] },
+    "theme": { "type": "string", "title": "Theme", "description": "Colour palette for everything ccshine draws", "default": "claude", "options": ["claude", "nord", "dracula", "mono"] },
     "powerline": { "type": "boolean", "title": "Powerline glyphs", "description": "Arrow and rounded-cap separators in headers (needs a Nerd Font)", "default": false },
     "tasks": { "type": "boolean", "title": "Tasks band", "description": "Plan tasks, time left and agents above the prompt", "default": true },
     "tools": { "type": "boolean", "title": "Tool rows", "description": "Compact one-line tool calls with icons, edit counts and timings", "default": true },

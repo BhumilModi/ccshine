@@ -6,7 +6,7 @@ import { palette } from '../theme'
 import { describeCall, editStats, fmtShort, groupSummary, isKnownTool } from '../tools'
 
 // Written by the tracker (features/track.tsx).
-const calls = atom({ plugin: 'terminal-plus', key: 'calls' } as const, {})
+const calls = atom({ plugin: 'ccshine', key: 'calls' } as const, {})
 
 let root: string | undefined
 

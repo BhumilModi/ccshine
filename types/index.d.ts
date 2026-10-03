@@ -48,7 +48,7 @@ export type TurnRecord = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'terminal-plus': {
+    'ccshine': {
       tasks: PlanTask[]
       agents: PlanAgent[]
       tick: number

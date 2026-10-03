@@ -8,7 +8,7 @@ import { palette } from '../theme'
 import { totalTokens } from '../timing'
 
 // Written by the tracker (features/track.tsx).
-const turns = atom({ plugin: 'terminal-plus', key: 'turns' } as const, [])
+const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
 const TIMELINE_CELLS = 24
 
 export function registerReceipt(on: On) {
