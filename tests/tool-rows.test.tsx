@@ -100,3 +100,15 @@ test('group line truncates instead of wrapping', async ($, on) => {
   const texts = await ui.findAll({ type: 'Text' })
   expect(texts.every((t: any) => t.props.wrap === 'truncate-end')).toBe(true)
 })
+
+test('group names how many calls failed', async ($, on) => {
+  mock.store(on)
+  const bash = (isErrored: boolean) => ({ tool: 'Bash', input: {}, isRunning: false, isErrored, isInterrupted: false })
+  const ui = await $.ui.mount({
+    plugin: 'ccshine', surface: 'terminal', component: 'ToolGroup',
+    props: { calls: [bash(false), bash(true), bash(false)], isActive: false, isExpanded: false },
+  })
+  const text = await textOf(ui)
+  expect(text).toBe('❯ Bash ×3  · 1 failed')
+  expect(text).not.toContain('✕')
+})

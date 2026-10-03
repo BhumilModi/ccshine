@@ -48,7 +48,7 @@ export function registerTools(on: On) {
     const { Box, Text } = $.ui.resolve(e)
     const C = palette()
     const parts = groupSummary(e.props.calls)
-    const errored = e.props.calls.some(c => c.isErrored)
+    const failed = e.props.calls.filter(c => c.isErrored).length
     return (
       <Box>
         {parts.map((g, i) => (
@@ -57,7 +57,7 @@ export function registerTools(on: On) {
           </Text>
         ))}
         {e.props.isActive && <Text color={C.faint} wrap="truncate-end">{'  …'}</Text>}
-        {errored && <Text color={C.crit} wrap="truncate-end">{'  ✕'}</Text>}
+        {failed > 0 && <Text color={C.crit} wrap="truncate-end">{`  · ${failed} failed`}</Text>}
       </Box>
     )
   })
