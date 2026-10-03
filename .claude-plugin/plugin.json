@@ -1,0 +1,20 @@
+{
+  "name": "terminal-plus",
+  "version": "0.1.0",
+  "description": "Makes the Claude Code terminal clearer: plan and agent progress, compact tool rows, a live spinner, turn receipts and usage, in one theme. Needs Claude Code 2.1.288 or later (function hooks are early access).",
+  "author": { "name": "Bhumil Modi" },
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "theme": { "type": "string", "title": "Theme", "description": "Colour palette for everything terminal-plus draws", "default": "claude", "options": ["claude", "nord", "dracula", "mono"] },
+    "powerline": { "type": "boolean", "title": "Powerline glyphs", "description": "Arrow and rounded-cap separators in headers (needs a Nerd Font)", "default": false },
+    "tasks": { "type": "boolean", "title": "Tasks band", "description": "Plan tasks, time left and agents above the prompt", "default": true },
+    "tools": { "type": "boolean", "title": "Tool rows", "description": "Compact one-line tool calls with icons, edit counts and timings", "default": true },
+    "spinner": { "type": "boolean", "title": "Spinner activity", "description": "Spinner says what is running instead of a random word", "default": true },
+    "receipt": { "type": "boolean", "title": "Turn receipt", "description": "Timeline, tokens and cache rate under each turn", "default": true },
+    "usage": { "type": "boolean", "title": "Usage line", "description": "Last turn tokens, cache state and cold-cache warnings above the prompt", "default": true },
+    "alerts": { "type": "boolean", "title": "Attention alerts", "description": "Sound and toast when a long turn finishes or Claude needs you", "default": true },
+    "alertAfterSeconds": { "type": "number", "title": "Alert after (seconds)", "description": "Only alert for turns at least this long", "default": 30 },
+    "cacheTtl": { "type": "string", "title": "Prompt cache lifetime", "description": "1h on a Claude subscription, 5m on an API key", "default": "1h", "options": ["1h", "5m"] }
+  }
+}
