@@ -17,7 +17,7 @@ A plugin that makes the Claude Code terminal easier to follow. It shows what Cla
  · 3. API routes
 ```
 
-**Usage line.** Tokens used by the last turn, how much of it the prompt cache covered, and how long until the cache goes cold. When a turn re-sent your context at full price because the cache had expired, it says so. When subagents ran, it splits the tokens by agent.
+**Usage line.** Tokens used by the last turn (summed over every request in the turn, so cache reads count each time), how much of it the prompt cache covered, and how long until the cache goes cold. When a turn re-sent your context at full price because the cache had expired, it says so. When subagents ran, it splits the tokens by agent.
 
 ```
  Usage  101.2k last turn  cache 91% ━━━━━━━━━━╸─  warm 52m

@@ -34,16 +34,6 @@ const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 
 let ticker: Timer | undefined
-// Redraws the cache countdown twice a minute while the cache is still warm.
-let slowTicker: Timer | undefined
-
-function syncSlowTicker($: EngineInterface, warm: boolean) {
-  if (warm && slowTicker === undefined) slowTicker = $.clock.every(30_000, () => void update($, tick, n => n + 1))
-  else if (!warm && slowTicker !== undefined) {
-    slowTicker.cancel()
-    slowTicker = undefined
-  }
-}
 
 // Runs the 1s redraw timer only while a task or agent is live, or a finished agent is still fading out.
 async function syncTicker($: EngineInterface) {
@@ -167,10 +157,9 @@ export function registerTasks(on: On) {
     let usage: RenderElement | null = null
     if (showUsage && last && last.usage) {
       const left = cacheLeftMs(last.startedAt + last.durationMs, now, opts.cacheTtl)
-      syncSlowTicker($, left > 0)
       const rate = cacheRate(last.usage)
       const meter = bar(rate)
-      const warmth = left === 0 ? 'cold' : `warm ${fmt(left)}`
+      const warmth = left === 0 ? 'cold' : `warm ${Math.ceil(left / 60_000)}m`
       const header: Segment[] = [
         { bg: C.seg, parts: [{ text: ' Usage ', color: C.soft, bold: true }] },
         { bg: C.segAlt, parts: [{ text: ` ${fmtTokens(totalTokens(last.usage))} last turn `, color: C.ink }] },

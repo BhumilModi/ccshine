@@ -36,6 +36,13 @@ test('usage line shows last turn tokens, cache rate and time left', async ($, on
   expect(text).not.toContain('cold')
 })
 
+test('a full hour of cache reads warm 60m, not 1h 0m', async ($, on) => {
+  const clock = engine(on)
+  await clock.advance(1000)
+  await complete($, 't1', 91_000, 8000)
+  expect(await textOf($)).toContain('warm 60m')
+})
+
 test('cold warning appears only after a cold turn', async ($, on) => {
   const clock = engine(on)
   await clock.advance(1000)
@@ -55,4 +62,19 @@ test('usage off and no plan returns next(e)', { options: { usage: false } }, asy
   await clock.advance(1000)
   await complete($, 't1', 91_000, 8000)
   expect(await textOf($)).toBe('ENGINE')
+})
+
+test('band keeps the done header and the usage line after the plan finishes', async ($, on) => {
+  const clock = engine(on)
+  on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e: { taskId: string }) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  await $.tool.call({ tool: 'TaskCreate', subject: 'a', description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'a', status: 'in_progress' })
+  await clock.advance(5000)
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'a', status: 'completed' })
+  await complete($, 't1', 91_000, 8000)
+  const text = await textOf($)
+  expect(text).toContain('✓ Plan')
+  expect(text).toContain('1/1')
+  expect(text).toContain('Usage')
 })

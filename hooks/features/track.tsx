@@ -1,12 +1,20 @@
 import { atom, read, update } from 'claude-code'
-import type { On } from 'claude-code'
+import type { On, Timer } from 'claude-code'
 
 import type { TurnRecord } from '../../types'
+import { opts } from '../options'
 import { addCall, closeTurn, endCall } from '../timing'
+import { cacheLeftMs } from '../usage'
 
 export const calls = atom({ plugin: 'terminal-plus', key: 'calls' } as const, {})
 export const turns = atom({ plugin: 'terminal-plus', key: 'turns' } as const, [])
 const MAX_TURNS = 200
+// Bumped to redraw the band; the tasks feature bumps it every second while something runs.
+const tick = atom({ plugin: 'terminal-plus', key: 'tick' } as const, 0)
+
+// After each main turn, redraw twice a minute until the prompt cache has gone cold, so the countdown moves.
+// Started here, not while drawing: a render hook may not start timers.
+let warmTimer: Timer | undefined
 
 // Calls in flight, by tool_use_id: the spinner reads what is running right now.
 export const running = new Map<string, { tool: string; input: unknown }>()
@@ -42,6 +50,17 @@ export function registerTrack(on: On) {
     })
     if (e.isAborted) turn.aborted = true
     await update($, turns, list => [...list, turn].slice(-MAX_TURNS))
+    if (e.agentId === undefined && opts.usage) {
+      warmTimer?.cancel()
+      const endedAt = turn.startedAt + turn.durationMs
+      const timer = $.clock.every(30_000, () => {
+        void $.clock.now().then(now => {
+          if (cacheLeftMs(endedAt, now, opts.cacheTtl) === 0) timer.cancel()
+          return update($, tick, n => n + 1)
+        })
+      })
+      warmTimer = timer
+    }
     return done
   })
 }
