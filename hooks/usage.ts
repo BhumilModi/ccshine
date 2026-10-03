@@ -28,10 +28,3 @@ export function bySource(turns: TurnRecord[], agents: PlanAgent[], sinceMs: numb
     .map(([source, tokens]) => ({ source, tokens }))
     .sort((a, b) => (a.source === 'main' ? -1 : b.source === 'main' ? 1 : b.tokens - a.tokens))
 }
-
-const TTL_MS = { '1h': 60 * 60_000, '5m': 5 * 60_000 }
-
-export function cacheLeftMs(lastTurnEnd: number, now: number, ttl: string): number {
-  const span = TTL_MS[ttl as keyof typeof TTL_MS] ?? TTL_MS['1h']
-  return Math.max(0, span - (now - lastTurnEnd))
-}

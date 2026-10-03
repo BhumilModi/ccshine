@@ -73,16 +73,6 @@
       "description": "Only alert for turns at least this long",
       "default": 30
     },
-    "cacheTtl": {
-      "type": "string",
-      "title": "Prompt cache lifetime",
-      "description": "1h on a Claude subscription, 5m on an API key",
-      "default": "1h",
-      "options": [
-        "1h",
-        "5m"
-      ]
-    },
     "transcript": {
       "type": "boolean",
       "title": "Transcript style",

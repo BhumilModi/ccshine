@@ -7,7 +7,6 @@ export type Options = {
   usage: boolean
   alerts: boolean
   alertAfterSeconds: number
-  cacheTtl: string
   transcript: boolean
   chrome: boolean
 }
@@ -21,7 +20,6 @@ export const DEFAULTS: Options = {
   usage: true,
   alerts: true,
   alertAfterSeconds: 30,
-  cacheTtl: '1h',
   transcript: true,
   chrome: true,
 }

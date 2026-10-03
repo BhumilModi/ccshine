@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { TurnRecord } from '../types'
-import { bySource, cacheLeftMs, lastTurn, wasCold } from '../hooks/usage'
+import { bySource, lastTurn, wasCold } from '../hooks/usage'
 
 const MIN = 60_000
 const turn = (over: Partial<TurnRecord>): TurnRecord => ({ turnId: 't', startedAt: 0, durationMs: 1000, steps: [], ...over })
@@ -40,13 +40,4 @@ test('bySource groups agents by type, main first', async () => {
     { source: 'general-purpose', tokens: 9200 },
     { source: 'Explore', tokens: 8400 },
   ])
-})
-
-test('cacheLeftMs clamps at 0', async () => {
-  expect(cacheLeftMs(0, 2 * 60 * MIN, '1h')).toBe(0)
-})
-
-test('5m ttl counts from the last turn end', async () => {
-  expect(cacheLeftMs(10 * MIN, 12 * MIN, '5m')).toBe(3 * MIN)
-  expect(cacheLeftMs(10 * MIN, 12 * MIN, '1h')).toBe(58 * MIN)
 })
