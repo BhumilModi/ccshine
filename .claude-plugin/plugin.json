@@ -88,6 +88,12 @@
       "title": "Transcript style",
       "description": "Restyled prompts, replies and command output",
       "default": true
+    },
+    "chrome": {
+      "type": "boolean",
+      "title": "Prompt chrome",
+      "description": "Themed hint line, mode labels, notices; hides the turn duration line",
+      "default": true
     }
   }
 }

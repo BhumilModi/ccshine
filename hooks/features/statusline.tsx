@@ -1,6 +1,9 @@
 import type { On } from 'claude-code'
 
+import { opts } from '../options'
+
 const COMMAND = 'ccshine-statusline'
+const LIGHT_THEME = 'ccshine palettes are made for dark terminals — set a dark theme in /config'
 
 export function registerStatusline(on: On) {
   on('session.start', async ($, e, next) => {
@@ -10,6 +13,16 @@ export function registerStatusline(on: On) {
     const command = current && typeof current === 'object' && 'command' in current ? String(current.command) : ''
     if (command.includes('ccshine-statusline.mjs') && !command.includes($.plugin.root)) {
       $.ui.toast('ccshine was updated: run /ccshine-statusline and paste the new statusLine path')
+    }
+    // Prompt chrome: Claude Code's theme colours the input box, logo and dialogs. ccshine never changes it, only says so.
+    // Here because a module registers session.start once.
+    if (opts.chrome) {
+      try {
+        const theme = (await $.config.list()).find(row => row.key === 'theme')?.value
+        if (typeof theme === 'string' && theme.includes('light')) $.ui.toast(LIGHT_THEME)
+      } catch {
+        // No config to read: nothing to suggest.
+      }
     }
     return next(e)
   })
