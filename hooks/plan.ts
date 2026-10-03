@@ -1,4 +1,5 @@
-import type { PlanAgent, PlanTask } from '../types'
+import type { PlanAgent, PlanTask, TurnRecord } from '../types'
+import { totalTokens } from './timing'
 
 type Status = PlanTask['status']
 
@@ -111,7 +112,25 @@ export function currentTaskId(tasks: PlanTask[]): string | undefined {
 // Finished agents stay visible this long before folding away.
 export const AGENT_LINGER_MS = 30_000
 
-export function visibleAgents(agents: PlanAgent[], taskId: string | undefined, now: number): PlanAgent[] {
+export type AgentRow = PlanAgent & { status: 'running' | 'done' | 'stopped'; endedAt?: number; tokens?: number }
+
+// An agent is done once a turn of its loop has completed; tokens add up over all its turns.
+// ponytail: a background agent woken again by SendMessage reads as done until that turn ends too.
+export function agentRows(agents: PlanAgent[], turns: TurnRecord[]): AgentRow[] {
+  return agents.map(a => {
+    const own = turns.filter(t => t.agentId === a.id)
+    const last = own[own.length - 1]
+    if (!last) return { ...a, status: 'running' }
+    return {
+      ...a,
+      status: last.aborted ? 'stopped' : 'done',
+      endedAt: last.startedAt + last.durationMs,
+      tokens: own.reduce((n, t) => n + (t.usage ? totalTokens(t.usage) : 0), 0),
+    }
+  })
+}
+
+export function visibleAgents(agents: AgentRow[], taskId: string | undefined, now: number): AgentRow[] {
   return agents.filter(
     a => a.taskId === taskId && (a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS),
   )

@@ -4,6 +4,7 @@ import type { EngineInterface, On, Timer } from 'claude-code'
 import type { PlanAgent, PlanTask } from '../../types'
 import {
   AGENT_LINGER_MS,
+  agentRows,
   currentTaskId,
   estimate,
   fmt,
@@ -15,13 +16,15 @@ import {
   timeLeft,
   visibleAgents,
   window,
-} from '../tasks'
+} from '../plan'
 import { bar, glyphsOn, palette, powerline, runsWidth } from '../theme'
 import { opts } from '../options'
 import type { Segment } from '../theme'
 
 const tasks = atom({ plugin: 'terminal-plus', key: 'tasks' } as const, [])
 const agents = atom({ plugin: 'terminal-plus', key: 'agents' } as const, [])
+// Written by the tracker (features/track.tsx); atoms must be declared in the file that reads them.
+const turns = atom({ plugin: 'terminal-plus', key: 'turns' } as const, [])
 // Bumped every second while something runs, so live timers redraw.
 const tick = atom({ plugin: 'terminal-plus', key: 'tick' } as const, 0)
 const MAX_TASK_ROWS = 8
@@ -34,7 +37,7 @@ async function syncTicker($: EngineInterface) {
   const now = await $.clock.now()
   const live =
     (await read($, tasks)).some(t => t.status === 'in_progress') ||
-    (await read($, agents)).some(a => a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS)
+    agentRows(await read($, agents), await read($, turns)).some(a => a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS)
   if (live && ticker === undefined) {
     ticker = $.clock.every(1000, () => {
       void update($, tick, n => n + 1).then(() => syncTicker($))
@@ -125,34 +128,11 @@ export function registerTasks(on: On) {
       description: e.description,
       type: e.subagentType,
       taskId: currentTaskId(await read($, tasks)),
-      status: 'running',
       startedAt: await $.clock.now(),
     }
-    // A new plan forgets the last plan's agents.
-    await update($, agents, list => [...list.filter(a => a.status === 'running' || a.taskId !== undefined), agent].slice(-50))
+    await update($, agents, list => [...list, agent].slice(-50))
     await syncTicker($)
     return spawned
-  })
-
-  // ponytail: a background agent woken again by SendMessage stays marked done until its next turn ends;
-  // flip it back on its next tool.call (e.agentId) if that shows up wrong.
-  on('turn.complete', async ($, e, next) => {
-    const done = await next(e)
-    if (e.agentId !== undefined) {
-      const id = e.agentId
-      const now = await $.clock.now()
-      const u = done.usage ?? e.usage
-      const used = u ? u.input_tokens + u.output_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens : 0
-      await update($, agents, list =>
-        list.map(a =>
-          a.id === id
-            ? { ...a, status: e.isAborted ? 'stopped' : 'done', endedAt: now, tokens: (a.tokens ?? 0) + used }
-            : a,
-        ),
-      )
-      await syncTicker($)
-    }
-    return done
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -163,10 +143,10 @@ export function registerTasks(on: On) {
     const { Box, Text } = $.ui.resolve(e)
     await read($, tick)
     const now = await $.clock.now()
-    const agentList = await read($, agents)
+    const agentList = agentRows(await read($, agents), await read($, turns))
     const past = await projectHistory($)
 
-    const agentRows = (taskId: string | undefined, indent: string) => {
+    const agentLines = (taskId: string | undefined, indent: string) => {
       const live = visibleAgents(agentList, taskId, now)
       const rows = live.slice(-MAX_AGENT_ROWS).map(a => {
         const time = fmtClock((a.endedAt ?? now) - a.startedAt)
@@ -247,7 +227,7 @@ export function registerTasks(on: On) {
                   <Text color={C.ink} bold wrap="truncate-end">{label}</Text>
                   {running && <Text color={C.mid}>{`  ${running}`}</Text>}
                 </Box>
-                {agentRows(t.id, '    ')}
+                {agentLines(t.id, '    ')}
               </Box>
             )
           }
@@ -262,7 +242,7 @@ export function registerTasks(on: On) {
         {visibleAgents(agentList, undefined, now).length > 0 && (
           <Text key="agents-label" color={C.faint}>  agents</Text>
         )}
-        {agentRows(undefined, '    ')}
+        {agentLines(undefined, '    ')}
       </Box>
     )
   })

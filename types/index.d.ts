@@ -13,14 +13,38 @@ export type PlanAgent = {
   type: string
   // The task that was running when the agent started; undefined when none was.
   taskId?: string
-  status: 'running' | 'done' | 'stopped'
+  startedAt: number
+}
+
+export type CallTiming = {
+  tool: string
   startedAt: number
   endedAt?: number
-  tokens?: number
+  agentId?: string
+}
+
+export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
+
+export type Step = { tool: string; ms: number }
+
+export type TurnRecord = {
+  turnId: string
+  agentId?: string
+  startedAt: number
+  durationMs: number
+  usage?: Usage
+  steps: Step[]
+  aborted?: true
 }
 
 declare module 'claude-code' {
   interface PluginState {
-    'terminal-plus': { tasks: PlanTask[]; agents: PlanAgent[]; tick: number }
+    'terminal-plus': {
+      tasks: PlanTask[]
+      agents: PlanAgent[]
+      tick: number
+      calls: Record<string, CallTiming>
+      turns: TurnRecord[]
+    }
   }
 }

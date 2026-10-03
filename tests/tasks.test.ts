@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import type { PlanTask } from '../types'
-import { estimate, newlyDone, summary, syncTodos, window } from '../hooks/tasks'
+import type { PlanTask, TurnRecord } from '../types'
+import { agentRows, estimate, newlyDone, summary, syncTodos, window } from '../hooks/plan'
 import { bar, powerline } from '../hooks/theme'
 
 const MIN = 60000
@@ -96,4 +96,21 @@ test('bar matches ctx-meter: half-cell precision, never empty once started', asy
   expect(bar(1 / 9).filled).toBe('━╸')
   expect(bar(0.01).filled).toBe('╸')
   expect(bar(0)).toEqual({ filled: '', track: '────────────' })
+})
+
+test('agentRows derives status, end time and tokens from turn records', async () => {
+  const agents = [
+    { id: 'a', description: 'd', type: 'Explore', startedAt: 0 },
+    { id: 'b', description: 'd', type: 'general-purpose', startedAt: 0 },
+    { id: 'c', description: 'd', type: 'Plan', startedAt: 0 },
+  ]
+  const turns: TurnRecord[] = [
+    { turnId: '1', agentId: 'a', startedAt: 0, durationMs: 5000, steps: [], usage: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 } },
+    { turnId: '2', agentId: 'b', startedAt: 0, durationMs: 7000, steps: [], aborted: true as const },
+  ]
+  expect(agentRows(agents, turns)).toEqual([
+    { ...agents[0], status: 'done', endedAt: 5000, tokens: 10 },
+    { ...agents[1], status: 'stopped', endedAt: 7000, tokens: 0 },
+    { ...agents[2], status: 'running' },
+  ])
 })
