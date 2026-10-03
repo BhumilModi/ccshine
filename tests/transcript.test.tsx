@@ -81,3 +81,15 @@ test('transcript off returns next(e)', { options: { transcript: false } }, async
   expect((await draw($, 'AssistantMessage', reply('hi', true))).text).toBe('ENGINE')
   expect((await draw($, 'CommandOutput', command('hi'))).text).toBe('ENGINE')
 })
+
+test('prompts and reply blocks keep a blank line above them', async ($, on) => {
+  const top = async (component: any, props: any) => {
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component, props })
+    const [root] = await ui.findAll({ type: 'Box' })
+    await ui.unmount()
+    return root?.props.marginTop
+  }
+  expect(await top('UserMessage', prompt('hi'))).toBe(1)
+  expect(await top('AssistantMessage', reply('first', true))).toBe(1)
+  expect(await top('AssistantMessage', reply('later', false))).toBe(1)
+})

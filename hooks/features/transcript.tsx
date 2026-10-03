@@ -15,8 +15,9 @@ export function registerTranscript(on: On) {
     if (!opts.transcript || p.origin.kind !== 'composer' || !fits(p.text)) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     const C = palette()
+    // marginTop keeps the blank line the engine puts between messages.
     return (
-      <Box>
+      <Box marginTop={1}>
         <Text color={C.accent} bold>{'▌ you  '}</Text>
         <Text color={C.ink} wrap="wrap">{p.text}</Text>
       </Box>
@@ -30,7 +31,7 @@ export function registerTranscript(on: On) {
     const { Box, Text, Markdown } = $.ui.resolve(e)
     const C = palette()
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" marginTop={1}>
         {p.isFirstOfReply && <Text color={C.accent} bold>{'◆ claude'}</Text>}
         <Box paddingLeft={2}>
           <Markdown text={p.text} />
