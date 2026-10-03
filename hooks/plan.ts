@@ -66,7 +66,9 @@ export function estimate(tasks: PlanTask[], now: number, history: number[] = [])
   const runningElapsed = running.reduce((total, t) => total + Math.min(avg ?? 0, now - (t.startedAt ?? now)), 0)
   const msLeft = avg === undefined ? undefined : Math.max(0, avg * left - runningElapsed)
   const first = Math.min(...tasks.map(t => t.startedAt ?? t.createdAt))
-  return { done, total: tasks.length, msLeft, elapsed: now - first, fromPastOnly: done === 0 && prior !== undefined }
+  // A finished plan stops at its last task's finish; otherwise the clock runs to now.
+  const end = done === tasks.length ? Math.max(...tasks.map(t => t.doneAt ?? first)) : now
+  return { done, total: tasks.length, msLeft, elapsed: end - first, fromPastOnly: done === 0 && prior !== undefined }
 }
 
 export function fmt(ms: number): string {

@@ -119,3 +119,12 @@ test('an agent marked finished stays finished after its turns are trimmed', asyn
   const agents = [{ id: 'a', description: 'd', type: 'Explore', startedAt: 0, endedAt: 9000, tokens: 50, stopped: false }]
   expect(agentRows(agents, [])).toEqual([{ ...agents[0], status: 'done', endedAt: 9000, tokens: 50 }])
 })
+
+test('a finished plan keeps its total time instead of counting on', async () => {
+  const list = [
+    task('a', { status: 'completed', startedAt: 0, doneAt: 10 * MIN }),
+    task('b', { status: 'completed', startedAt: 10 * MIN, doneAt: 20 * MIN }),
+  ]
+  expect(summary(list, 20 * MIN)).toBe('Plan 2/2 done in 20m')
+  expect(summary(list, 50 * MIN)).toBe('Plan 2/2 done in 20m')
+})
