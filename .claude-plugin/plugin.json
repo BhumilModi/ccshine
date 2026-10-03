@@ -82,6 +82,12 @@
         "1h",
         "5m"
       ]
+    },
+    "transcript": {
+      "type": "boolean",
+      "title": "Transcript style",
+      "description": "Restyled prompts, replies and command output",
+      "default": true
     }
   }
 }

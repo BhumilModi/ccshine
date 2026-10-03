@@ -6,6 +6,7 @@ import { registerStatusline } from './features/statusline'
 import { registerTasks } from './features/tasks'
 import { registerTools } from './features/tools'
 import { registerTrack } from './features/track'
+import { registerTranscript } from './features/transcript'
 import { setOptions } from './options'
 
 export const register: Register = (on, options) => {
@@ -16,4 +17,5 @@ export const register: Register = (on, options) => {
   registerSpinner(on)
   registerAlerts(on)
   registerStatusline(on)
+  registerTranscript(on)
 }
