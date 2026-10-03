@@ -112,3 +112,17 @@ test('group names how many calls failed', async ($, on) => {
   expect(text).toBe('❯ Bash ×3  · 1 failed')
   expect(text).not.toContain('✕')
 })
+
+test('tool rows and groups keep a blank line above them', async ($, on) => {
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo' }))
+  const top = async (mounted: any) => {
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...mounted })
+    const [root] = await ui.findAll({ type: 'Box' })
+    await ui.unmount()
+    return root?.props.marginTop
+  }
+  expect(await top(toolUse({ tool_use_id: 'r1', tool: 'Read', input: { file_path: '/repo/a.ts' } }))).toBe(1)
+  const calls = [{ tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false }]
+  expect(await top({ component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })).toBe(1)
+})

@@ -17,6 +17,7 @@ async function sessionRoot($: EngineInterface): Promise<string> {
 
 export function registerTools(on: On) {
   // Header row only: the engine keeps drawing the result (diff, output) under it.
+  // marginTop keeps the blank line the engine puts above each tool call.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (!opts.tools) return next(e)
     const p = e.props
@@ -30,7 +31,7 @@ export function registerTools(on: On) {
     const icon = p.isErrored ? '✕' : described.icon
     const iconColor = p.isErrored ? C.crit : p.isInterrupted ? C.faint : C.accent
     return (
-      <Box>
+      <Box marginTop={1}>
         <Text color={iconColor} bold>{icon}</Text>
         <Text color={C.soft}>{` ${p.tool} `}</Text>
         <Text color={C.ink} wrap="truncate-end">{described.target}</Text>
@@ -50,7 +51,7 @@ export function registerTools(on: On) {
     const parts = groupSummary(e.props.calls)
     const failed = e.props.calls.filter(c => c.isErrored).length
     return (
-      <Box>
+      <Box marginTop={1}>
         {parts.map((g, i) => (
           <Text key={`g${i}`} color={C.soft} wrap="truncate-end">
             {`${i ? '  ' : ''}${g.icon} ${g.tool}${g.count > 1 ? ` ×${g.count}` : ''}`}
