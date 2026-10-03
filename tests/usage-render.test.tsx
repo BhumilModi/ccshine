@@ -7,6 +7,11 @@ function engine(on: any) {
   mock.store(on)
   on('session.root', () => ({ value: '/repo' }))
   on('turn.complete', () => ({ text: 'ok' }))
+  // The engine's own band: what the hook draws when it has nothing to show.
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
   return clock
 }
 
@@ -23,31 +28,38 @@ const textOf = async ($: any) => {
   return text
 }
 
-test('usage line shows last turn tokens, cache rate and time left', async ($, on) => {
+test('usage line hidden after a warm turn with one source', async ($, on) => {
   const clock = engine(on)
   await clock.advance(1000)
   await complete($, 't1', 91_000, 8000)
   await clock.advance(8 * 60_000)
-  const text = await textOf($)
-  expect(text).toContain('Usage')
-  expect(text).toContain('101.2k last turn')
-  expect(text).toContain('cache 91%')
-  expect(text).toContain('warm 52m')
-  expect(text).not.toContain('cold')
+  expect(await textOf($)).toBe('ENGINE')
 })
 
-test('a full hour of cache reads warm 60m, not 1h 0m', async ($, on) => {
+test('usage shows the agent split when subagents ran', async ($, on) => {
   const clock = engine(on)
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
   await clock.advance(1000)
+  await $.agent.spawn({
+    tool_use_id: 'tu1', prompt: 'run', description: 'Find entry points', subagentType: 'Explore',
+    provider: { plugin: 'engine', tier: 'core' }, parentModel: 'claude-opus-5-5', background: true, fork: false,
+  })
+  await $.turn.complete({
+    answer: 'done', durationMs: 1, isAborted: false, turnId: 'a1', agentId: 'ag1', reason: 'answer',
+    usage: { model: 'm', input_tokens: 1000, output_tokens: 1000, cache_read_input_tokens: 40_000, cache_creation_input_tokens: 0 },
+  })
   await complete($, 't1', 91_000, 8000)
-  expect(await textOf($)).toContain('warm 60m')
+  const text = await textOf($)
+  expect(text).toContain('main ')
+  expect(text).toContain('Explore ')
+  expect(text).not.toContain('Usage')
 })
 
 test('cold warning appears only after a cold turn', async ($, on) => {
   const clock = engine(on)
   await clock.advance(1000)
   await complete($, 't1', 50_000, 1000)
-  expect(await textOf($)).not.toContain('⚠')
+  expect(await textOf($)).toBe('ENGINE')
   await clock.advance(2 * 60 * 60_000)
   await complete($, 't2', 2000, 41_000)
   expect(await textOf($)).toContain('⚠ cache was cold · this turn re-sent 41.0k at full price')
@@ -64,7 +76,7 @@ test('usage off and no plan returns next(e)', { options: { usage: false } }, asy
   expect(await textOf($)).toBe('ENGINE')
 })
 
-test('band keeps the done header and the usage line after the plan finishes', async ($, on) => {
+test('band keeps the done header after the plan finishes', async ($, on) => {
   const clock = engine(on)
   on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
   on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e: { taskId: string }) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
@@ -76,5 +88,5 @@ test('band keeps the done header and the usage line after the plan finishes', as
   const text = await textOf($)
   expect(text).toContain('✓ Plan')
   expect(text).toContain('1/1')
-  expect(text).toContain('Usage')
+  expect(text).not.toContain('Usage')
 })

@@ -19,9 +19,7 @@ import {
 } from '../plan'
 import { bar, glyphsOn, palette, powerline, runsWidth } from '../theme'
 import { opts } from '../options'
-import { cacheRate } from '../receipt'
-import { totalTokens } from '../timing'
-import { bySource, cacheLeftMs, lastTurn, wasCold } from '../usage'
+import { bySource, lastTurn, wasCold } from '../usage'
 import type { Segment } from '../theme'
 
 const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
@@ -153,40 +151,24 @@ export function registerTasks(on: On) {
     const now = await $.clock.now()
     const agentList = agentRows(await read($, agents), turnList)
 
-    // Usage: last turn's tokens and cache rate, time until the cache goes cold, cold-turn warning, split by agent.
+    // Usage: only what the status line does not show — a cold-cache warning, and tokens split by agent.
     let usage: RenderElement | null = null
     if (showUsage && last && last.usage) {
-      const left = cacheLeftMs(last.startedAt + last.durationMs, now, opts.cacheTtl)
-      const rate = cacheRate(last.usage)
-      const meter = bar(rate)
-      const warmth = left === 0 ? 'cold' : `warm ${Math.ceil(left / 60_000)}m`
-      const header: Segment[] = [
-        { bg: C.seg, parts: [{ text: ' Usage ', color: C.soft, bold: true }] },
-        { bg: C.segAlt, parts: [{ text: ` ${fmtTokens(totalTokens(last.usage))} last turn `, color: C.ink }] },
-        { bg: C.seg, parts: [{ text: ` cache ${Math.round(rate * 100)}% `, color: C.ink }, { text: meter.filled, color: C.mid }, { text: `${meter.track} `, color: C.track }] },
-        { bg: C.segAlt, parts: [{ text: ` ${warmth} `, color: left === 0 ? C.crit : left < 5 * 60_000 ? C.warn : C.mid }] },
-      ]
-      let segs = header
-      while (segs.length > 2 && runsWidth(powerline(segs, glyphsOn(e.surface))) > e.props.bodyColumns - 2) segs = segs.slice(0, -1)
       const previous = [...turnList].reverse().find(t => t.agentId === undefined && t.usage && t !== last && t.startedAt < last.startedAt)
+      const cold = wasCold(last, previous)
       const sources = bySource(turnList, await read($, agents), now - 30 * 60_000)
-      usage = (
-        <Box key="usage" flexDirection="column">
-          <Box>
-            {powerline(segs, glyphsOn(e.surface)).map((run, i) => (
-              <Text key={`u${i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
-                {run.text}
-              </Text>
-            ))}
+      if (cold || sources.length > 1) {
+        usage = (
+          <Box key="usage" flexDirection="column">
+            {cold && (
+              <Text color={C.warn} wrap="truncate-end">{`⚠ cache was cold · this turn re-sent ${fmtTokens(last.usage.cacheWrite)} at full price`}</Text>
+            )}
+            {sources.length > 1 && (
+              <Text color={C.faint} wrap="truncate-end">{sources.map(s => `${s.source} ${fmtTokens(s.tokens)}`).join(' · ')}</Text>
+            )}
           </Box>
-          {wasCold(last, previous) && (
-            <Text color={C.warn} wrap="truncate-end">{`⚠ cache was cold · this turn re-sent ${fmtTokens(last.usage.cacheWrite)} at full price`}</Text>
-          )}
-          {sources.length > 1 && (
-            <Text color={C.faint} wrap="truncate-end">{sources.map(s => `${s.source} ${fmtTokens(s.tokens)}`).join(' · ')}</Text>
-          )}
-        </Box>
-      )
+        )
+      }
     }
     const withUsage = (el: RenderElement | null): RenderElement =>
       usage === null ? (el ?? <Box />) : (
@@ -195,7 +177,7 @@ export function registerTasks(on: On) {
           <Box paddingLeft={1}>{usage}</Box>
         </Box>
       )
-    if (!showTasks) return withUsage(null)
+    if (!showTasks) return usage === null ? next(e) : withUsage(null)
     const past = await projectHistory($)
 
     const agentLines = (taskId: string | undefined, indent: string) => {
