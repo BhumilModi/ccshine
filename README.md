@@ -4,9 +4,7 @@
 
 Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, where a turn's time went, what it cost, and whether your prompt cache just expired. ccshine puts that on screen and restyles the rest of the terminal to match.
 
-<!-- Screenshot: add docs/screenshot.png from a real session with a plan running, then uncomment.
-![ccshine in a Claude Code session](docs/screenshot.png)
--->
+![ccshine in a Claude Code session: tasks band with a subagent, usage line and status line](docs/screenshot.png)
 
 ```
  Plan  2/5 ━━━━╸─────── ~18m left
