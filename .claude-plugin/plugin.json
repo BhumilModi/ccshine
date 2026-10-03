@@ -1,7 +1,7 @@
 {
   "name": "ccshine",
   "version": "0.1.0",
-  "description": "A clearer, better-looking Claude Code terminal: live task and agent progress with time left, one-line tool calls, a spinner that says what is running, turn receipts, usage and prompt-cache state, attention chimes and a matching status line. Needs Claude Code 2.1.288+.",
+  "description": "A clearer, better-looking Claude Code terminal: live task and agent progress with time left, one-line tool calls, a spinner that says what is running, usage and prompt-cache state, attention chimes and a matching status line. Needs Claude Code 2.1.288+.",
   "author": {
     "name": "Bhumil Modi",
     "url": "https://github.com/BhumilModi"
@@ -53,12 +53,6 @@
       "type": "boolean",
       "title": "Spinner activity",
       "description": "Spinner says what is running instead of a random word",
-      "default": true
-    },
-    "receipt": {
-      "type": "boolean",
-      "title": "Turn receipt",
-      "description": "Timeline, tokens and cache rate under each turn",
       "default": true
     },
     "usage": {

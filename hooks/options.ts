@@ -4,7 +4,6 @@ export type Options = {
   tasks: boolean
   tools: boolean
   spinner: boolean
-  receipt: boolean
   usage: boolean
   alerts: boolean
   alertAfterSeconds: number
@@ -17,7 +16,6 @@ export const DEFAULTS: Options = {
   tasks: true,
   tools: true,
   spinner: true,
-  receipt: true,
   usage: true,
   alerts: true,
   alertAfterSeconds: 30,

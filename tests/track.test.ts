@@ -49,5 +49,5 @@ test('totalTokens adds every kind', async () => {
 })
 
 // The tracker's hooks are covered where their output shows: the agent band (turn records and tokens),
-// tool-row durations (Task 3), the spinner (Task 4) and the receipt (Task 5). The test kit has no
+// tool-row durations and the spinner. The test kit has no
 // $.state, and the plugin's module instance is not the test's, so neither can be read directly.
