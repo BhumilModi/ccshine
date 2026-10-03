@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On, Timer } from 'claude-code'
+import type { EngineInterface, On, RenderElement, Timer } from 'claude-code'
 
 import type { PlanAgent, PlanTask } from '../../types'
 import {
@@ -19,6 +19,9 @@ import {
 } from '../plan'
 import { bar, glyphsOn, palette, powerline, runsWidth } from '../theme'
 import { opts } from '../options'
+import { cacheRate } from '../receipt'
+import { totalTokens } from '../timing'
+import { bySource, cacheLeftMs, lastTurn, wasCold } from '../usage'
 import type { Segment } from '../theme'
 
 const tasks = atom({ plugin: 'terminal-plus', key: 'tasks' } as const, [])
@@ -31,6 +34,16 @@ const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 
 let ticker: Timer | undefined
+// Redraws the cache countdown twice a minute while the cache is still warm.
+let slowTicker: Timer | undefined
+
+function syncSlowTicker($: EngineInterface, warm: boolean) {
+  if (warm && slowTicker === undefined) slowTicker = $.clock.every(30_000, () => void update($, tick, n => n + 1))
+  else if (!warm && slowTicker !== undefined) {
+    slowTicker.cancel()
+    slowTicker = undefined
+  }
+}
 
 // Runs the 1s redraw timer only while a task or agent is live, or a finished agent is still fading out.
 async function syncTicker($: EngineInterface) {
@@ -138,13 +151,62 @@ export function registerTasks(on: On) {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const list = await read($, tasks)
-    if (!opts.tasks || e.props.hasSurvey || list.length === 0) return next(e)
+    const turnList = await read($, turns)
+    const last = lastTurn(turnList)
+    const showTasks = opts.tasks && list.length > 0
+    const showUsage = opts.usage && last !== undefined
+    if (e.props.hasSurvey || (!showTasks && !showUsage)) return next(e)
     const C = palette()
 
     const { Box, Text } = $.ui.resolve(e)
     await read($, tick)
     const now = await $.clock.now()
-    const agentList = agentRows(await read($, agents), await read($, turns))
+    const agentList = agentRows(await read($, agents), turnList)
+
+    // Usage: last turn's tokens and cache rate, time until the cache goes cold, cold-turn warning, split by agent.
+    let usage: RenderElement | null = null
+    if (showUsage && last && last.usage) {
+      const left = cacheLeftMs(last.startedAt + last.durationMs, now, opts.cacheTtl)
+      syncSlowTicker($, left > 0)
+      const rate = cacheRate(last.usage)
+      const meter = bar(rate)
+      const warmth = left === 0 ? 'cold' : `warm ${fmt(left)}`
+      const header: Segment[] = [
+        { bg: C.seg, parts: [{ text: ' Usage ', color: C.soft, bold: true }] },
+        { bg: C.segAlt, parts: [{ text: ` ${fmtTokens(totalTokens(last.usage))} last turn `, color: C.ink }] },
+        { bg: C.seg, parts: [{ text: ` cache ${Math.round(rate * 100)}% `, color: C.ink }, { text: meter.filled, color: C.mid }, { text: `${meter.track} `, color: C.track }] },
+        { bg: C.segAlt, parts: [{ text: ` ${warmth} `, color: left === 0 ? C.crit : left < 5 * 60_000 ? C.warn : C.mid }] },
+      ]
+      let segs = header
+      while (segs.length > 2 && runsWidth(powerline(segs, glyphsOn(e.surface))) > e.props.bodyColumns - 2) segs = segs.slice(0, -1)
+      const previous = [...turnList].reverse().find(t => t.agentId === undefined && t.usage && t !== last && t.startedAt < last.startedAt)
+      const sources = bySource(turnList, await read($, agents), now - 30 * 60_000)
+      usage = (
+        <Box key="usage" flexDirection="column">
+          <Box>
+            {powerline(segs, glyphsOn(e.surface)).map((run, i) => (
+              <Text key={`u${i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
+                {run.text}
+              </Text>
+            ))}
+          </Box>
+          {wasCold(last, previous) && (
+            <Text color={C.warn} wrap="truncate-end">{`⚠ cache was cold · this turn re-sent ${fmtTokens(last.usage.cacheWrite)} at full price`}</Text>
+          )}
+          {sources.length > 1 && (
+            <Text color={C.faint} wrap="truncate-end">{sources.map(s => `${s.source} ${fmtTokens(s.tokens)}`).join(' · ')}</Text>
+          )}
+        </Box>
+      )
+    }
+    const withUsage = (el: RenderElement | null): RenderElement =>
+      usage === null ? (el ?? <Box />) : (
+        <Box flexDirection="column">
+          {el}
+          <Box paddingLeft={1}>{usage}</Box>
+        </Box>
+      )
+    if (!showTasks) return withUsage(null)
     const past = await projectHistory($)
 
     const agentLines = (taskId: string | undefined, indent: string) => {
@@ -196,13 +258,13 @@ export function registerTasks(on: On) {
         ))}
       </Box>
     )
-    if (finished) return headerRow
+    if (finished) return withUsage(<Box paddingLeft={1}>{headerRow}</Box>)
 
     // Header takes one row and the band gap one more; keep it short so the prompt stays in view.
     const room = Math.max(1, Math.min(MAX_TASK_ROWS, e.props.maxRows - 3))
     const { start, shown, after } = window(list, room)
 
-    return (
+    return withUsage(
       <Box flexDirection="column" paddingLeft={1}>
         {headerRow}
         {start > 0 && <Text key="before" color={C.faint}>  {start} earlier done</Text>}
