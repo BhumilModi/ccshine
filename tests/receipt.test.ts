@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { cacheRate, fmtTurn, legend, timeline } from '../hooks/receipt'
+import { cacheRate, fmtTurn, legend, legendItems, timeline } from '../hooks/receipt'
 
 const steps = [
   { tool: 'Read', ms: 4000, count: 6 },
@@ -15,7 +15,7 @@ test('thinking fills the gap not covered by tools', async () => {
   const cells = timeline(steps, 63_000, 63)
   expect(cells.filter(c => c.tool === 'thinking')).toHaveLength(28)
   expect(cells.filter(c => c.tool === 'Bash')).toHaveLength(31)
-  expect(cells[0]?.char).toBe('▇')
+  expect(cells[0]?.char).toBe('━')
 })
 
 test('turn with no steps is all thinking', async () => {
@@ -40,4 +40,20 @@ test('fmtTurn', async () => {
   expect(fmtTurn(9911)).toBe('9.9s')
   expect(fmtTurn(63_000)).toBe('1m 03s')
   expect(fmtTurn(3_725_000)).toBe('1h 02m')
+})
+
+test('timeline is one continuous line, coloured per part', async () => {
+  const cells = timeline(steps, 63_000, 24)
+  expect(new Set(cells.map(c => c.char))).toEqual(new Set(['━']))
+  expect(cells.find(c => c.tool === 'thinking')?.slot).toBe(0)
+  expect(cells.find(c => c.tool === 'Read')?.slot).toBe(1)
+  expect(cells.find(c => c.tool === 'Bash')?.slot).toBe(2)
+})
+
+test('legend items carry the same slot as their timeline part', async () => {
+  expect(legendItems(steps, 63_000)).toEqual([
+    { label: 'Bash', ms: 31_000, slot: 2 },
+    { label: 'thinking', ms: 28_000, slot: 0 },
+    { label: 'Read ×6', ms: 4000, slot: 1 },
+  ])
 })

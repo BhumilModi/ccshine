@@ -25,12 +25,12 @@ Claude Code tracks a lot it never shows you: how far along a plan is, what each 
 | Above the prompt | Nothing | **Usage line.** Tokens used by the last turn, how much the prompt cache covered, how long until the cache expires, and a warning when a turn re-sent your context at full price because the cache had gone cold. Splits tokens by agent when subagents ran. |
 | Each tool call | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`. |
 | Spinner | A random word (`Sauteing…`) | **What is actually running:** `Editing queue.ts`, `Run the test suite`, `Agent: Find entry points`. Claude Code's timer and token count stay. |
-| End of each turn | `Baked for 1m 3s` | **A receipt:** duration, a timeline of thinking versus tools, tokens and cache rate, and the three biggest parts of the turn. |
+| End of each turn | `Baked for 1m 3s` | **A receipt:** duration, a timeline line coloured by where the time went (thinking in the accent colour, each tool in its own), tokens and cache rate, and the three biggest parts of the turn in matching colours. |
 | When you are away | Silence | **A chime and a toast** when a turn longer than 30 seconds finishes or fails, and when Claude needs your permission. |
 | Status line | Whatever you set up | **A matching status line:** model, effort, folder, git branch and changes, the branch's pull request (`#5 MERGED`), context meter, cache countdown, and your session and weekly limits with reset times. |
 
 ```
- 1m 03s  ▇▇▇▇▇▇▇▇▇▇▇▒▒▒▒▒▒▒▒▒▒▒░░  101.2k tokens · cache 91%
+ 1m 03s  ━━━━━━━━━━━━━━━━━━━━━━━━  101.2k tokens · cache 91%
  Bash 31s · thinking 28s · Read ×6 4s
 ```
 

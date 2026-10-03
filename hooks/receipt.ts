@@ -1,11 +1,10 @@
 import type { Step, Usage } from '../types'
 import { fmtShort } from './tools'
 
-const SHADES = ['▒', '░', '▓']
-
-// Cells per segment, proportional to time: thinking (turn time not spent in tools) first, then each tool.
+// One continuous `━` line, like the context meter: thinking (turn time not spent in tools) first, then each tool.
+// `slot` picks the colour: 0 for thinking, then 1, 2, … per tool in order of first use.
 // Largest-remainder rounding so the cells always add up to `width`; any segment with time gets one cell.
-export function timeline(steps: Step[], durationMs: number, width: number): { char: string; tool: string }[] {
+export function timeline(steps: Step[], durationMs: number, width: number): { char: string; tool: string; slot: number }[] {
   const toolMs = steps.reduce((n, s) => n + s.ms, 0)
   const segments = [{ tool: 'thinking', ms: Math.max(0, durationMs - toolMs) }, ...steps].filter(s => s.ms > 0)
   if (segments.length === 0) segments.push({ tool: 'thinking', ms: 1 })
@@ -20,21 +19,28 @@ export function timeline(steps: Step[], durationMs: number, width: number): { ch
     cells[big]! -= 1
     spare++
   }
-  let shade = 0
   return segments.flatMap((s, i) => {
-    const char = s.tool === 'thinking' ? '▇' : SHADES[shade++ % SHADES.length]!
-    return Array.from({ length: cells[i]! }, () => ({ char, tool: s.tool }))
+    const slot = s.tool === 'thinking' ? 0 : steps.findIndex(step => step.tool === s.tool) + 1
+    return Array.from({ length: cells[i]! }, () => ({ char: '━', tool: s.tool, slot }))
   })
 }
 
-// The three biggest parts of the turn: `Bash 31s · thinking 28s · Read ×6 4s`.
-export function legend(steps: Step[], durationMs: number): string {
+// The three biggest parts of the turn, each with its timeline colour slot.
+export function legendItems(steps: Step[], durationMs: number): { label: string; ms: number; slot: number }[] {
   const thinking = Math.max(0, durationMs - steps.reduce((n, s) => n + s.ms, 0))
-  const parts = [{ label: 'thinking', ms: thinking }, ...steps.map(s => ({ label: s.count > 1 ? `${s.tool} ×${s.count}` : s.tool, ms: s.ms }))]
+  const parts = [
+    { label: 'thinking', ms: thinking, slot: 0 },
+    ...steps.map((s, i) => ({ label: s.count > 1 ? `${s.tool} ×${s.count}` : s.tool, ms: s.ms, slot: i + 1 })),
+  ]
   return parts
     .filter(p => p.ms > 0)
     .sort((a, b) => b.ms - a.ms)
     .slice(0, 3)
+}
+
+// `Bash 31s · thinking 28s · Read ×6 4s`
+export function legend(steps: Step[], durationMs: number): string {
+  return legendItems(steps, durationMs)
     .map(p => `${p.label} ${fmtShort(p.ms)}`)
     .join(' · ')
 }

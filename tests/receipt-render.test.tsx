@@ -40,7 +40,11 @@ test('receipt shows duration, timeline, tokens and cache rate', async ($, on) =>
   expect(text).toContain('4.0s')
   expect(text).toContain('101.2k tokens · cache 91%')
   expect(text).toContain('Bash 3s · thinking 1s')
-  expect(text).toContain('▇')
+  expect(text).toContain('━')
+  const accent = await ui.findAll({ type: 'Text', text: '━' })
+  expect(accent.some((t: any) => t.props.color === '#D97757')).toBe(true)
+  expect(accent.some((t: any) => t.props.color === '#7AA2F7')).toBe(true)
+  expect((await ui.find({ type: 'Text', text: 'Bash' }))?.props.color).toBe('#7AA2F7')
 })
 
 test('TurnDuration with no matching record returns next(e)', async ($, on) => {
