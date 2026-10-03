@@ -28,4 +28,10 @@ cat > "$TMP/tsconfig.json" <<JSON
 }
 JSON
 npx -y -p typescript tsc -p "$TMP/tsconfig.json"
+
+# Status line script: draws the captured sample, and survives empty input.
+node statusline/ccshine-statusline.mjs < statusline/fixtures/sample.json | grep -q "Haiku 4.5"
+echo '{}' | node statusline/ccshine-statusline.mjs > /dev/null
+echo 'not json' | node statusline/ccshine-statusline.mjs > /dev/null
+echo "status line: ok"
 echo "verify: ok"
