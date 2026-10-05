@@ -64,14 +64,14 @@ Rail, docked beside the chat:
 
 ```
  turn 4 · 52s
- Read   auth.ts         ▕█·········▏ 0.4s
- Grep   token           ▕█·········▏ 0.2s
- Bash   npm test        ▕·███████··▏ 41s  exit 1
- Agent  Explore auth    ▕··██████··▏ 30s  9 tools
- Shell  npm run dev     ▕·········██⇢  running
- Edit   auth.ts         ▕········█·▏ 0.1s  +12 −3
-        0s ─────────────────── 52s
- ctx 38% → 52%   $0.31
+ Read   auth.ts         ╸────────── 0.4s
+ Grep   token           ╸────────── 0.2s
+ Bash   npm test        ─━━━━━━━╸── 41s  exit 1
+ Agent  Explore auth    ──━━━━━━━── 30s  9 tools
+ Shell  npm run dev     ─━━━━━━━━━━⇢ running
+ Edit   auth.ts         ─────────╺─ 0.1s  +12 −3
+                        0s       52s
+ ctx ━━━━╸━━╸───────── 38% → 52%   $0.31
  files  auth.ts +12 −3 · session.ts +4 −1
  ✕ npm test failed ×2
 ```
@@ -82,6 +82,11 @@ Rail, docked beside the chat:
 - **Rail selection**: the turn under the top of the chat viewport, from the `onScreen` reports on
   `UserMessage` and `AssistantMessage` renders. While a turn runs and the chat is scrolled to the
   bottom, the live turn. Pressing an anchor pins that turn until the next scroll.
+- **Bar style**: the status line's context-meter look, nothing new. A heavy `━` line on a thin `─`
+  track in the palette's `track` colour, at half-cell precision (`╸` for a half cell at the end, `╺`
+  at the start). No block characters, no `▕▏` caps. `hooks/theme.ts` gains
+  `span(from, to, width)` next to the existing `bar(fraction, width)`. The summary's context gauge
+  uses `bar()`: the part used at turn start in `soft`, the part this turn added in `accent`.
 - **Bars**: one row per main-thread call, sorted by start. Bar span = call start to end scaled to the
   turn window (turn start to turn end, or to now while running). Running calls are drawn dim and grow
   each tick. A background shell or agent that outlives the turn ends in `⇢`.
