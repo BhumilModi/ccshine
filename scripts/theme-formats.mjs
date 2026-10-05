@@ -137,18 +137,58 @@ function warp(t) {
   ].join('\n')
 }
 
+// VS Code, Cursor and other VS Code-based editors: a block to merge into the user's settings.json.
+function vscode(t) {
+  const colours = {
+    'terminal.background': t.background,
+    'terminal.foreground': t.foreground,
+    'terminalCursor.foreground': t.cursor,
+    'terminalCursor.background': t.cursorText,
+    'terminal.selectionBackground': t.selectionBackground,
+    'terminal.selectionForeground': t.selectionForeground,
+  }
+  NAMES.forEach((name, i) => (colours[`terminal.ansi${name[0].toUpperCase()}${name.slice(1)}`] = t.palette[i]))
+  NAMES.forEach((name, i) => (colours[`terminal.ansiBright${name[0].toUpperCase()}${name.slice(1)}`] = t.palette[i + 8]))
+  return JSON.stringify({ 'workbench.colorCustomizations': colours }, null, 2) + '\n'
+}
+
 function json(t) {
   return JSON.stringify(t, null, 2) + '\n'
 }
 
-// Published path (under themes/) → renderer.
+// Published path pattern → renderer. {name} is the theme's name, {slug} its kebab-case and {snake} its snake_case form.
 export const FORMATS = {
-  'themes/warm-claude.json': json,
-  'themes/ghostty/Warm Claude': ghostty,
-  'themes/iterm2/Warm Claude.itermcolors': iterm2,
-  'themes/windows-terminal/warm-claude.json': windowsTerminal,
-  'themes/kitty/warm-claude.conf': kitty,
-  'themes/wezterm/Warm Claude.toml': wezterm,
-  'themes/alacritty/warm-claude.toml': alacritty,
-  'themes/warp/warm_claude.yaml': warp,
+  'themes/{slug}.json': json,
+  'themes/ghostty/{name}': ghostty,
+  'themes/iterm2/{name}.itermcolors': iterm2,
+  'themes/windows-terminal/{slug}.json': windowsTerminal,
+  'themes/kitty/{slug}.conf': kitty,
+  'themes/wezterm/{name}.toml': wezterm,
+  'themes/alacritty/{slug}.toml': alacritty,
+  'themes/warp/{snake}.yaml': warp,
+  'themes/vscode/{slug}.json': vscode,
+}
+
+export function themePath(pattern, name) {
+  const words = name.toLowerCase().split(' ')
+  return pattern.replace('{name}', name).replace('{slug}', words.join('-')).replace('{snake}', words.join('_'))
+}
+
+// The README's colour reference: one column per theme, one row per colour, for terminals with no theme file.
+const SLOTS = ['Black', 'Red', 'Green', 'Yellow', 'Blue', 'Magenta', 'Cyan', 'White']
+export function colourTable(themes) {
+  const rows = [
+    ['Background', t => t.background],
+    ['Text', t => t.foreground],
+    ['Bold text', t => t.foreground],
+    ['Cursor', t => t.cursor],
+    ['Selection', t => t.selectionBackground],
+    ...SLOTS.map((slot, i) => [`ANSI ${slot}`, t => t.palette[i]]),
+    ...SLOTS.map((slot, i) => [`ANSI bright ${slot}`, t => t.palette[i + 8]]),
+  ]
+  return [
+    `| Colour | ${themes.map(t => t.name).join(' | ')} |`,
+    `|---|${themes.map(() => '---').join('|')}|`,
+    ...rows.map(([label, pick]) => `| ${label} | ${themes.map(t => `\`${pick(t)}\``).join(' | ')} |`),
+  ].join('\n')
 }

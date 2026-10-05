@@ -1,0 +1,13 @@
+[colors]
+background = "#1C1C1C"
+foreground = "#E4E4E4"
+cursor_bg = "#E4E4E4"
+cursor_fg = "#1C1C1C"
+cursor_border = "#E4E4E4"
+selection_bg = "#3A3A3A"
+selection_fg = "#E4E4E4"
+ansi = ["#303030", "#D75F5F", "#87AF87", "#D7AF5F", "#87AFD7", "#AF87AF", "#87AFAF", "#C6C6C6"]
+brights = ["#808080", "#E08787", "#A8C8A8", "#E4C887", "#A8C8E4", "#C8A8C8", "#A8C8C8", "#F2F2F2"]
+
+[metadata]
+name = "Tidepool Mono"

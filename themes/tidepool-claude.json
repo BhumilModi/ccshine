@@ -1,0 +1,27 @@
+{
+  "name": "Tidepool Claude",
+  "background": "#1A1B26",
+  "foreground": "#DEE0E6",
+  "cursor": "#D97757",
+  "cursorText": "#1A1B26",
+  "selectionBackground": "#3A3E46",
+  "selectionForeground": "#DEE0E6",
+  "palette": [
+    "#2A2D35",
+    "#EC7070",
+    "#9ECE6A",
+    "#E2B266",
+    "#7AA2F7",
+    "#BB9AF7",
+    "#7DCFFF",
+    "#B4B9C4",
+    "#787D88",
+    "#F28B8B",
+    "#B5DE8A",
+    "#EDC889",
+    "#9AB8FA",
+    "#CDB4FA",
+    "#A0DDFF",
+    "#F2F3F7"
+  ]
+}

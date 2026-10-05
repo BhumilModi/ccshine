@@ -43,7 +43,7 @@ test('row for a call the tracker never saw renders without duration', async ($, 
   expect(text).toBe('◇ Read a.ts')
 })
 
-test('errored Bash row uses crit colour', async ($, on) => {
+test('errored Bash row uses crit colour', { options: { theme: 'claude' } }, async ($, on) => {
   mock.store(on)
   on('session.root', () => ({ value: '/repo' }))
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...toolUse({ tool_use_id: 'b1', tool: 'Bash', input: { command: 'false' }, isErrored: true }) })

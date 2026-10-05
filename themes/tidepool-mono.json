@@ -1,0 +1,27 @@
+{
+  "name": "Tidepool Mono",
+  "background": "#1C1C1C",
+  "foreground": "#E4E4E4",
+  "cursor": "#E4E4E4",
+  "cursorText": "#1C1C1C",
+  "selectionBackground": "#3A3A3A",
+  "selectionForeground": "#E4E4E4",
+  "palette": [
+    "#303030",
+    "#D75F5F",
+    "#87AF87",
+    "#D7AF5F",
+    "#87AFD7",
+    "#AF87AF",
+    "#87AFAF",
+    "#C6C6C6",
+    "#808080",
+    "#E08787",
+    "#A8C8A8",
+    "#E4C887",
+    "#A8C8E4",
+    "#C8A8C8",
+    "#A8C8C8",
+    "#F2F2F2"
+  ]
+}

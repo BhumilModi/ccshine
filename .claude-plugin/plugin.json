@@ -1,6 +1,6 @@
 {
   "name": "tidepool",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Low tide for Claude Code: every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and the clay crab. Needs Claude Code 2.1.288+.",
   "author": {
     "name": "Bhumil Modi",
@@ -24,7 +24,7 @@
       "type": "string",
       "title": "Theme",
       "description": "Colour palette for everything Tidepool draws; warm matches the bundled Warm Claude terminal theme",
-      "default": "claude",
+      "default": "warm",
       "options": [
         "claude",
         "warm",
@@ -36,8 +36,8 @@
     "powerline": {
       "type": "boolean",
       "title": "Powerline glyphs",
-      "description": "Arrow and rounded-cap separators in headers (needs a Nerd Font)",
-      "default": false
+      "description": "Arrow and rounded-cap separators in headers (needs a Nerd Font, such as the bundled Maple Mono NF)",
+      "default": true
     },
     "rail": {
       "type": "boolean",

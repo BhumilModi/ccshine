@@ -1,12 +1,17 @@
 import { opts } from './options'
-import { palettes } from './palettes.mjs'
+import { palettes, terminalNames } from './palettes.mjs'
 import type { Palette } from './palettes.mjs'
 
 export { palettes }
 export type { Palette }
 
 export function palette(): Palette {
-  return palettes[opts.theme as keyof typeof palettes] ?? palettes.claude
+  return palettes[opts.theme as keyof typeof palettes] ?? palettes.warm
+}
+
+// The terminal theme Tidepool ships to match the current palette.
+export function terminalName(): string {
+  return terminalNames[opts.theme as keyof typeof terminalNames] ?? terminalNames.warm
 }
 
 // Powerline glyphs need a Nerd Font: only when the user turned them on, and only in the terminal.

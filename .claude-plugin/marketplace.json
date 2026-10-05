@@ -10,7 +10,7 @@
       "name": "tidepool",
       "source": "./",
       "description": "Every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and chimes for Claude Code.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "homepage": "https://github.com/BhumilModi/tidepool"
     }
   ]

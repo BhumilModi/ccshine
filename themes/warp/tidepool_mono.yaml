@@ -1,0 +1,25 @@
+name: Tidepool Mono
+accent: '#E4E4E4'
+cursor: '#E4E4E4'
+background: '#1C1C1C'
+foreground: '#E4E4E4'
+details: darker
+terminal_colors:
+  normal:
+    black: '#303030'
+    red: '#D75F5F'
+    green: '#87AF87'
+    yellow: '#D7AF5F'
+    blue: '#87AFD7'
+    magenta: '#AF87AF'
+    cyan: '#87AFAF'
+    white: '#C6C6C6'
+  bright:
+    black: '#808080'
+    red: '#E08787'
+    green: '#A8C8A8'
+    yellow: '#E4C887'
+    blue: '#A8C8E4'
+    magenta: '#C8A8C8'
+    cyan: '#A8C8C8'
+    white: '#F2F2F2'

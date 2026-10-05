@@ -13,4 +13,7 @@ export type Palette = {
   info: string
 }
 
-export declare const palettes: Record<'claude' | 'warm' | 'nord' | 'dracula' | 'mono', Palette>
+export type ThemeId = 'claude' | 'warm' | 'nord' | 'dracula' | 'mono'
+
+export declare const palettes: Record<ThemeId, Palette>
+export declare const terminalNames: Record<ThemeId, string>

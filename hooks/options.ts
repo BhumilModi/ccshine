@@ -15,8 +15,8 @@ export type Options = {
 }
 
 export const DEFAULTS: Options = {
-  theme: 'claude',
-  powerline: false,
+  theme: 'warm',
+  powerline: true,
   tasks: true,
   tools: true,
   spinner: true,

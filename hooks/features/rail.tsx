@@ -137,10 +137,9 @@ export function registerRail(on: On) {
     const C = palette()
     const p = e.props
     railSeat.placement = p.placement
-    // With the warm theme the rail paints the Warm Claude terminal background (warm's onAccent), so it reads
-    // as part of the terminal rather than a grey panel. Tidepool ships that terminal theme, so the colour is
-    // known; for any other theme the real background is not, and Claude Code's own panel colour stays.
-    const paint = opts.theme === 'warm' ? C.onAccent : undefined
+    // The rail paints the background of the terminal theme Tidepool ships for this palette (its onAccent), so it
+    // reads as part of the terminal rather than a grey panel.
+    const paint = C.onAccent
     const width = Math.max(10, p.bodyColumns - 2)
     const surface = (key: string, children: RenderChildren) => (
       <Box key={key} flexDirection="column" backgroundColor={paint} paddingX={1} minHeight={p.placement === 'dock' ? p.scroll.bodyRows : undefined}>

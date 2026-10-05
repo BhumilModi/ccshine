@@ -1,3 +1,5 @@
+import type { ThemeId } from '../hooks/palettes.mjs'
+
 export type Theme = {
   name: string
   background: string
@@ -8,4 +10,4 @@ export type Theme = {
   selectionForeground: string
   palette: string[]
 }
-export declare const warmClaude: Theme
+export declare const terminalThemes: Record<ThemeId, Theme>

@@ -1,0 +1,32 @@
+# Tidepool Claude
+[colors.primary]
+background = "#1A1B26"
+foreground = "#DEE0E6"
+
+[colors.cursor]
+cursor = "#D97757"
+text = "#1A1B26"
+
+[colors.selection]
+background = "#3A3E46"
+text = "#DEE0E6"
+
+[colors.normal]
+black = "#2A2D35"
+red = "#EC7070"
+green = "#9ECE6A"
+yellow = "#E2B266"
+blue = "#7AA2F7"
+magenta = "#BB9AF7"
+cyan = "#7DCFFF"
+white = "#B4B9C4"
+
+[colors.bright]
+black = "#787D88"
+red = "#F28B8B"
+green = "#B5DE8A"
+yellow = "#EDC889"
+blue = "#9AB8FA"
+magenta = "#CDB4FA"
+cyan = "#A0DDFF"
+white = "#F2F3F7"

@@ -5,8 +5,8 @@ import { encodeCells, idleCells, site } from '../dock'
 import { oldStore } from '../migrate'
 import { RAIL_COLUMNS, anchorsOnScreen } from '../rail'
 import { opts } from '../options'
-import { palette } from '../theme'
-import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
+import { palette, terminalName } from '../theme'
+import { encodePowerShell, FONT_FILES, isWindowsRoot, setupGuide, TERMINAL_THEMES, unixTargets, windowsInstallScript } from '../setup'
 import type { InstallOutcome } from '../setup'
 
 const STATUSLINE = 'tidepool-statusline'
@@ -38,8 +38,9 @@ const SETUP = 'tidepool-setup'
 const LIGHT_THEME = 'Tidepool palettes are made for dark terminals — set a dark theme in /config'
 const INSTALLED_WINDOWS =
   'Tidepool installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /tidepool-setup has the steps.'
-const INSTALLED =
-  'Tidepool installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /tidepool-setup has the steps.'
+const installed = (theme: string) =>
+  `Tidepool installed the Maple Mono NF font and ${theme} theme. Pick "Maple Mono NF" and ${theme} in your terminal's settings. /tidepool-setup has the steps.`
+const themeChanged = (theme: string) => `Tidepool theme changed: switch your terminal's colours to ${theme} to match. /tidepool-setup has the steps.`
 
 // Copies the bundled font (and, outside Windows, the Ghostty theme) into the user's folders.
 // Never overwrites. Failures go to the debug log, never to the session.
@@ -85,7 +86,7 @@ async function installAssets($: EngineInterface): Promise<InstallOutcome> {
     }
     const assets = [
       ...FONT_FILES.map(f => ({ name: f.file, src: `${root}/fonts/${f.file}`, dir: targets.fontDir })),
-      { name: GHOSTTY_THEME, src: `${root}/themes/ghostty/${GHOSTTY_THEME}`, dir: targets.themeDir },
+      ...TERMINAL_THEMES.map(name => ({ name, src: `${root}/themes/ghostty/${name}`, dir: targets.themeDir })),
     ]
     const copied: string[] = []
     let failed = false
@@ -165,10 +166,16 @@ export function registerStartup(on: On) {
     if (opts.installAssets) {
       const outcome = await installAssets($)
       const windows = (await $.env.get('OS')) === 'Windows_NT' || isWindowsRoot($.plugin.root)
-      if (outcome.copied.length > 0) $.ui.toast(windows ? INSTALLED_WINDOWS : INSTALLED)
+      if (outcome.copied.length > 0) $.ui.toast(windows ? INSTALLED_WINDOWS : installed(terminalName()))
+    }
+    // The terminal's colours are the person's to switch; say so once when the Theme option changes.
+    const lastTheme = await $.store.get('theme')
+    if (lastTheme !== opts.theme) {
+      if (lastTheme !== undefined) $.ui.toast(themeChanged(terminalName()))
+      await $.store.set('theme', opts.theme)
     }
     return next(e)
   })
 
-  on('command.run', { command: SETUP }, async $ => ({ text: setupGuide($.plugin.root, await installAssets($)) }))
+  on('command.run', { command: SETUP }, async $ => ({ text: setupGuide($.plugin.root, await installAssets($), terminalName()) }))
 }

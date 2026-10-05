@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-const OFF = { options: { dock: false, installAssets: false, chrome: false } }
+const OFF = { options: { dock: false, installAssets: false, chrome: false, theme: 'claude' } }
 const CRIT = '#EC7070'
 
 type Result = { result: unknown; isError?: true; text?: string }

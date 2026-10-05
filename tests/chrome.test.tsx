@@ -32,7 +32,7 @@ test('hint line keeps the engine drawing', async ($, on) => {
   expect((await draw($, 'PromptHint', hint('? for shortcuts · esc to interrupt'))).text).toBe('ENGINE')
 })
 
-test('modes draw as chips', async ($, on) => {
+test('modes draw as chips', { options: { theme: 'claude', powerline: false } }, async ($, on) => {
   engine(on)
   const { texts } = await draw($, 'SessionMode', { modes: ['focus', 'memory paused'] })
   const chips = texts.filter((t: any) => t.props.backgroundColor === C.seg).map((t: any) => t.text)

@@ -111,7 +111,7 @@ try {
   const git = readGit(dir)
   const line = render(
     input,
-    { theme: options.theme ?? 'claude', powerline: options.powerline === true, columns, now: Date.now() },
+    { theme: options.theme ?? 'warm', powerline: options.powerline !== false, columns, now: Date.now() },
     git,
     readPr(dir, git),
   )

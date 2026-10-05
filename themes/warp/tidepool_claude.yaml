@@ -1,0 +1,25 @@
+name: Tidepool Claude
+accent: '#D97757'
+cursor: '#D97757'
+background: '#1A1B26'
+foreground: '#DEE0E6'
+details: darker
+terminal_colors:
+  normal:
+    black: '#2A2D35'
+    red: '#EC7070'
+    green: '#9ECE6A'
+    yellow: '#E2B266'
+    blue: '#7AA2F7'
+    magenta: '#BB9AF7'
+    cyan: '#7DCFFF'
+    white: '#B4B9C4'
+  bright:
+    black: '#787D88'
+    red: '#F28B8B'
+    green: '#B5DE8A'
+    yellow: '#EDC889'
+    blue: '#9AB8FA'
+    magenta: '#CDB4FA'
+    cyan: '#A0DDFF'
+    white: '#F2F3F7'

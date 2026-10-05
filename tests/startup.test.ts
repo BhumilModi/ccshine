@@ -1,11 +1,12 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
-import { FONT_FILES } from '../hooks/setup'
+import { FONT_FILES, TERMINAL_THEMES } from '../hooks/setup'
 
 const WINDOWS_TOAST =
   'Tidepool installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /tidepool-setup has the steps.'
 const TOAST =
-  'Tidepool installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /tidepool-setup has the steps.'
+  'Tidepool installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" and Warm Claude in your terminal\'s settings. /tidepool-setup has the steps.'
+const ASSETS = FONT_FILES.length + TERMINAL_THEMES.length
 
 type Machine = {
   env?: Record<string, string>
@@ -53,9 +54,11 @@ test('missing files are copied and toasted once on macOS', async ($, on) => {
   const { runs, toasts } = machine(on, { env: { HOME: '/Users/Jane Doe' } })
   await start($)
   const cps = copies(runs)
-  expect(cps).toHaveLength(5)
+  expect(cps).toHaveLength(ASSETS)
   for (const font of FONT_FILES) expect(cps.some(r => r[2] === `/Users/Jane Doe/Library/Fonts/${font.file}`)).toBe(true)
-  expect(cps.some(r => r[2] === '/Users/Jane Doe/.config/ghostty/themes/Warm Claude' && r[1]!.endsWith('/themes/ghostty/Warm Claude'))).toBe(true)
+  for (const name of ['Warm Claude', 'Tidepool Claude', 'Tidepool Nord', 'Tidepool Dracula', 'Tidepool Mono']) {
+    expect(cps.some(r => r[2] === `/Users/Jane Doe/.config/ghostty/themes/${name}` && r[1]!.endsWith(`/themes/ghostty/${name}`))).toBe(true)
+  }
   expect(runs.some(r => r.join(' ') === 'mkdir -p /Users/Jane Doe/Library/Fonts')).toBe(true)
   expect(toasts).toEqual([TOAST])
 })
@@ -63,13 +66,13 @@ test('missing files are copied and toasted once on macOS', async ($, on) => {
 test('only missing files are copied', async ($, on) => {
   const { runs, toasts } = machine(on, { env: { HOME: '/Users/a' }, existing: ['/Library/Fonts/MapleMono-NF-Regular.ttf'] })
   await start($)
-  expect(copies(runs)).toHaveLength(4)
+  expect(copies(runs)).toHaveLength(ASSETS - 1)
   expect(copies(runs).some(r => r[2]!.endsWith('MapleMono-NF-Regular.ttf'))).toBe(false)
   expect(toasts).toEqual([TOAST])
 })
 
 test('nothing to copy means no toast', async ($, on) => {
-  const all = [...FONT_FILES.map(f => `/Library/Fonts/${f.file}`), '/ghostty/themes/Warm Claude']
+  const all = [...FONT_FILES.map(f => `/Library/Fonts/${f.file}`), ...TERMINAL_THEMES.map(name => `/ghostty/themes/${name}`)]
   const { runs, toasts } = machine(on, { env: { HOME: '/Users/a' }, existing: all })
   await start($)
   expect(copies(runs)).toHaveLength(0)
@@ -128,8 +131,33 @@ test('install off runs nothing', { options: { installAssets: false } }, async ($
 test('/tidepool-setup installs and prints the guide', async ($, on) => {
   machine(on, { env: { HOME: '/Users/a' } })
   const { text } = await $.command.run({ command: 'tidepool-setup', args: '' } as never)
-  expect(text).toContain(`Installed: ${[...FONT_FILES.map(f => f.file), 'Warm Claude'].join(', ')}.`)
+  expect(text).toContain(`Installed: ${[...FONT_FILES.map(f => f.file), ...TERMINAL_THEMES].join(', ')}.`)
   expect(text).toContain('| iTerm2 |')
+})
+
+test('/tidepool-setup gives the files for the chosen theme', { options: { theme: 'nord' } }, async ($, on) => {
+  machine(on, { env: { HOME: '/Users/a' } })
+  const { text } = await $.command.run({ command: 'tidepool-setup', args: '' } as never)
+  expect(text).toContain('`theme = Tidepool Nord`')
+  expect(text).toContain('/themes/kitty/tidepool-nord.conf')
+  expect(text).not.toContain('warm-claude')
+})
+
+test('a changed theme toasts once', { options: { theme: 'dracula', installAssets: false } }, async ($, on) => {
+  mock.store(on, { theme: 'warm' })
+  const { toasts } = machine(on, {})
+  await start($)
+  expect(toasts).toEqual(["Tidepool theme changed: switch your terminal's colours to Tidepool Dracula to match. /tidepool-setup has the steps."])
+  await start($)
+  expect(toasts).toHaveLength(1)
+})
+
+test('the first start remembers the theme without a toast', { options: { theme: 'dracula', installAssets: false } }, async ($, on) => {
+  mock.store(on)
+  const { toasts } = machine(on, {})
+  await start($)
+  await start($)
+  expect(toasts).toEqual([])
 })
 
 test('windows skips powershell when every font is already there', async ($, on) => {

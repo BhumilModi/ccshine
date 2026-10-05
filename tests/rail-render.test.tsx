@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 // Quiet the rest of the plugin: only the tracker and the rail matter here.
-const OFF = { options: { dock: false, installAssets: false, chrome: false } }
+const OFF = { options: { dock: false, installAssets: false, chrome: false, theme: 'claude' } }
 
 type Result = { result: unknown; isError?: true; text?: string }
 
@@ -236,10 +236,10 @@ test('with the warm theme the rail paints the Warm Claude background', { options
   expect((await ui.find({ type: 'Box' }))?.props.backgroundColor).toBe('#1A1817')
 })
 
-test('with any other theme the rail keeps Claude Code\'s panel colour', OFF, async ($, on) => {
+test('every other theme paints its own terminal background', { options: { ...OFF.options, theme: 'nord' } }, async ($, on) => {
   world(on)
   const ui = await $.ui.mount(pane())
-  expect((await ui.find({ type: 'Box' }))?.props.backgroundColor).toBeUndefined()
+  expect((await ui.find({ type: 'Box' }))?.props.backgroundColor).toBe('#2E3440')
 })
 
 test('fixed-width pieces never shrink, so a narrow rail truncates instead of wrapping', OFF, async ($, on) => {

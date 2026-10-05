@@ -1,4 +1,5 @@
 // Where the bundled font and theme go on each system, and what /tidepool-setup prints. Pure: the hooks run the commands.
+import { terminalNames } from './palettes.mjs'
 
 export const FONT_FILES = [
   { file: 'MapleMono-NF-Regular.ttf', registryName: 'Maple Mono NF (TrueType)' },
@@ -8,7 +9,8 @@ export const FONT_FILES = [
 ] as const
 
 export const FONT_FAMILY = 'Maple Mono NF'
-export const GHOSTTY_THEME = 'Warm Claude'
+// Every terminal theme Tidepool ships; the first start copies all the Ghostty ones.
+export const TERMINAL_THEMES: readonly string[] = Object.values(terminalNames)
 
 // The plugin API has no platform field and Windows has no `uname`; an install path tells them apart.
 export function isWindowsRoot(root: string): boolean {
@@ -79,7 +81,14 @@ export function encodePowerShell(script: string): string {
 
 export type InstallOutcome = { copied: readonly string[]; failed: boolean; remote: boolean }
 
-export function setupGuide(root: string, outcome: InstallOutcome): string {
+// A theme's file names, as scripts/theme-formats.mjs writes them: 'Tidepool Nord' → tidepool-nord, tidepool_nord.
+function themeSlugs(name: string): { slug: string; snake: string } {
+  const words = name.toLowerCase().split(' ')
+  return { slug: words.join('-'), snake: words.join('_') }
+}
+
+export function setupGuide(root: string, outcome: InstallOutcome, name: string = terminalNames.warm): string {
+  const { slug, snake } = themeSlugs(name)
   const windows = isWindowsRoot(root)
   const sep = windows ? '\\' : '/'
   const base = root.replace(/[\\/]+$/, '')
@@ -93,23 +102,27 @@ export function setupGuide(root: string, outcome: InstallOutcome): string {
         ? `Installed: ${outcome.copied.join(', ')}.`
         : windows
           ? `The ${FONT_FAMILY} font is already installed.`
-          : `The ${FONT_FAMILY} font and ${GHOSTTY_THEME} theme are already installed.`
+          : `The ${FONT_FAMILY} font and ${name} theme are already installed.`
   return [
     status,
     '',
-    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.2 suggested), then load the ${GHOSTTY_THEME} colours. Restart the terminal first so it sees the new font.`,
+    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.2 suggested), then load the ${name} colours. Restart the terminal first so it sees the new font.`,
     '',
     '| Terminal | Font | Colours |',
     '|---|---|---|',
-    `| Ghostty | \`font-family = ${FONT_FAMILY}\` | \`theme = ${GHOSTTY_THEME}\` (on macOS and Linux it is already in your Ghostty themes folder) |`,
-    `| iTerm2 | Settings → Profiles → Text → Font | Profiles → Colors → Color Presets → Import ${theme('iterm2', 'Warm Claude.itermcolors')} |`,
-    `| Windows Terminal | Profile → Appearance → Font face | Paste ${theme('windows-terminal', 'warm-claude.json')} into \`schemes\` in settings.json, then pick it |`,
-    `| kitty | \`font_family ${FONT_FAMILY}\` | Copy ${theme('kitty', 'warm-claude.conf')} into your kitty config folder, then \`include warm-claude.conf\` |`,
-    `| WezTerm | \`font = wezterm.font '${FONT_FAMILY}'\` | Copy ${theme('wezterm', 'Warm Claude.toml')} into your \`colors\` folder, then \`color_scheme = '${GHOSTTY_THEME}'\` |`,
-    `| Alacritty | \`font.normal.family = "${FONT_FAMILY}"\` | Copy ${theme('alacritty', 'warm-claude.toml')} into your Alacritty config folder, then add \`[general]\` with \`import = ['<that copy's full path>']\` |`,
-    `| Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import ${theme('warp', 'warm_claude.yaml')}, or copy it into your Warp themes folder |`,
-    `| Others | Pick ${FONT_FAMILY} | The colours are in ${theme('warm-claude.json')} |`,
+    `| Ghostty | \`font-family = ${FONT_FAMILY}\` | \`theme = ${name}\` (on macOS and Linux it is already in your Ghostty themes folder) |`,
+    `| iTerm2 | Settings → Profiles → Text → Font | Profiles → Colors → Color Presets → Import ${theme('iterm2', `${name}.itermcolors`)} |`,
+    `| Windows Terminal | Profile → Appearance → Font face | Paste ${theme('windows-terminal', `${slug}.json`)} into \`schemes\` in settings.json, then pick it |`,
+    `| kitty | \`font_family ${FONT_FAMILY}\` | Copy ${theme('kitty', `${slug}.conf`)} into your kitty config folder, then \`include ${slug}.conf\` |`,
+    `| WezTerm | \`font = wezterm.font '${FONT_FAMILY}'\` | Copy ${theme('wezterm', `${name}.toml`)} into your \`colors\` folder, then \`color_scheme = '${name}'\` |`,
+    `| Alacritty | \`font.normal.family = "${FONT_FAMILY}"\` | Copy ${theme('alacritty', `${slug}.toml`)} into your Alacritty config folder, then add \`[general]\` with \`import = ['<that copy's full path>']\` |`,
+    `| Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import ${theme('warp', `${snake}.yaml`)}, or copy it into your Warp themes folder |`,
+    `| VS Code, Cursor | \`"terminal.integrated.fontFamily": "${FONT_FAMILY}"\` and \`"terminal.integrated.minimumContrastRatio": 1\` in settings.json | Merge ${theme('vscode', `${slug}.json`)} into your user settings.json |`,
+    `| macOS Terminal, JetBrains | Profile or Console Font settings | No theme file: enter the colours from ${theme(`${slug}.json`)} by hand (the README's Set up your terminal walks through it) |`,
+    `| Others | Pick ${FONT_FAMILY} | The colours are in ${theme(`${slug}.json`)} |`,
     '',
     'Copies in your own config folders keep working after Tidepool updates; the install folder above changes with each version.',
+    '',
+    'For 24-bit colour under tmux, the full steps for each terminal and a setup check: https://github.com/BhumilModi/tidepool#set-up-your-terminal',
   ].join('\n')
 }

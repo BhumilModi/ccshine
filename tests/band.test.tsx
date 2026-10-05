@@ -111,7 +111,7 @@ async function onePlan($: any, on: any) {
   await $.tool.call({ tool: 'TaskCreate', subject: 'only', description: '' })
 }
 
-test('band uses no powerline glyphs when the option is off', async ($, on) => {
+test('band uses no powerline glyphs when the option is off', { options: { powerline: false } }, async ($, on) => {
   await onePlan($, on)
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
