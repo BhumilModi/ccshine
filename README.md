@@ -24,6 +24,7 @@ Claude Code tracks a lot it never shows you: how far along a plan is, what each 
 | Your prompts and replies | `> fix the queue test`, `●` before each reply | **A styled transcript:** `▌ you` before your prompts and `◆ claude` above each reply, in the theme's accent colour. Replies still go through Claude Code's own markdown renderer, so code blocks and links look the same. Slash command output (`/cost` and others) gets a title line. |
 | Each tool call | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`, with `· 1 failed` when any of them failed. |
 | Spinner | A random word (`Sauteing…`) | **What is actually running:** `Editing queue.ts`, `Run the test suite`, `Agent: Find entry points`. Claude Code's timer and token count stay. |
+| Above the prompt | Nothing | **The prompt dock.** A little clay crab lives above the input. Idle, it stands beside `◆ Ask Claude` and the keys that matter. When you send a prompt it hops onto a dinosaur-game course and runs while Claude works: walking while it waits on the API, jogging while it thinks, sprinting while tools run or the reply streams. Cacti and rocks come by, every tool call drops a crate, and it jumps them all. Above the scene: the current step, the time in each phase and the turn's clock; below it, the latest calls ticking to ✓. When the turn ends it hops home. |
 | Under the prompt | Dim labels | **Themed labels:** mode labels as small chips, notices with their `/command` in the accent colour, the run-in-background hint as `⇣ ctrl+b to run in background`. The hint line (`? for shortcuts`) stays Claude Code's, so its keys keep working. |
 | Between turns | `Baked for 1m 3s` | **Nothing.** The spinner already shows the time while a turn runs. |
 | When you are away | Silence | **A chime and a toast** when a turn longer than 30 seconds finishes or fails, and when Claude needs your permission. |
@@ -115,6 +116,7 @@ Open `/config` and find the ccshine rows. Every switched-off feature leaves Clau
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
 | Prompt chrome | on | Mode chips, notices and the background hint; hides the `Baked for` line between turns |
+| Prompt dock | on | The crab and its course above the prompt (terminal only). It replaces the spinner line, so Claude Code's live token count is not shown during a turn |
 | Install font and theme | on | Copy the bundled Maple Mono NF font and Warm Claude theme on first start (see [Warm Claude look](#warm-claude-look)) |
 | Usage line | on | Cold-cache warnings and the token split by agent above the prompt |
 | Attention alerts | on | Chime and toast |
@@ -123,6 +125,7 @@ Open `/config` and find the ccshine rows. Every switched-off feature leaves Clau
 ## Good to know
 
 - **Tasks band empty?** It only shows while Claude has a task list. Ask for a plan, or anything with several steps.
+- **The prompt dock** is drawn in half-block pixels, so it looks best with a Nerd Font such as the bundled Maple Mono NF. Collapse it with ctrl+x ctrl+a, or switch it off in `/config` to get Claude Code's spinner back.
 - **Token counts look large.** A turn's tokens add up every request in that turn, and each request re-reads the cached context. That is how Claude Code bills usage, which is why the cache state matters.
 - **No chime?** Sounds play through `afplay` on macOS. Linux and Windows get the toast only.
 - **Dark terminals.** The palettes are designed for dark backgrounds. If Claude Code's own theme is a light one, ccshine says so once at startup; it never changes the setting.
