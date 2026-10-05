@@ -4,6 +4,8 @@ export type PlanTask = {
   // Present-tense label from TaskCreate/TodoWrite (`Running tests`), shown by the spinner.
   activeForm?: string
   status: 'pending' | 'in_progress' | 'completed'
+  // A sub-item's parent task id, from TaskCreate/TaskUpdate `metadata.parent`.
+  parent?: string
   createdAt: number
   startedAt?: number
   doneAt?: number
@@ -97,6 +99,9 @@ export type Job = {
   startedAt: number
   endedAt?: number
   status: 'running' | 'done' | 'error' | 'killed'
+  // The Bash command, for its ETA, and the file its output streams to, for the band's progress line.
+  command?: string
+  outputFile?: string
 }
 
 // One rail row. from/to are fractions of the turn's window.
@@ -138,6 +143,10 @@ declare module 'claude-code' {
       dock: DockTurn | null
       spans: TurnSpan[]
       jobs: Job[]
+      // Past shell durations by command, loaded from the store on first use (null until then).
+      shellHistory: Record<string, number[]> | null
+      // The band shows every plan row (toggled from the Plan header).
+      planAll: boolean
       chat: number
       railSel: { turnId?: string; pinned: boolean }
       railOpen: string[]

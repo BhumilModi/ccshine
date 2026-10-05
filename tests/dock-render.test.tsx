@@ -167,3 +167,22 @@ test('a finished turn shows the score; a stopped one says so', async ($, on) => 
   expect(stopped).toContain('Stopped')
   expect(stopped).not.toContain('jumped')
 })
+
+test('a plan in a tight band shrinks the running dock to its step line instead of scrolling it away', async ($, on) => {
+  const clock = engine(on)
+  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e) => ({ result: { success: true, taskId: String(e.taskId), updatedFields: ['status'] } }))
+  for (const s of ['one', 'two', 'three', 'four', 'five']) await $.tool.call({ tool: 'TaskCreate', subject: s, description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'one', status: 'in_progress' })
+  await $.turn.start({ text: 'build', turnId: 't1' })
+  await clock.advance(2000)
+
+  const roomy = await band($, 'terminal', { maxRows: 30 })
+  expect(roomy.rasters.map((r: any) => r.rows)).toEqual([6])
+  expect(roomy.text).toContain('5. five')
+
+  const tight = await band($, 'terminal', { maxRows: 9 })
+  expect(tight.rasters).toHaveLength(0)
+  expect(tight.text).toContain('Working')
+  expect(tight.text).toContain('▶ 1. one')
+  expect(tight.text).toContain('more')
+})

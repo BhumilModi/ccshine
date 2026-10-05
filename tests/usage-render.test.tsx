@@ -76,7 +76,7 @@ test('usage off and no plan returns next(e)', { options: { dock: false, usage: f
   expect(await textOf($)).toBe('ENGINE')
 })
 
-test('band keeps the done header after the plan finishes', async ($, on) => {
+test('band shows the done header briefly after the plan finishes, then folds it away', async ($, on) => {
   const clock = engine(on)
   on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e) => ({ result: { task: { id: String(e.subject), subject: String(e.subject) } } }))
   on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e) => ({ result: { success: true, taskId: String(e.taskId), updatedFields: ['status'] } }))
@@ -89,4 +89,6 @@ test('band keeps the done header after the plan finishes', async ($, on) => {
   expect(text).toContain('✓ Plan')
   expect(text).toContain('1/1')
   expect(text).not.toContain('Usage')
+  await clock.advance(31_000)
+  expect(await textOf($)).not.toContain('Plan')
 })

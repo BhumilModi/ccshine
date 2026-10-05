@@ -5,6 +5,7 @@ import type { LiveCall, TurnRecord } from '../../types'
 import { activity } from '../activity'
 import { travelled } from '../dock'
 import { addJob, endJob, parseNotifications } from '../jobs'
+import { commandKey, parseHistory, parseOutputPath, recordRun } from '../shell'
 import { addCall, closeSpan, closeTurn, endCall, totalTokens } from '../timing'
 import { callDetail } from '../rail'
 import { describeCall, editStats } from '../tools'
@@ -23,6 +24,17 @@ const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 export const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 export const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const chat = atom({ plugin: 'tidepool', key: 'chat' } as const, 0)
+// Past shell durations by command (read by the band in features/tasks.tsx), kept in the store across sessions.
+const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
+
+async function saveShellRun($: EngineInterface, command: string, ms: number) {
+  const key = commandKey(command)
+  if (!key) return
+  const known = (await read($, shellHistory)) ?? parseHistory(await $.store.get('shell-history'))
+  const next = recordRun(known, key, ms)
+  await update($, shellHistory, () => next)
+  await $.store.set('shell-history', next)
+}
 
 let root: string | undefined
 
@@ -81,6 +93,7 @@ export function registerTrack(on: On) {
       })
     }
     let failed = true
+    let backgrounded = false
     let detail: string[] = []
     try {
       const ran = await next(e)
@@ -88,7 +101,19 @@ export function registerTrack(on: On) {
       detail = callDetail(tool, input, ran as { result?: unknown; isError?: boolean; text?: string })
       const result = ran.result as { backgroundTaskId?: string; task_id?: string } | undefined
       if (agentId === undefined && result?.backgroundTaskId) {
-        const job = { id: result.backgroundTaskId, callId: id, startedAt, status: 'running' as const }
+        backgrounded = true
+        // The path is in the call's text; some versions also give it as a result field.
+        const said = [(ran as { text?: string }).text, ...Object.values(result)].filter(v => typeof v === 'string')
+        const outputFile = said.find(v => v.endsWith('.output')) ?? parseOutputPath(said.join('\n'))
+        const command = typeof input.command === 'string' ? input.command : undefined
+        const job = {
+          id: result.backgroundTaskId,
+          callId: id,
+          startedAt,
+          status: 'running' as const,
+          ...(command === undefined ? {} : { command }),
+          ...(outputFile === undefined ? {} : { outputFile }),
+        }
         await update($, jobs, list => addJob(list, job))
       }
       if (tool === 'TaskStop' && result?.task_id) {
@@ -109,6 +134,10 @@ export function registerTrack(on: On) {
         return call && detail.length ? { ...ended, [id]: { ...call, detail } } : ended
       })
       if (agentId === undefined) await update($, dock, t => (t ? { ...t, calls: t.calls.map(c => (c.id === id ? { ...c, done: true } : c)) } : t))
+      // A shell that finished in the foreground teaches the band's ETA; a backgrounded one teaches it when its job ends.
+      if (tool === 'Bash' && agentId === undefined && !failed && !backgrounded && typeof input.command === 'string') {
+        await saveShellRun($, input.command, at - startedAt)
+      }
     }
   })
 
@@ -116,7 +145,11 @@ export function registerTrack(on: On) {
     if (e.origin.kind === 'composer') await syncChat($)
     if (e.origin.kind === 'task-notification') {
       const at = await $.clock.now()
-      for (const { id, status } of parseNotifications(e.text)) await update($, jobs, list => endJob(list, id, status, at))
+      for (const { id, status } of parseNotifications(e.text)) {
+        const job = (await read($, jobs)).find(j => j.id === id && j.status === 'running')
+        await update($, jobs, list => endJob(list, id, status, at))
+        if (job?.command !== undefined && status === 'done') await saveShellRun($, job.command, at - job.startedAt)
+      }
     }
     return next(e)
   })

@@ -152,3 +152,28 @@ export function fmtTokens(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return String(n)
 }
+
+// Tasks that count toward the plan: sub-items nest under their parent, unless the parent is gone.
+export function topLevel(tasks: PlanTask[]): PlanTask[] {
+  const ids = new Set(tasks.map(t => t.id))
+  return tasks.filter(t => t.parent === undefined || !ids.has(t.parent))
+}
+
+// When a fully finished plan finished; undefined while any task is open.
+export function finishedAt(tasks: PlanTask[]): number | undefined {
+  if (tasks.length === 0 || tasks.some(t => t.status !== 'completed')) return undefined
+  return Math.max(...tasks.map(t => t.doneAt ?? 0))
+}
+
+// Which lines fit in `room` rows, an "N earlier" and a "+N more" marker counted as one row each;
+// keeps the line before the focus for context.
+export function windowLines<T>(lines: T[], focus: number, room: number): { start: number; shown: T[]; after: number } {
+  const len = lines.length
+  if (len <= room) return { start: 0, shown: lines, after: 0 }
+  const one = Math.max(1, room - 1)
+  if (focus < one) return { start: 0, shown: lines.slice(0, one), after: len - one }
+  if (focus >= len - one) return { start: len - one, shown: lines.slice(len - one), after: 0 }
+  const body = Math.max(1, room - 2)
+  const start = Math.min(Math.max(1, focus - 1), len - body - 1)
+  return { start, shown: lines.slice(start, start + body), after: len - start - body }
+}

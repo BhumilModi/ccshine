@@ -200,3 +200,83 @@ test('a docked rail keeps running agents from earlier turns in the band', { opti
   expect(text).toContain('Older agent')
   expect(text).not.toContain('Newer agent')
 })
+
+test('shell rows show elapsed, the ETA from past runs and a background job\'s last output line', { options: { dock: false, usage: false } }, async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 })
+  mock.store(on, { 'shell-history': { 'npm test': [100_000] } })
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('fs.stat', () => ({ value: { kind: 'file', size: 40, mtimeMs: 0, isLink: false } }))
+  on('fs.read', () => ({ value: 'building\n\u001b[32m✓ 142/310 tests\u001b[0m\n' }))
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
+  on('tool.call', { tool: 'Bash' }, async (_$, e) => {
+    if (e.run_in_background) return { result: { backgroundTaskId: 'j1' }, text: 'Output is being written to: /tmp/s/tasks/j1.output' }
+    await clock.sleep(200_000)
+    return { result: {} }
+  })
+  const text = async () => {
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
+    const all = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+    await ui.unmount()
+    return all
+  }
+
+  expect(await text()).toBe('ENGINE')
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'b1', command: 'pnpm dev', description: 'Dev server', run_in_background: true })
+  const pending = $.tool.call({ tool: 'Bash', tool_use_id: 'f1', command: 'npm  test', description: 'Run tests' })
+  await clock.advance(40_000)
+  let shown = await text()
+  expect(shown).toContain('shell')
+  expect(shown).toContain('bg Dev server  40s')
+  expect(shown).toContain('✓ 142/310 tests')
+  expect(shown).toContain('▶ Run tests  40s · ~1m left')
+
+  await clock.advance(80_000)
+  expect(await text()).toContain('Run tests  2m 0s · over by 20s')
+
+  // A finished slow shell lingers, then folds away; its run teaches the next ETA.
+  await clock.advance(80_000)
+  await pending
+  shown = await text()
+  expect(shown).toContain('✓ Run tests  3m 20s')
+  await clock.advance(31_000)
+  expect(await text()).not.toContain('Run tests')
+})
+
+test('sub-items nest under their running task, count apart from the plan, and show all reveals the rest', { options: { dock: false, usage: false } }, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  const sub = (subject: string, parent: string) => $.tool.call({ tool: 'TaskCreate', subject, description: '', metadata: { parent } })
+
+  await $.tool.call({ tool: 'TaskCreate', subject: 'schema', description: '' })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'routes', description: '' })
+  await sub('tables', 'schema')
+  await sub('indexes', 'schema')
+  await sub('handlers', 'routes')
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'schema', status: 'in_progress' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'tables', status: 'completed' })
+
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
+  const text = async () => [...(await ui.findAll({ type: 'Text' })).map(t => t.text), ...(await ui.findAll({ type: 'Button' })).map(b => JSON.stringify(b.props))].join('\n')
+  let shown = await text()
+  expect(shown).toContain(' 0/2 ')
+  expect(shown).toContain('▶ \n1. schema')
+  expect(shown).toContain('    ✓ \ntables')
+  expect(shown).toContain('    · \nindexes')
+  // routes is not running, so its sub-item waits behind the toggle.
+  expect(shown).not.toContain('handlers')
+  expect(shown).toContain('show all')
+
+  await ui.press({ key: 'all' })
+  shown = await text()
+  expect(shown).toContain('handlers')
+  expect(shown).toContain('fewer')
+  await ui.press({ key: 'all' })
+  expect(await text()).not.toContain('handlers')
+  await ui.unmount()
+})
