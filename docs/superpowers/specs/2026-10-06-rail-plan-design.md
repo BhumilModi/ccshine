@@ -33,12 +33,14 @@ then the plan section after a `╌` rule.
 - The plan section is pinned to the bottom: a growing spacer sits between the footer and the
   section, so a short turn leaves the gap above the plan, not below it.
 - The section asks for its full height (header, task lines, markers, shell label, shell rows,
-  output lines) and gets at most half of `scroll.bodyRows`. Past that, task lines window around
+  output lines) and gets at most 35% of `scroll.bodyRows`. The rail splits about 40-25-35: tool
+  rows, footer (its failures and files lists stop at a quarter of the rail), plan; rows the footer
+  and plan leave go to the tool rows. Past that, task lines window around
   the running task with `N earlier` / `+N more`, as the band does.
 - The turn's tool rows trim from the top to `N earlier` so brand, title, rows, axis, footer and the
   plan section fit `scroll.bodyRows`. Rows opened to show detail are not counted: an opened row
   may still make the pane scroll.
-- **Show all** (`planAll`, shared with the band) lifts the half-height cap: every plan line is
+- **Show all** (`planAll`, shared with the band) lifts the 35% cap: every plan line is
   drawn and the turn rows trim to what is left; if the plan alone is taller than the rail, the
   pane scrolls.
 - Inline placement (rail above the prompt, not fullscreen) draws no plan section; the band owns
@@ -72,7 +74,7 @@ row is shown, in addition to the running turn and background jobs it already fol
 
 ## Testing
 
-- Rail render: the plan section draws below the footer when tasks exist; it stays within half of
+- Rail render: the plan section draws below the footer when tasks exist; it stays within 35% of
   `bodyRows`; tool rows trim to `N earlier` to make room; no section in inline placement; show all
   draws every line.
 - Band render: with the rail docked, the band is the header line plus the dock, no task rows and

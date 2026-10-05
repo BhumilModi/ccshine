@@ -135,27 +135,31 @@ export function callDetail(tool: string, input: unknown, ran: { result?: unknown
   return lines
 }
 
-// The docked rail's plan section: half the rail (all of it when showing all), never less than its header and
-// running task, and never more than the rows `fixed` rows above it leave.
+// The docked rail splits about 40-25-35: the turn's tool rows, the footer (rule, ctx, cost, failures, files),
+// the plan section. Footer and plan shares are caps; rows they leave go to the tool rows.
+const FOOT_SHARE = 0.25
+const PLAN_SHARE = 0.35
+
+// The plan section's rows: its share of the rail (all of it when showing all), never less than its header and
+// running task, and never more than the `fixed` rows above it leave.
 export function sectionCap(bodyRows: number, fixed: number, all: boolean): number {
   if (all) return Number.MAX_SAFE_INTEGER
-  return Math.min(Math.floor(bodyRows / 2), Math.max(2, bodyRows - fixed - 1))
+  return Math.min(Math.floor(bodyRows * PLAN_SHARE), Math.max(2, bodyRows - fixed - 1))
 }
 
-// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, the two margins,
-// the footer's rule and cost line, and ctx. Then failures, files, the axis and the tool rows, keeping room for
-// at least the "earlier" marker or one row. `shown` tool rows; fewer than `tools` means the marker draws.
+// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, the two margins, and the
+// footer's rule, cost and ctx lines. Failures, then files, fill the rest of the footer's share; the tool rows take
+// what is left, the axis and an "earlier" marker included. `shown` below `tools` means the marker draws.
 // ponytail: a rail under ~12 rows can still pass bodyRows by its fixed rows; drop margins there if it matters.
 export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; ctx: boolean; files: number; failures: number; section: number }) {
-  let left = a.bodyRows - 6 - (a.ctx ? 1 : 0) - a.section
-  const keep = a.tools > 0 ? 1 + (a.bars ? 1 : 0) : 1
-  const failures = Math.min(a.failures, Math.max(0, left - keep))
-  left -= failures
-  const files = Math.min(a.files, Math.max(0, left - keep))
-  left -= files
+  const base = 2 + (a.ctx ? 1 : 0)
+  let extra = Math.max(0, Math.floor(a.bodyRows * FOOT_SHARE) - base)
+  const failures = Math.min(a.failures, extra)
+  extra -= failures
+  const files = Math.min(a.files, extra)
+  const left = a.bodyRows - 4 - base - failures - files - a.section
   if (a.tools === 0) return { section: a.section, shown: 0, files, failures }
   if (a.tools + (a.bars ? 1 : 0) <= left) return { section: a.section, shown: a.tools, files, failures }
   // The marker takes a row; the axis draws only under shown rows.
-  const room = left - 1 - (a.bars ? 1 : 0)
-  return { section: a.section, shown: Math.max(0, room), files, failures }
+  return { section: a.section, shown: Math.max(0, left - 1 - (a.bars ? 1 : 0)), files, failures }
 }

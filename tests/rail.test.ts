@@ -147,9 +147,9 @@ const drawn = (a: { tools: number; bars: boolean; ctx: boolean }, b: ReturnType<
 test('a turn that edited many files cannot push the plan section past the rail', async () => {
   const a = { bodyRows: 30, tools: 5, bars: true, ctx: true, files: 12, failures: 0 }
   const cap = sectionCap(30, 7, false)
-  expect(cap).toBe(15)
+  expect(cap).toBe(10)
   const b = railBudget({ ...a, section: cap })
-  expect(b.section).toBe(15)
+  expect(b.section).toBe(10)
   expect(drawn(a, b)).toBeLessThanOrEqual(30)
   expect(b.files).toBeLessThan(12)
 })
@@ -171,6 +171,15 @@ test('every tool row shows when there is room, with no marker', async () => {
   const b = railBudget({ ...a, section: 8 })
   expect(b.shown).toBe(6)
   expect(drawn(a, b)).toBe(7 + 8 + 1 + 1 + 6)
+})
+
+test('the rail splits 40-25-35: the footer lists stop at a quarter, the plan at 35%', async () => {
+  expect(sectionCap(40, 7, false)).toBe(14)
+  // A 40-row footer quarter is 10 rows: rule, ctx and cost leave 7 for failures, then files.
+  const b = railBudget({ bodyRows: 40, tools: 30, bars: true, ctx: true, files: 30, failures: 2, section: 14 })
+  expect([b.failures, b.files]).toEqual([2, 5])
+  // The turn view keeps the rest: 40 - brand, title, two margins - footer 10 - plan 14 = 12 rows, marker and axis included.
+  expect(b.shown).toBe(10)
 })
 
 test('show all lifts the section cap', async () => {

@@ -270,12 +270,13 @@ test('rail draws the plan below its footer', OFF, async ($, on) => {
   expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('cost'))
 })
 
-test('rail plan stays within half its height', OFF, async ($, on) => {
+test('rail plan stays within 35% of its height', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 20)
   const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
-  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(10)
+  // 35% of 24 rows is 8: rule, header, then six lines and markers.
+  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(6)
   expect(text).toContain('more')
 })
 
