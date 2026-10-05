@@ -345,7 +345,7 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
     const project = (await $.session.root()).split(/[\\/]/).filter(Boolean).pop() ?? ''
     const label = (
       <Box key="dock-label">
-        <Text color={C.accent} bold wrap="truncate-end">{'◆ '}</Text>
+        <Box flexShrink={0}><Text color={C.accent} bold wrap="truncate-end">{'◆ '}</Text></Box>
         <Text color={C.ink} bold wrap="truncate-end">Ask Claude</Text>
         {project && <Text color={C.faint} wrap="truncate-end">{`  ${project}`}</Text>}
         <Box flexGrow={1} />
@@ -394,7 +394,7 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
   return (
     <Box key="dock" flexDirection="column" marginTop={1} paddingLeft={1}>
       <Box>
-        <Text color={ending ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
+        <Box flexShrink={0}><Text color={ending ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text></Box>
         <Text color={C.ink} bold wrap="truncate-end">{ending ? step : `${step}…`}</Text>
         {result && <Text color={C.warn} bold wrap="truncate-end">{'  ★ '}</Text>}
         {result && <Text color={C.ink} wrap="truncate-end">{`${result.jumped} jumped · ${result.crates} crate${result.crates === 1 ? '' : 's'} · ${fmtClock(result.ms)}`}</Text>}
@@ -403,7 +403,7 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
         {!ending && e.props.bodyColumns >= PHASES_FROM && (
           <Box key="phases" flexShrink={0}>
             {(['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [
-              <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}</Text>,
+              <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : '  '}${PHASE_LABEL[m]} `}</Text>,
               <Text key={`s${m}`} color={m === mode ? C.ink : C.faint} wrap="truncate-end">{`${Math.round(spent[m])}s`}</Text>,
             ])}
           </Box>

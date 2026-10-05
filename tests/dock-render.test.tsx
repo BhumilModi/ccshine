@@ -224,6 +224,8 @@ test('a long step label truncates while the phase times and the clock keep their
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
   const fixed = (await ui.findAll({ type: 'Box' })).filter((b: any) => b.props.flexShrink === 0).map((b: any) => JSON.stringify(b))
   await ui.unmount()
-  expect(fixed.some(b => b.includes('think ') && b.includes('reply '))).toBe(true)
+  expect(fixed.some(b => b.includes('  think ') && b.includes('reply '))).toBe(true)
+  // The diamond never truncates to "…".
+  expect(fixed.some(b => b.includes('◆ ') && !b.includes('think'))).toBe(true)
   expect(fixed.some(b => b.includes('2s') && !b.includes('think'))).toBe(true)
 })
