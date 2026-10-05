@@ -1,7 +1,7 @@
 {
   "name": "tidepool",
   "version": "0.1.0",
-  "description": "Low tide for Claude Code: every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and the clay crab. Needs Claude Code 2.1.288+.",
+  "description": "Low tide for Claude Code: each turn's tools, agents and background jobs fold into one line that opens into a timeline, plus a themed transcript, status line, tasks band and the clay crab. Needs Claude Code 2.1.288+.",
   "author": {
     "name": "Bhumil Modi",
     "url": "https://github.com/BhumilModi"
