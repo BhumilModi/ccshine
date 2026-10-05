@@ -1,5 +1,10 @@
 import type { CallTiming, Job, PlanAgent, RailRow, RailSummary, TurnSpan } from '../types'
 
+// Anchor rows on screen, by turn id. Render hooks may not write plugin state, so the anchor row records here
+// and the rail's one-second timer (features/startup.tsx) copies changes into the anchorsSeen atom.
+// ponytail: the rail follows a scroll within a second, not on the same frame.
+export const anchorsOnScreen = new Map<string, boolean>()
+
 // The rail's model: which calls belong to a turn and where each sits on the turn's timeline. No engine calls.
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
