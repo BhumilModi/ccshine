@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, Job, PlanAgent, TurnSpan } from '../types'
-import { railRows, railSummary, showBars, turnOfCall } from '../hooks/rail'
+import { callDetail, pickTurn, railRows, railSummary, showBars, turnOfCall } from '../hooks/rail'
 import { span } from '../hooks/theme'
 
 const SPAN: TurnSpan = { turnId: 't1', startedAt: 1000, endedAt: 11000, ctxStart: 38, ctxEnd: 52, costStart: 1, costEnd: 1.31 }
@@ -81,4 +81,37 @@ test('turnOfCall finds the span a call started in', async () => {
 test('showBars needs 40 columns', async () => {
   expect(showBars(39)).toBe(false)
   expect(showBars(40)).toBe(true)
+})
+
+const T1: TurnSpan = { turnId: 't1', startedAt: 0, endedAt: 10 }
+const T2: TurnSpan = { turnId: 't2', startedAt: 20, endedAt: 30 }
+const LIVE: TurnSpan = { turnId: 't3', startedAt: 40 }
+
+test('pickTurn: a pinned turn wins', async () => {
+  expect(pickTurn([T1, T2, LIVE], { turnId: 't1', pinned: true }, { t3: true })?.turnId).toBe('t1')
+})
+
+test('pickTurn: the live turn while its anchor is on screen or not drawn yet', async () => {
+  expect(pickTurn([T1, LIVE], { pinned: false }, { t1: true })?.turnId).toBe('t3')
+  expect(pickTurn([T1, LIVE], { pinned: false }, { t1: true, t3: true })?.turnId).toBe('t3')
+})
+
+test('pickTurn: otherwise the first turn whose anchor is on screen', async () => {
+  expect(pickTurn([T1, T2, LIVE], { pinned: false }, { t1: false, t2: true, t3: false })?.turnId).toBe('t2')
+})
+
+test('pickTurn: nothing on screen falls back to the newest turn', async () => {
+  expect(pickTurn([T1, T2], { pinned: false }, {})?.turnId).toBe('t2')
+  expect(pickTurn([], { pinned: false }, {})).toBeUndefined()
+})
+
+test('callDetail: Bash shows the command and its last output lines', async () => {
+  const out = callDetail('Bash', { command: 'npm test\n# second line' }, { result: { stdout: 'a\nb\n\nc\nd\n', stderr: '' } })
+  expect(out).toEqual(['$ npm test', 'b', 'c', 'd'])
+})
+
+test('callDetail: an error shows its first line', async () => {
+  expect(callDetail('Bash', { command: 'false' }, { isError: true, text: 'Exit code 1\nmore' })).toEqual(['$ false', 'Exit code 1'])
+  expect(callDetail('Read', { file_path: '/x' }, { isError: true, text: 'File not found' })).toEqual(['File not found'])
+  expect(callDetail('Read', { file_path: '/x' }, { result: {} })).toEqual([])
 })

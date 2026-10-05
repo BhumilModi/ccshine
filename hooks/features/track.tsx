@@ -6,6 +6,7 @@ import { activity } from '../activity'
 import { travelled } from '../dock'
 import { addJob, endJob, parseNotifications } from '../jobs'
 import { addCall, closeSpan, closeTurn, endCall, totalTokens } from '../timing'
+import { callDetail } from '../rail'
 import { describeCall, editStats } from '../tools'
 
 export const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
@@ -80,9 +81,11 @@ export function registerTrack(on: On) {
       })
     }
     let failed = true
+    let detail: string[] = []
     try {
       const ran = await next(e)
       failed = ran.isError === true
+      detail = callDetail(tool, input, ran as { result?: unknown; isError?: boolean; text?: string })
       const result = ran.result as { backgroundTaskId?: string; task_id?: string } | undefined
       if (agentId === undefined && result?.backgroundTaskId) {
         const job = { id: result.backgroundTaskId, callId: id, startedAt, status: 'running' as const }
@@ -100,7 +103,11 @@ export function registerTrack(on: On) {
         return rest
       })
       const at = await $.clock.now()
-      await update($, calls, list => endCall(list, id, at, failed))
+      await update($, calls, list => {
+        const ended = endCall(list, id, at, failed)
+        const call = ended[id]
+        return call && detail.length ? { ...ended, [id]: { ...call, detail } } : ended
+      })
       if (agentId === undefined) await update($, dock, t => (t ? { ...t, calls: t.calls.map(c => (c.id === id ? { ...c, done: true } : c)) } : t))
     }
   })

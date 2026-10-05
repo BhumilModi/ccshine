@@ -11,6 +11,7 @@ export type Options = {
   chrome: boolean
   installAssets: boolean
   dock: boolean
+  rail: boolean
 }
 
 export const DEFAULTS: Options = {
@@ -26,6 +27,7 @@ export const DEFAULTS: Options = {
   chrome: true,
   installAssets: true,
   dock: true,
+  rail: true,
 }
 
 // The engine fills defaults from plugin.json; DEFAULTS covers anything it leaves out.

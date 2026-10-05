@@ -85,3 +85,37 @@ export function railSummary(rows: RailRow[], turn: TurnSpan, now: number): RailS
   if (turn.costStart !== undefined && turn.costEnd !== undefined) summary.cost = turn.costEnd - turn.costStart
   return summary
 }
+
+// Which turn the rail shows: a pinned one; else the live turn while its anchor is on screen or not drawn yet;
+// else the first turn whose anchor is on screen; else the newest.
+// ponytail: with no anchor on screen (mid long reply) it falls back to the newest turn, not the one scrolled past.
+export function pickTurn(
+  spans: TurnSpan[],
+  sel: { turnId?: string; pinned: boolean },
+  seen: Record<string, boolean>,
+): TurnSpan | undefined {
+  if (sel.pinned) {
+    const pinned = spans.find(s => s.turnId === sel.turnId)
+    if (pinned) return pinned
+  }
+  const live = spans.findLast(s => s.endedAt === undefined)
+  if (live && seen[live.turnId] !== false) return live
+  return spans.find(s => seen[s.turnId] === true) ?? spans.at(-1)
+}
+
+const MAX_DETAIL = 200
+const firstLine = (text: unknown) => (typeof text === 'string' ? (text.split('\n')[0] ?? '') : '').slice(0, MAX_DETAIL)
+
+// What a pressed rail row shows under itself: the Bash command and its last output lines, or the error.
+export function callDetail(tool: string, input: unknown, ran: { result?: unknown; isError?: boolean; text?: string }): string[] {
+  const i = (input ?? {}) as Record<string, unknown>
+  const lines: string[] = []
+  if (tool === 'Bash') {
+    lines.push(`$ ${firstLine(i.command)}`)
+    const out = (ran.result ?? {}) as { stdout?: unknown; stderr?: unknown }
+    const text = [out.stdout, out.stderr].filter(t => typeof t === 'string').join('\n')
+    lines.push(...text.split('\n').filter(l => l.trim()).slice(-3).map(l => l.slice(0, MAX_DETAIL)))
+  }
+  if (ran.isError && ran.text) lines.push(firstLine(ran.text))
+  return lines
+}

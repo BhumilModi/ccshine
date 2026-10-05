@@ -1,3 +1,4 @@
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On } from 'claude-code'
 
 import { encodeCells, idleCells, site } from '../dock'
@@ -8,6 +9,20 @@ import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide,
 import type { InstallOutcome } from '../setup'
 
 const STATUSLINE = 'tidepool-statusline'
+// The Tide rail (features/rail.tsx): this module owns session.start, so the rail opens here.
+const RAIL_ID = 'tidepool-rail'
+const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
+const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
+const railNow = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
+
+// The rail's live rows grow once a second, only while a turn or a background job runs.
+async function tickRail($: EngineInterface) {
+  const isLive = (await read($, spans)).some(s => s.endedAt === undefined) || (await read($, jobs)).some(j => j.status === 'running')
+  if (isLive) {
+    const at = await $.clock.now()
+    await update($, railNow, () => at)
+  }
+}
 const SETUP = 'tidepool-setup'
 const LIGHT_THEME = 'Tidepool palettes are made for dark terminals — set a dark theme in /config'
 const INSTALLED_WINDOWS =
@@ -103,6 +118,11 @@ async function migrateHistory($: EngineInterface): Promise<void> {
 export function registerStartup(on: On) {
   on('session.start', async ($, e, next) => {
     await migrateHistory($)
+    // A hot reload keeps the old rail open with nothing left to draw it; start from a fresh one.
+    for (const pane of await $.ui.panes().catch(() => [])) if (pane.id === RAIL_ID) await $.ui.close({ id: RAIL_ID })
+    await $.command.register({ name: RAIL_ID, description: 'Show or hide the Tide rail: tool calls, agents and background jobs beside the chat' })
+    if (opts.rail && opts.tools) await $.ui.open({ id: RAIL_ID, title: 'tidepool' }).catch(() => undefined)
+    $.clock.every(1000, () => void tickRail($))
     await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the Tidepool status line' })
     await $.command.register({ name: SETUP, description: 'Install the Maple Mono NF font and Warm Claude theme, and show how to use them in your terminal' })
     // A marketplace update installs into a new versioned folder; a statusLine still pointing at the old one breaks.

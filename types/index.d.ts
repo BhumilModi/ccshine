@@ -37,6 +37,8 @@ export type CallTiming = {
   added?: number
   removed?: number
   failed?: true
+  // What the rail shows when the row is pressed (hooks/rail.ts callDetail).
+  detail?: string[]
 }
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
@@ -135,6 +137,10 @@ declare module 'claude-code' {
       spans: TurnSpan[]
       jobs: Job[]
       chat: number
+      railSel: { turnId?: string; pinned: boolean }
+      railOpen: string[]
+      railNow: number
+      anchorsSeen: Record<string, boolean>
     }
   }
 }

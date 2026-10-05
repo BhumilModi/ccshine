@@ -39,6 +39,12 @@
       "description": "Arrow and rounded-cap separators in headers (needs a Nerd Font)",
       "default": false
     },
+    "rail": {
+      "type": "boolean",
+      "title": "Tide rail",
+      "description": "Tool calls, agents and background jobs on a timeline beside the chat",
+      "default": true
+    },
     "tasks": {
       "type": "boolean",
       "title": "Tasks band",
