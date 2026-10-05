@@ -349,11 +349,14 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
         <Text color={C.ink} bold wrap="truncate-end">Ask Claude</Text>
         {project && <Text color={C.faint} wrap="truncate-end">{`  ${project}`}</Text>}
         <Box flexGrow={1} />
-        {e.props.bodyColumns >= KEYS_FROM &&
-          KEYS.flatMap(([key, word], i) => [
-            <Text key={`k${i}`} color={C.accent} wrap="truncate-end">{`${i ? '   ' : ''}${key}`}</Text>,
-            <Text key={`w${i}`} color={C.faint} wrap="truncate-end">{` ${word}`}</Text>,
-          ])}
+        {e.props.bodyColumns >= KEYS_FROM && (
+          <Box flexShrink={0}>
+            {KEYS.flatMap(([key, word], i) => [
+              <Text key={`k${i}`} color={C.accent} wrap="truncate-end">{`${i ? '   ' : ''}${key}`}</Text>,
+              <Text key={`w${i}`} color={C.faint} wrap="truncate-end">{` ${word}`}</Text>,
+            ])}
+          </Box>
+        )}
       </Box>
     )
     if (size === 'idle-compact') {
@@ -396,12 +399,20 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
         {result && <Text color={C.warn} bold wrap="truncate-end">{'  ★ '}</Text>}
         {result && <Text color={C.ink} wrap="truncate-end">{`${result.jumped} jumped · ${result.crates} crate${result.crates === 1 ? '' : 's'} · ${fmtClock(result.ms)}`}</Text>}
         <Box flexGrow={1} />
-        {!ending && e.props.bodyColumns >= PHASES_FROM &&
-          (['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [
-            <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}</Text>,
-            <Text key={`s${m}`} color={m === mode ? C.ink : C.faint} wrap="truncate-end">{`${Math.round(spent[m])}s`}</Text>,
-          ])}
-        {!result && <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>}
+        {/* The phase times and the clock hold their width; a long step label truncates instead. */}
+        {!ending && e.props.bodyColumns >= PHASES_FROM && (
+          <Box key="phases" flexShrink={0}>
+            {(['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [
+              <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}</Text>,
+              <Text key={`s${m}`} color={m === mode ? C.ink : C.faint} wrap="truncate-end">{`${Math.round(spent[m])}s`}</Text>,
+            ])}
+          </Box>
+        )}
+        {!result && (
+          <Box key="clock" flexShrink={0}>
+            <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>
+          </Box>
+        )}
       </Box>
       {!compact && <Raster key="dock-scene" columns={cols} rows={rows} cells={encodeCells(sceneCells(view, turn, now, cols, C, rows))} />}
       {fit.calls && <Box>
