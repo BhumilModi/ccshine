@@ -9,7 +9,7 @@ import { planBody, planHeader, planWanted, shellBody } from '../planview'
 import type { PlanData } from '../planview'
 import { lastLine, shellRows } from '../shell'
 import { pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
-import { gauge, palette, span } from '../theme'
+import { palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
 export const RAIL_ID = 'tidepool-rail'
@@ -75,7 +75,7 @@ async function tailLine($: EngineInterface, path: string, at: number): Promise<s
 
 type PaneInput = Frozen<RenderInput<'Pane'>>
 
-// The plan section pinned to the docked rail's bottom: a rule, the Plan header, the plan's lines around the
+// The plan section, pinned above the docked rail's footer: a rule, the Plan header, the plan's lines around the
 // running task, then the shells, in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
 async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number): Promise<{ el: RenderElement; rows: number } | null> {
   await read($, tick)
@@ -193,14 +193,13 @@ export function registerRail(on: On) {
     const allCalls = await read($, calls)
     const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
     const sum = railSummary(all, turn, clock)
-    // Docked, the plan section takes up to half the rail; the footer's lists and the tool rows share the rest.
-    const fixed = 6 + (sum.ctx ? 1 : 0)
-    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, fixed, showAll))
+    // Docked, the plan section takes its share (hooks/rail.ts); the footer's lists and the tool rows share the rest.
+    // Fixed rows above and below it: brand, title, two margins, the footer's rule and cost line.
+    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 6, showAll))
     const fits = railBudget({
       bodyRows: p.scroll.bodyRows,
       tools: all.length,
       bars: showBars(p.bodyColumns),
-      ctx: Boolean(sum.ctx),
       files: sum.files.length,
       failures: sum.failures.length,
       section: section?.rows ?? 0,
@@ -279,20 +278,6 @@ export function registerRail(on: On) {
     if (!isInline) {
       const label = (text: string, color = C.faint) => <Box flexShrink={0}><Text color={color}>{text.padEnd(TOOL)}</Text></Box>
       foot.push(<Text key="rule" color={C.track}>{'╌'.repeat(width)}</Text>)
-      if (sum.ctx) {
-        const g = gauge(sum.ctx[0] / 100, sum.ctx[1] / 100, 12)
-        foot.push(
-          <Box key="ctx" flexDirection="row" height={1}>
-            {label('ctx')}
-            {bars && (
-              <Box flexShrink={0}>
-                <Text color={C.soft}>{g.base}<Text color={C.accent}>{g.added}</Text><Text color={C.track}>{`${g.track} `}</Text></Text>
-              </Box>
-            )}
-            <Text color={C.mid} wrap="truncate-end">{`${sum.ctx[0]}% → ${sum.ctx[1]}%`}</Text>
-          </Box>,
-        )
-      }
       foot.push(
         <Box key="cost" flexDirection="row" height={1}>
           {label('cost')}
@@ -326,8 +311,8 @@ export function registerRail(on: On) {
       brand,
       title,
       <Box key="rows" flexDirection="column" marginTop={1}>{body}</Box>,
-      <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
       ...pin(section),
+      <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
     ])
   })
 

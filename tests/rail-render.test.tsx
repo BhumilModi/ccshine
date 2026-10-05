@@ -70,7 +70,9 @@ test('docked pane draws header, rows with span bars, axis and summary', OFF, asy
   await twoCallTurn($, w)
   const ui = await $.ui.mount(pane())
   const text = await textOf(ui)
-  for (const part of ['turn 1', 'Read', 'src/a.ts', 'npm test', '━', '✕', '0s', 'ctx', '38% → 52%', '$0.31']) expect(text).toContain(part)
+  for (const part of ['turn 1', 'Read', 'src/a.ts', 'npm test', '━', '✕', '0s', '$0.31']) expect(text).toContain(part)
+  // The status line shows context; the rail does not repeat it.
+  expect(text).not.toContain('ctx')
   expect(text).not.toContain('live')
 })
 
@@ -260,23 +262,25 @@ async function bashes($: any, w: World, n: number) {
   for (let i = 0; i < n; i++) await call($, w, `sh${i}`, 'Bash', { command: `echo ${i}`, description: `step ${i}` }, 10)
 }
 
-test('rail draws the plan below its footer', OFF, async ($, on) => {
+test('rail draws the plan between the tool rows and the footer', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 3, 2)
   const text = await textOf(await $.ui.mount(pane()))
   expect(text).toContain(' Plan ')
   expect(text).toContain('▶ |2. task 2')
-  expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('cost'))
+  // Tool names are Text; targets are Buttons, which textOf lists last.
+  expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('Read'))
+  expect(text.indexOf(' Plan ')).toBeLessThan(text.indexOf('cost'))
 })
 
-test('rail plan stays within 35% of its height', OFF, async ($, on) => {
+test('rail plan stays within 45% of its height', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 20)
   const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
-  // 35% of 24 rows is 8: rule, header, then six lines and markers.
-  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(6)
+  // 45% of 24 rows is 10: rule, header, then eight lines and markers.
+  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(8)
   expect(text).toContain('more')
 })
 

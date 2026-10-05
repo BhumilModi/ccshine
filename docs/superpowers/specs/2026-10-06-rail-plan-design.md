@@ -10,8 +10,8 @@ rail, docked beside the chat, sits mostly empty below its turn view.
 ## Goal
 
 When the rail is docked, it owns the plan: the full plan (tasks, sub-items, agents, shells, ETA)
-draws as a section pinned to the rail's bottom, and the band keeps one Plan line so the dock always
-has room. When the rail is not docked, the band works exactly as it does today.
+draws as a section in the rail above its footer, and the band draws no plan, so the dock always has
+room. When the rail is not docked, the band works exactly as it does today.
 
 ## Behaviour
 
@@ -19,28 +19,28 @@ has room. When the rail is not docked, the band works exactly as it does today.
 
 - **Rail owns it** when `railDocked()` holds: rail option on, fullscreen, 110+ columns, the
   `tidepool-rail` pane placed. This is the check the band already uses to hand agents to the rail.
-- While the rail owns it, the band draws one line, the Plan header (`Plan 5/8 ━━━── ~6m left`),
-  with no toggle, no task rows and no shell section. The dock takes every other row (`fitBand`
-  with `focus: false`, `shell: 0`, `plan: 0`).
+- While the rail owns it, the band draws no plan, task rows or shell section; the dock takes the
+  band's rows (`fitBand` with `header: false`). Usage rows keep their own rule.
 - Otherwise nothing changes: the band draws the fitted plan, shells and usage as now, and the
   rail draws no plan section.
 
 ### Rail layout
 
-Top to bottom: brand, turn title, tool rows, axis, footer (rule, ctx, cost, files, failures),
-then the plan section after a `╌` rule.
+Top to bottom: brand, turn title, tool rows, axis, then the plan section after a `╌` rule, then the
+footer (rule, cost and tool count, failures, files). The footer has no ctx line: the status line
+already shows context.
 
-- The plan section is pinned to the bottom: a growing spacer sits between the footer and the
-  section, so a short turn leaves the gap above the plan, not below it.
-- The section asks for its full height (header, task lines, markers, shell label, shell rows,
-  output lines) and gets at most 35% of `scroll.bodyRows`. The rail splits about 40-25-35: tool
-  rows, footer (its failures and files lists stop at a quarter of the rail), plan; rows the footer
-  and plan leave go to the tool rows. Past that, task lines window around
-  the running task with `N earlier` / `+N more`, as the band does.
-- The turn's tool rows trim from the top to `N earlier` so brand, title, rows, axis, footer and the
-  plan section fit `scroll.bodyRows`. Rows opened to show detail are not counted: an opened row
-  may still make the pane scroll.
-- **Show all** (`planAll`, shared with the band) lifts the 35% cap: every plan line is
+- Plan and footer sit at the bottom: a growing spacer sits between the tool rows and the plan
+  section, so a short turn leaves the gap above the plan.
+- The rail splits about 40-45-15: tool rows, plan section, footer. The plan section asks for its
+  full height (header, task lines, markers, shell label, shell rows, output lines) and gets at
+  most 45% of `scroll.bodyRows`; the footer's failures and files lists stop at 15%. Rows either
+  leaves go to the tool rows. Past its cap, task lines window around the running task with
+  `N earlier` / `+N more`, as the band does.
+- The turn's tool rows trim from the top to `N earlier` so brand, title, rows, axis, the plan
+  section and the footer fit `scroll.bodyRows`. Rows opened to show detail are not counted: an
+  opened row may still make the pane scroll.
+- **Show all** (`planAll`, shared with the band) lifts the 45% cap: every plan line is
   drawn and the turn rows trim to what is left; if the plan alone is taller than the rail, the
   pane scrolls.
 - Inline placement (rail above the prompt, not fullscreen) draws no plan section; the band owns
@@ -48,8 +48,8 @@ then the plan section after a `╌` rule.
 
 ### Finished plan
 
-`✓ Plan 8/8 done in 24m` shows for 30s after the last task finishes, in the rail and as the band's
-line, then both fold away until a new plan starts (the existing `AGENT_LINGER_MS` rule).
+`✓ Plan 8/8 done in 24m` shows for 30s after the last task finishes (in the rail when it owns the
+plan, else in the band), then folds away until a new plan starts (the existing `AGENT_LINGER_MS` rule).
 
 ### Live timers
 
@@ -74,7 +74,7 @@ row is shown, in addition to the running turn and background jobs it already fol
 
 ## Testing
 
-- Rail render: the plan section draws below the footer when tasks exist; it stays within 35% of
+- Rail render: the plan section draws between the tool rows and the footer when tasks exist; it stays within 45% of
   `bodyRows`; tool rows trim to `N earlier` to make room; no section in inline placement; show all
   draws every line.
 - Band render: with the rail docked, the band is the header line plus the dock, no task rows and

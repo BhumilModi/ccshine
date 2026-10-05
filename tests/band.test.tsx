@@ -147,6 +147,10 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
   on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
   on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
   on('session.usage', () => ({ value: { startedAt: 1, context: { window: 200_000 }, rateLimits: [] } }))
   on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
   on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
@@ -165,7 +169,7 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
     return all
   }
   const docked = await text({ columns: 140, rows: 40, isFullscreen: true })
-  expect(docked).toContain(' Plan ')
+  expect(docked).not.toContain(' Plan ')
   expect(docked).not.toContain('general-purpose')
   expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
   expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
@@ -183,6 +187,10 @@ test('a docked rail takes every agent, earlier turns included, out of the band',
   on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
   on('agent.spawn', (_$: unknown, e: { tool_use_id: string }) => ({ model: 'm', agentId: e.tool_use_id === 'tu1' ? 'ag1' : 'ag2' }))
   on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
   const spawn = async (id: string, description: string) => {
     await $.tool.call({ tool: 'Agent', tool_use_id: id, description, prompt: 'p', subagent_type: 'general-purpose' } as never)
     await $.agent.spawn({ tool_use_id: id, prompt: 'p', description, subagentType: 'general-purpose', provider: { plugin: 'engine', tier: 'core' }, parentModel: 'm', background: true, fork: false })
@@ -197,7 +205,7 @@ test('a docked rail takes every agent, earlier turns included, out of the band',
   await spawn('tu2', 'Newer agent')
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport: { columns: 140, rows: 40, isFullscreen: true } })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
-  expect(text).toContain(' Plan ')
+  expect(text).not.toContain(' Plan ')
   expect(text).not.toContain('Older agent')
   expect(text).not.toContain('Newer agent')
 })
@@ -292,6 +300,10 @@ function railWorld(on: any) {
   on('fs.stat', () => ({ value: { kind: 'file', size: 4, mtimeMs: 0, isLink: false } }))
   on('fs.read', () => ({ value: 'ready\n' }))
   on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
 }
 
 async function railPlan($: any) {
@@ -308,12 +320,11 @@ const bandText = async ($: any, viewport: { columns: number; rows: number; isFul
   return all
 }
 
-test('band shows only the Plan line while the rail owns the plan', { options: { dock: false, usage: false } }, async ($, on) => {
+test('band draws no plan while the rail owns it', { options: { dock: false, usage: false } }, async ($, on) => {
   railWorld(on)
   await railPlan($)
   const text = await bandText($, { columns: 140, rows: 40, isFullscreen: true })
-  expect(text).toContain(' Plan ')
-  expect(text).toContain('0/2')
+  expect(text).not.toContain(' Plan ')
   expect(text).not.toContain('1. ')
   expect(text).not.toContain('shell')
   expect(text).not.toContain('show all')

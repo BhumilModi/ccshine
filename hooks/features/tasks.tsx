@@ -238,7 +238,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const doneAt = finishedAt(top)
   const showTasks = opts.tasks && top.length > 0 && (doneAt === undefined || now - doneAt < AGENT_LINGER_MS)
   const showUsage = opts.usage && last !== undefined
-  // A docked rail owns the plan and the shells (features/rail.tsx); the band keeps the Plan line.
+  // A docked rail owns the plan and the shells (features/rail.tsx); the band draws neither.
   const docked = await railDocked($, e)
   const shells = opts.tasks && !docked ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).slice(-MAX_SHELL_ROWS) : []
   if (!showTasks && !showUsage && shells.length === 0) return null
@@ -280,7 +280,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const fit = fitBand({
     maxRows: e.props.maxRows,
     dock: dockKind,
-    header: showTasks,
+    header: showTasks && !docked,
     focus: want.focus,
     shell: want.shell,
     plan: want.plan,
@@ -306,7 +306,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const header = planHeader(ui, C, { ...d, tasks: list }, {
     surface: e.surface,
     columns: e.props.bodyColumns,
-    ...(docked ? {} : { toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) } }),
+    toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
   })
   return band([header, ...body.rows, shell, usage])
 }

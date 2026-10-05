@@ -135,10 +135,10 @@ export function callDetail(tool: string, input: unknown, ran: { result?: unknown
   return lines
 }
 
-// The docked rail splits about 40-25-35: the turn's tool rows, the footer (rule, ctx, cost, failures, files),
-// the plan section. Footer and plan shares are caps; rows they leave go to the tool rows.
-const FOOT_SHARE = 0.25
-const PLAN_SHARE = 0.35
+// The docked rail splits about 40-45-15: the turn's tool rows, the plan section, the footer (rule, cost,
+// failures, files). Plan and footer shares are caps; rows they leave go to the tool rows.
+const PLAN_SHARE = 0.45
+const FOOT_SHARE = 0.15
 
 // The plan section's rows: its share of the rail (all of it when showing all), never less than its header and
 // running task, and never more than the `fixed` rows above it leave.
@@ -148,11 +148,11 @@ export function sectionCap(bodyRows: number, fixed: number, all: boolean): numbe
 }
 
 // Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, the two margins, and the
-// footer's rule, cost and ctx lines. Failures, then files, fill the rest of the footer's share; the tool rows take
+// footer's rule and cost line. Failures, then files, fill the rest of the footer's share; the tool rows take
 // what is left, the axis and an "earlier" marker included. `shown` below `tools` means the marker draws.
 // ponytail: a rail under ~12 rows can still pass bodyRows by its fixed rows; drop margins there if it matters.
-export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; ctx: boolean; files: number; failures: number; section: number }) {
-  const base = 2 + (a.ctx ? 1 : 0)
+export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; files: number; failures: number; section: number }) {
+  const base = 2
   let extra = Math.max(0, Math.floor(a.bodyRows * FOOT_SHARE) - base)
   const failures = Math.min(a.failures, extra)
   extra -= failures
