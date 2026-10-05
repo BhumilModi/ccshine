@@ -181,10 +181,10 @@ test('a plan in a tight band shrinks the running dock to its step line instead o
   expect(roomy.text).toContain('5. five')
 
   const tight = await band($, 'terminal', { maxRows: 9 })
-  expect(tight.rasters).toHaveLength(0)
+  // Nine rows: dock line, header, running task, a four-row crab, calls line.
+  expect(tight.rasters.map((r: any) => r.rows)).toEqual([4])
   expect(tight.text).toContain('Working')
   expect(tight.text).toContain('▶ 1. one')
-  expect(tight.text).toContain('more')
 })
 
 test("with Claude Code's own task list leaving five rows, the idle dock label and the plan header both stay", async ($, on) => {
@@ -207,4 +207,12 @@ test('a band squeezed to seven rows still draws the crab, in a four-row scene', 
   const { rasters, text } = await band($, 'terminal', { maxRows: 7 })
   expect(rasters.map((r: any) => r.rows)).toEqual([4])
   expect(text).toContain('Working')
+})
+
+test('a six-row band keeps the crab over the usage line and the calls line', { options: { usage: true } }, async ($, on) => {
+  const clock = engine(on)
+  await $.turn.start({ text: 'fix it', turnId: 't1' })
+  await clock.advance(2000)
+  const { rasters } = await band($, 'terminal', { maxRows: 6 })
+  expect(rasters.map((r: any) => r.rows)).toEqual([4])
 })

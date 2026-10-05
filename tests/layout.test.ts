@@ -10,13 +10,14 @@ const rows = (a: BandAsk, f: BandFit) =>
   dockRows(f) + (f.margin ? 1 : 0) + (f.header ? 1 : 0) + (f.focus ? 1 : 0) + f.shell + f.plan + (f.tails ? a.tails : 0) + (f.usage ? a.usage : 0)
 
 test('a roomy band keeps the full dock and every plan row', async () => {
-  expect(fitBand(ask)).toEqual({ dock: 'full', scene: 6, margin: true, header: true, focus: true, shell: 0, plan: 6, tails: false, usage: false })
+  expect(fitBand(ask)).toEqual({ dock: 'full', scene: 6, calls: true, margin: true, header: true, focus: true, shell: 0, plan: 6, tails: false, usage: false })
 })
 
-test('a tight band drops the dock picture before the plan, and the plan rows before the dock line', async () => {
-  expect(fitBand({ ...ask, maxRows: 9 })).toMatchObject({ dock: 'compact', header: true, focus: true, plan: 3 })
-  // Claude Code's own task list leaves five rows: dock line, header, task, blank, calls line.
-  expect(fitBand({ ...ask, maxRows: 5 })).toMatchObject({ dock: 'tiny', header: true, focus: true, plan: 0, margin: true })
+test('a tight band keeps the dock line, the plan header and task, then the crab, before more plan rows', async () => {
+  expect(fitBand({ ...ask, maxRows: 9 })).toMatchObject({ dock: 'full', scene: 4, calls: true, header: true, focus: true, plan: 0 })
+  expect(fitBand({ ...ask, maxRows: 12 })).toMatchObject({ dock: 'full', scene: 4, calls: true, margin: true, plan: 2 })
+  // Five rows: dock line, header, task, calls line; no room for the crab.
+  expect(fitBand({ ...ask, maxRows: 5 })).toMatchObject({ dock: 'compact', header: true, focus: true, plan: 0, scene: 0 })
   expect(fitBand({ ...ask, maxRows: 3 })).toMatchObject({ dock: 'tiny', header: true, focus: false, plan: 0 })
   expect(fitBand({ ...ask, maxRows: 2 })).toMatchObject({ dock: 'tiny', header: false })
 })
@@ -32,10 +33,10 @@ test('the band never passes maxRows and always keeps the dock line', async () =>
   }
 })
 
-test('show all asks for every plan row and may scroll', async () => {
-  const f = fitBand({ ...ask, maxRows: 20, plan: 30, expanded: true })
-  expect(f.plan).toBe(30)
-  expect(f.dock).toBe('compact')
+test('show all asks for every plan row and may scroll; the crab keeps its shortest scene', async () => {
+  const f = fitBand({ ...ask, maxRows: 20, plan: 14, expanded: true })
+  expect(f.plan).toBe(14)
+  expect([f.dock, f.scene]).toEqual(['full', 4])
 })
 
 const task = (id: string, status: PlanTask['status'], parent?: string, doneAt?: number): PlanTask => ({
@@ -74,8 +75,12 @@ test('finishedAt is the last finish of a fully done plan, else undefined', async
 test('a squeezed dock shrinks its scene to four rows before dropping it, so the crab still runs', async () => {
   const none = { ...ask, header: false, focus: false, plan: 0 }
   // Claude Code's task list left seven rows: status line, a four-row scene, calls line.
-  expect(fitBand({ ...none, maxRows: 7 })).toMatchObject({ dock: 'full', scene: 4 })
-  expect(fitBand({ ...none, maxRows: 9 })).toMatchObject({ dock: 'full', scene: 6 })
-  expect(fitBand({ ...none, maxRows: 6 })).toMatchObject({ dock: 'compact', scene: 0 })
+  expect(fitBand({ ...none, maxRows: 7 })).toMatchObject({ dock: 'full', scene: 4, calls: true })
+  expect(fitBand({ ...none, maxRows: 9 })).toMatchObject({ dock: 'full', scene: 6, calls: true })
+  // Six rows, as in the live band: the crab before the calls line.
+  expect(fitBand({ ...none, maxRows: 6 })).toMatchObject({ dock: 'full', scene: 4, calls: false })
+  expect(fitBand({ ...none, maxRows: 5 })).toMatchObject({ dock: 'compact', scene: 0, calls: true })
+  // A usage line does not take the crab's rows.
+  expect(fitBand({ ...none, maxRows: 6, usage: 1 })).toMatchObject({ scene: 4, usage: false, margin: false })
   for (let maxRows = 2; maxRows <= 12; maxRows++) expect(rows({ ...none, maxRows }, fitBand({ ...none, maxRows }))).toBeLessThanOrEqual(maxRows)
 })

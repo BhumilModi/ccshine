@@ -381,7 +381,7 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
       </Box>
     )
   }
-  const compact = size === 'compact' || size === 'tiny'
+  const compact = fit.scene === 0
   const cols = Math.max(20, Math.min(SCENE_MAX, e.props.bodyColumns - 2))
   // A squeezed band draws a shorter scene (layout.ts); the dock's frame loop paints at the same height.
   const rows = fit.scene || SCENE_ROWS
@@ -411,7 +411,7 @@ async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<Rend
         {!result && <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>}
       </Box>
       {!compact && <Raster key="dock-scene" columns={cols} rows={rows} cells={encodeCells(sceneCells(view, turn, now, cols, C, rows))} />}
-      {size !== 'tiny' && <Box>
+      {fit.calls && <Box>
         {recent.length === 0 ? (
           <Text color={C.faint} wrap="truncate-end">Waiting for the first tool call</Text>
         ) : (
