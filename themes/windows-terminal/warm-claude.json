@@ -1,0 +1,23 @@
+{
+  "name": "Warm Claude",
+  "background": "#1A1817",
+  "foreground": "#E8E2D9",
+  "cursorColor": "#D97757",
+  "selectionBackground": "#3A3330",
+  "black": "#2A2624",
+  "red": "#E06C5F",
+  "green": "#8FB573",
+  "yellow": "#E2B266",
+  "blue": "#7FA3D1",
+  "purple": "#C49BD6",
+  "cyan": "#7DBFB5",
+  "white": "#C9C2B8",
+  "brightBlack": "#7A746C",
+  "brightRed": "#EC8A7F",
+  "brightGreen": "#A8C98F",
+  "brightYellow": "#EDC889",
+  "brightBlue": "#9DBBE0",
+  "brightPurple": "#D5B5E3",
+  "brightCyan": "#9DD2C9",
+  "brightWhite": "#F4EFE8"
+}

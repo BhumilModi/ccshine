@@ -35,4 +35,6 @@ echo '{}' | node statusline/ccshine-statusline.mjs > /dev/null
 echo 'not json' | node statusline/ccshine-statusline.mjs > /dev/null
 echo '{"model":{"display_name":7},"workspace":{"current_dir":5},"cwd":[1]}' | node statusline/ccshine-statusline.mjs > /dev/null
 echo "status line: ok"
+
+node scripts/build-themes.mjs --check
 echo "verify: ok"

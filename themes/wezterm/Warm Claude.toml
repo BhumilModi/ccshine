@@ -1,0 +1,13 @@
+[colors]
+background = "#1A1817"
+foreground = "#E8E2D9"
+cursor_bg = "#D97757"
+cursor_fg = "#1A1817"
+cursor_border = "#D97757"
+selection_bg = "#3A3330"
+selection_fg = "#E8E2D9"
+ansi = ["#2A2624", "#E06C5F", "#8FB573", "#E2B266", "#7FA3D1", "#C49BD6", "#7DBFB5", "#C9C2B8"]
+brights = ["#7A746C", "#EC8A7F", "#A8C98F", "#EDC889", "#9DBBE0", "#D5B5E3", "#9DD2C9", "#F4EFE8"]
+
+[metadata]
+name = "Warm Claude"
