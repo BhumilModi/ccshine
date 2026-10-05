@@ -34,7 +34,7 @@ export function registerTrack(on: On) {
         const phases = t.phases.at(-1)?.mode === 'tool' ? t.phases : [...t.phases, { mode: 'tool' as const, at: startedAt }]
         // Its crate's course position, once; the dock keeps the last 40 calls (it shows three, and crates only near the crab).
         const call = { id, at: startedAt, label, done: false, dist: travelled(t, startedAt) }
-        return { ...t, phases, calls: [...t.calls, call].slice(-40) }
+        return { ...t, phases, calls: [...t.calls, call].slice(-40), crates: (t.crates ?? t.calls.length) + 1 }
       })
     }
     try {
@@ -65,7 +65,8 @@ export function registerTrack(on: On) {
     await update($, turns, list => [...list, turn].slice(-MAX_TURNS))
     if (e.agentId === undefined) {
       const endedAt = await $.clock.now()
-      await update($, dock, t => (t && t.endedAt === undefined && (t.turnId === undefined || t.turnId === e.turnId) ? { ...t, endedAt } : t))
+      const aborted = e.isAborted || e.reason === 'aborted'
+      await update($, dock, t => (t && t.endedAt === undefined && (t.turnId === undefined || t.turnId === e.turnId) ? { ...t, endedAt, ...(aborted ? { aborted: true } : {}) } : t))
     }
     if (e.agentId !== undefined) {
       const id = e.agentId

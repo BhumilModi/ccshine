@@ -22,7 +22,7 @@ import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
 import type { Segment } from '../theme'
 import { activity } from '../activity'
-import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, site } from '../dock'
+import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
 
 const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
 const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
@@ -349,22 +349,26 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
   site.cols = cols
   const mode = modeAt(turn, now)
   const live = Object.values(await read($, liveCalls)).filter(c => c.agentId === undefined)
-  const step = view.kind === 'outro' ? 'Done' : (activity(live) ?? STEP[mode])
+  const ending = view.kind === 'finish' || view.kind === 'outro'
+  const step = ending ? (turn.aborted ? 'Stopped' : 'Done!') : (activity(live) ?? STEP[mode])
+  const result = ending && !turn.aborted ? score(turn) : undefined
   const spent = phaseTimes(turn, now)
   const color = MODE_COLOR(C)[mode]
   const recent = turn.calls.slice(-3)
   return (
     <Box key="dock" flexDirection="column" marginTop={1} paddingLeft={1}>
       <Box>
-        <Text color={view.kind === 'outro' ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
-        <Text color={C.ink} bold wrap="truncate-end">{view.kind === 'outro' ? step : `${step}…`}</Text>
+        <Text color={ending ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
+        <Text color={C.ink} bold wrap="truncate-end">{ending ? step : `${step}…`}</Text>
+        {result && <Text color={C.warn} bold wrap="truncate-end">{'  ★ '}</Text>}
+        {result && <Text color={C.ink} wrap="truncate-end">{`${result.jumped} jumped · ${result.crates} crates · ${fmtClock(result.ms)}`}</Text>}
         <Box flexGrow={1} />
-        {e.props.bodyColumns >= PHASES_FROM &&
+        {!ending && e.props.bodyColumns >= PHASES_FROM &&
           (['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [
             <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}</Text>,
             <Text key={`s${m}`} color={m === mode ? C.ink : C.faint} wrap="truncate-end">{`${Math.round(spent[m])}s`}</Text>,
           ])}
-        <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>
+        {!result && <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>}
       </Box>
       <Raster key="dock-scene" columns={cols} rows={SCENE_ROWS} cells={encodeCells(sceneCells(view, turn, now, cols, C))} />
       <Box>

@@ -135,3 +135,22 @@ test('the dock keeps a blank row above it, idle and working', async ($, on) => {
   await clock.advance(2000)
   expect(await top()).toBe(1)
 })
+
+test('a finished turn shows the score; a stopped one says so', async ($, on) => {
+  const clock = engine(on)
+  on('turn.complete', () => ({ text: 'ok' }))
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(5000)
+  await $.turn.complete({ answer: 'ok', durationMs: 5000, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.advance(500)
+  const done = (await band($)).text
+  expect(done).toContain('Done!')
+  expect(done).toMatch(/★ \d+ jumped · 0 crates · 5s/)
+  await $.turn.start({ text: 'again', turnId: 't2' })
+  await clock.advance(3000)
+  await $.turn.complete({ answer: '', durationMs: 3000, isAborted: true, turnId: 't2', reason: 'aborted' })
+  await clock.advance(100)
+  const stopped = (await band($)).text
+  expect(stopped).toContain('Stopped')
+  expect(stopped).not.toContain('jumped')
+})

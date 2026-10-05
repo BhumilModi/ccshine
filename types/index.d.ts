@@ -61,6 +61,10 @@ export type DockTurn = {
   calls: { id: string; at: number; label: string; done: boolean; dist?: number }[]
   // Varies the course from turn to turn.
   seed: number
+  // Stopped with Esc: no finish line, no score.
+  aborted?: boolean
+  // Every main-loop tool call this turn (calls keeps only the last 40).
+  crates?: number
 }
 
 declare module 'claude-code' {

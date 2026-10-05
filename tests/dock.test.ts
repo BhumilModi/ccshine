@@ -3,6 +3,7 @@ import { expect, test } from 'claude-code/testing'
 import {
   CRAB,
   DEFAULT,
+  FINISH_MS,
   INTRO_MS,
   OUTRO_MS,
   SCENE_ROWS,
@@ -11,7 +12,9 @@ import {
   encodeCells,
   idleCells,
   modeAt,
+  flagX,
   sceneCells,
+  score,
   travelled,
 } from '../hooks/dock'
 import type { DockTurn } from '../hooks/dock'
@@ -45,8 +48,9 @@ test('view: intro after start, work, outro after end, then idle', async () => {
   expect(dockView(t, 1000 + INTRO_MS / 2)).toEqual({ kind: 'intro', k: 0.5 })
   expect(dockView(t, 1000 + INTRO_MS + 1).kind).toBe('work')
   const done = turn({ startedAt: 1000, endedAt: 9000 })
-  expect(dockView(done, 9000 + OUTRO_MS / 4)).toEqual({ kind: 'outro', k: 0.25 })
-  expect(dockView(done, 9000 + OUTRO_MS + 1).kind).toBe('idle')
+  expect(dockView(done, 9000 + FINISH_MS / 2)).toEqual({ kind: 'finish', k: 0.5 })
+  expect(dockView(done, 9000 + FINISH_MS + OUTRO_MS / 4)).toEqual({ kind: 'outro', k: 0.25 })
+  expect(dockView(done, 9000 + FINISH_MS + OUTRO_MS + 1).kind).toBe('idle')
 })
 
 test('mode follows the latest phase, requesting before any', async () => {
@@ -111,4 +115,30 @@ test('a long turn stays cheap to draw', async () => {
   const start = Date.now()
   for (let f = 0; f < 20; f++) sceneCells({ kind: 'work', k: 0 }, t, now + f * 50, 64, P)
   expect(Date.now() - start).toBeLessThan(100)
+})
+
+test('a stopped turn skips the finish and hops straight home', async () => {
+  const stopped = turn({ startedAt: 1000, endedAt: 9000, aborted: true })
+  expect(dockView(stopped, 9000 + 100).kind).toBe('outro')
+  expect(dockView(stopped, 9000 + OUTRO_MS + 1).kind).toBe('idle')
+})
+
+test('the crab runs through the flag, then hops on the spot', async () => {
+  const t = turn({ endedAt: 20_000, phases: [{ mode: 'responding', at: INTRO_MS }] })
+  expect(crabBox({ kind: 'finish', k: 0.9 }, t, 0).left).toBe(crabBox({ kind: 'finish', k: 0 }, t, 0).left)
+  const hops = [0.65, 0.7, 0.75, 0.8, 0.85, 0.9].map(k => crabBox({ kind: 'finish', k }, t, 0).top)
+  expect(Math.min(...hops)).toBeLessThan(crabBox({ kind: 'finish', k: 0.1 }, t, 0).top)
+  expect(flagX(t, 0, 64)).toBeGreaterThan(crabBox({ kind: 'finish', k: 0 }, t, 0).left)
+  expect(flagX(t, 0.6, 64)).toBeLessThan(crabBox({ kind: 'finish', k: 0.6 }, t, 0).left)
+})
+
+test('score counts what the crab cleared, the crates and the time', async () => {
+  const calls = [{ id: 'a', at: INTRO_MS, label: 'Read', done: true, dist: 0 }, { id: 'b', at: INTRO_MS + 1000, label: 'Edit', done: true, dist: 34 }]
+  const t = turn({ startedAt: 0, endedAt: INTRO_MS + 10_000, phases: [{ mode: 'tool', at: INTRO_MS }], calls, crates: 2 })
+  const s = score(t)
+  expect(s.crates).toBe(2)
+  expect(s.ms).toBe(INTRO_MS + 10_000)
+  // 340 px of course: ambient obstacles every 52 px from 70, plus both crates.
+  expect(s.jumped).toBeGreaterThanOrEqual(5 + 2)
+  expect(s.jumped).toBeLessThanOrEqual(6 + 2)
 })

@@ -7,10 +7,11 @@ import type { DockMode, DockTurn } from '../types'
 
 export type { DockMode, DockTurn }
 
-export type DockView = { kind: 'idle' | 'intro' | 'work' | 'outro'; k: number }
+export type DockView = { kind: 'idle' | 'intro' | 'work' | 'finish' | 'outro'; k: number }
 
 export const INTRO_MS = 900
 export const OUTRO_MS = 800
+export const FINISH_MS = 2400
 export const SCENE_ROWS = 6
 export const IDLE_COLS = 14
 export const IDLE_ROWS = 3
@@ -54,8 +55,11 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k
 export function dockView(turn: DockTurn | undefined, now: number): DockView {
   if (!turn) return { kind: 'idle', k: 0 }
   if (turn.endedAt !== undefined) {
+    // A finished turn crosses the finish line first; one stopped with Esc hops straight home.
+    const finish = turn.aborted ? 0 : FINISH_MS
     const since = now - turn.endedAt
-    return since < OUTRO_MS ? { kind: 'outro', k: Math.max(0, since / OUTRO_MS) } : { kind: 'idle', k: 0 }
+    if (since < finish) return { kind: 'finish', k: Math.max(0, since / finish) }
+    return since - finish < OUTRO_MS ? { kind: 'outro', k: Math.max(0, (since - finish) / OUTRO_MS) } : { kind: 'idle', k: 0 }
   }
   const since = now - turn.startedAt
   return since < INTRO_MS ? { kind: 'intro', k: Math.max(0, since / INTRO_MS) } : { kind: 'work', k: 0 }
@@ -113,6 +117,31 @@ export function course(turn: DockTurn, from: number, to: number): Obstacle[] {
   return items
 }
 
+// Checkered flag on a pole: 'p' pole, 'k' light square, 'w' dark square.
+const FLAG = ['pkwkw', 'pwkwk', 'pkwkw', 'pwkwk', 'p....', 'p....', 'p....', 'p....', 'p....']
+// The flag scrolls in and stops just behind the crab once it has run through (the first 60% of the finish).
+const FLAG_FROM = RUN_X + 40
+const FLAG_TO = RUN_X - 7
+const RUN_IN = 0.6
+
+export function flagX(_turn: DockTurn, k: number, _cols: number): number {
+  return Math.round(lerp(FLAG_FROM, FLAG_TO, Math.min(1, k / RUN_IN)))
+}
+// Pixels the ground scrolls during the finish.
+const finishScroll = (k: number) => FLAG_FROM - lerp(FLAG_FROM, FLAG_TO, Math.min(1, k / RUN_IN))
+// Sparkles around the crab during its victory hops: [dx, dy] from its top-left.
+const SPARKS = [[-3, 0], [CRAB_W + 2, 1], [-2, 4], [CRAB_W + 3, 4], [4, -2], [CRAB_W - 2, -2]] as const
+
+export function score(turn: DockTurn): { jumped: number; crates: number; ms: number } {
+  const end = turn.endedAt ?? turn.startedAt
+  const dist = travelled(turn, end)
+  const passed = (o: Obstacle) => o.at + o.shape[0]!.length / 2 <= dist + CRAB_W / 2
+  const cleared = course(turn, 0, dist).filter(passed).length
+  const crates = turn.crates ?? turn.calls.length
+  // Crates trimmed from `calls` were far behind the crab: all cleared.
+  return { jumped: cleared + Math.max(0, crates - turn.calls.length), crates, ms: end - turn.startedAt }
+}
+
 // Where the crab is, in scene pixels, and which frame it shows.
 export function crabBox(
   view: DockView,
@@ -127,6 +156,12 @@ export function crabBox(
     const hop = Math.min(1, view.k / 0.8)
     if (hop >= 1) return box(RUN_X, rest + 1, SQUASH)
     return box(lerp(IDLE_X, RUN_X, easeOut(hop)), Math.max(0, lerp(0, rest, hop * hop) - 2 * Math.sin(Math.PI * hop)), CRAB[2]!)
+  }
+  if (view.kind === 'finish') {
+    // Sprint through the flag, then two victory hops on the spot.
+    if (view.k < RUN_IN) return box(RUN_X, rest, CRAB[Math.floor(finishScroll(view.k) / 3) % 2]!)
+    const lift = Math.round(3 * Math.abs(Math.sin(2 * Math.PI * ((view.k - RUN_IN) / (1 - RUN_IN)))))
+    return box(RUN_X, rest - lift, lift > 0 ? CRAB[2]! : CRAB[0]!)
   }
   if (view.kind === 'outro') {
     const hop = Math.min(1, view.k / 0.7)
@@ -179,7 +214,12 @@ class Pixels {
 
 export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: number, p: Palette): Uint32Array {
   const px = new Pixels(cols, H)
-  const dist = view.kind === 'work' ? travelled(turn, now) : view.kind === 'outro' ? travelled(turn, turn.endedAt ?? now) : 0
+  const endDist = travelled(turn, turn.endedAt ?? now)
+  const dist =
+    view.kind === 'work' ? travelled(turn, now)
+    : view.kind === 'finish' ? endDist + finishScroll(view.k)
+    : view.kind === 'outro' ? endDist + (turn.aborted ? 0 : finishScroll(1))
+    : 0
   // Clouds drift at a third of the speed.
   for (let i = 0; i < 2; i++) {
     const span = cols + 10
@@ -199,7 +239,16 @@ export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: nu
       o.shape.forEach((row, y) => [...row].forEach((ch, dx) => ch === '#' && px.put(x + dx, GROUND_Y - o.shape.length + y, c)))
     }
   }
+  if (view.kind === 'finish' || (view.kind === 'outro' && !turn.aborted)) {
+    const fx = flagX(turn, view.kind === 'finish' ? view.k : 1, cols)
+    const colors: Record<string, number> = { p: hex(p.mid), k: hex(p.ink), w: hex(p.segAlt) }
+    FLAG.forEach((row, y) => [...row].forEach((c, x) => c !== '.' && px.put(fx + x, GROUND_Y - FLAG.length + y, colors[c]!)))
+  }
   const crab = crabBox(view, turn, now, obstacles)
+  if (view.kind === 'finish' && view.k >= RUN_IN) {
+    const beat = Math.floor((view.k * FINISH_MS) / 150)
+    SPARKS.forEach(([dx, dy], i) => (beat + i) % 2 === 0 && px.put(crab.left + dx, crab.top + dy, hex(i % 2 ? p.warn : p.accent)))
+  }
   px.sprite(crab.frame, crab.left, crab.top, hex(p.accent), hex(p.onAccent))
   return px.cells()
 }
