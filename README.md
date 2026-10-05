@@ -81,7 +81,7 @@ ccshine comes with a terminal colour theme and a font, so the whole terminal mat
 |---|---|---|
 | macOS | `~/Library/Fonts` | `~/.config/ghostty/themes/Warm Claude` |
 | Linux | `~/.local/share/fonts` (or `$XDG_DATA_HOME/fonts`), then `fc-cache` | `~/.config/ghostty/themes/Warm Claude` (or under `$XDG_CONFIG_HOME`) |
-| Windows | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, registered for your user (Windows 10 1809 or later, no admin) | Not copied: paste the Windows Terminal scheme yourself |
+| Windows | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, registered for your user (Windows 10 1809 or later, no admin); restart your terminal to see it | Not copied: paste the Windows Terminal scheme yourself |
 
 Under WSL or over SSH your terminal runs on another machine, so ccshine installs nothing there; `/ccshine-setup` shows where the font files are so you can install them on that machine. Turn all of this off with **Install font and theme** in `/config`. Run `/ccshine-setup` at any time to install again and see the steps for your terminal.
 
