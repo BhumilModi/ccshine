@@ -270,11 +270,12 @@ export function registerRail(on: On) {
       }
     }
 
-    const foot = []
+    // The time axis closes the timeline, above the plan section.
     if (bars && rows.length > 0) {
       const label = fmtShort(end - start)
-      foot.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
+      body.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
     }
+    const foot = []
     if (!isInline) {
       const label = (text: string, color = C.faint) => <Box flexShrink={0}><Text color={color}>{text.padEnd(TOOL)}</Text></Box>
       foot.push(<Text key="rule" color={C.track}>{'╌'.repeat(width)}</Text>)

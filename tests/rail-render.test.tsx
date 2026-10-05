@@ -272,6 +272,10 @@ test('rail draws the plan between the tool rows and the footer', OFF, async ($, 
   // Tool names are Text; targets are Buttons, which textOf lists last.
   expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('Read'))
   expect(text.indexOf(' Plan ')).toBeLessThan(text.indexOf('cost'))
+  // The timeline's axis stays under the tool rows, above the plan.
+  const axis = text.search(/\| {4,}0s +\d/)
+  expect(axis).toBeGreaterThan(-1)
+  expect(axis).toBeLessThan(text.indexOf(' Plan '))
 })
 
 test('rail plan stays within 45% of its height', OFF, async ($, on) => {
