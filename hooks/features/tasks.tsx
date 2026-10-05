@@ -34,9 +34,8 @@ const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
 // The prompt dock's turn (features/dock.tsx) and the calls in flight (features/track.tsx).
 const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 const liveCalls = atom({ plugin: 'tidepool', key: 'live' } as const, {})
-// The tracker's calls and the rail's turns: a docked rail shows the newest turn's agents itself.
+// The tracker's calls, for the shell rows.
 const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
-const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 // Background shells (features/track.tsx) and past shell durations by command, for the band's shell rows.
 const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
@@ -226,11 +225,6 @@ async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
   }
 }
 
-async function onRail($: EngineInterface, agent: PlanAgent): Promise<boolean> {
-  const call = agent.callId === undefined ? undefined : (await read($, calls))[agent.callId]
-  const newest = (await read($, spans)).at(-1)
-  return call !== undefined && newest !== undefined && call.startedAt >= newest.startedAt
-}
 
 // The plan, its agents, running shells and the usage rows, fitted with the dock into the band's rows.
 // Null when there is nothing to show; `dock` is the size the dock should draw at.
@@ -244,7 +238,9 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const doneAt = finishedAt(top)
   const showTasks = opts.tasks && top.length > 0 && (doneAt === undefined || now - doneAt < AGENT_LINGER_MS)
   const showUsage = opts.usage && last !== undefined
-  const shells = opts.tasks ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).slice(-MAX_SHELL_ROWS) : []
+  // A docked rail owns the plan and the shells (features/rail.tsx); the band keeps the Plan line.
+  const docked = await railDocked($, e)
+  const shells = opts.tasks && !docked ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).slice(-MAX_SHELL_ROWS) : []
   if (!showTasks && !showUsage && shells.length === 0) return null
   const C = palette()
   const ui = $.ui.resolve(e)
@@ -263,9 +259,6 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     }
   }
 
-  const docked = await railDocked($, e)
-  const listed = []
-  for (const agent of await read($, agents)) if (!docked || !(await onRail($, agent))) listed.push(agent)
   const finished = doneAt !== undefined
   const tails: Record<string, string> = {}
   for (const r of shells) {
@@ -275,7 +268,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   }
   const d: PlanData = {
     tasks: showTasks && !finished ? list : [],
-    agents: agentRows(listed, turnList),
+    agents: agentRows(await read($, agents), turnList),
     shells,
     tails,
     shellHistory: (await read($, shellHistory)) ?? {},
@@ -283,7 +276,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     now,
     all: await read($, planAll),
   }
-  const want = planWanted(d)
+  const want = docked ? { plan: 0, shell: 0, tails: 0, focus: false } : planWanted(d)
   const fit = fitBand({
     maxRows: e.props.maxRows,
     dock: dockKind,
@@ -313,7 +306,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const header = planHeader(ui, C, { ...d, tasks: list }, {
     surface: e.surface,
     columns: e.props.bodyColumns,
-    toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
+    ...(docked ? {} : { toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) } }),
   })
   return band([header, ...body.rows, shell, usage])
 }

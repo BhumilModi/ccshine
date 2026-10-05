@@ -165,13 +165,13 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
     return all
   }
   const docked = await text({ columns: 140, rows: 40, isFullscreen: true })
-  expect(docked).toContain('tests')
+  expect(docked).toContain(' Plan ')
   expect(docked).not.toContain('general-purpose')
   expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
   expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
 })
 
-test('a docked rail keeps running agents from earlier turns in the band', { options: { dock: false } }, async ($, on) => {
+test('a docked rail takes every agent, earlier turns included, out of the band', { options: { dock: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   on('session.root', () => ({ value: '/repo/a' }))
@@ -197,7 +197,8 @@ test('a docked rail keeps running agents from earlier turns in the band', { opti
   await spawn('tu2', 'Newer agent')
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport: { columns: 140, rows: 40, isFullscreen: true } })
   const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
-  expect(text).toContain('Older agent')
+  expect(text).toContain(' Plan ')
+  expect(text).not.toContain('Older agent')
   expect(text).not.toContain('Newer agent')
 })
 
@@ -279,4 +280,49 @@ test('sub-items nest under their running task, count apart from the plan, and sh
   await ui.press({ key: 'all' })
   expect(await text()).not.toContain('handlers')
   await ui.unmount()
+})
+
+function railWorld(on: any) {
+  mock.clock(on)
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e: any) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  on('tool.call', { tool: 'Bash' }, () => ({ result: { backgroundTaskId: 'j1' }, text: 'Output is being written to: /t/j1.output' }))
+  on('fs.stat', () => ({ value: { kind: 'file', size: 4, mtimeMs: 0, isLink: false } }))
+  on('fs.read', () => ({ value: 'ready\n' }))
+  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+}
+
+async function railPlan($: any) {
+  await $.tool.call({ tool: 'TaskCreate', subject: 'schema', description: '' })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'routes', description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'schema', status: 'in_progress' })
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'b1', command: 'pnpm dev', description: 'Dev server', run_in_background: true })
+}
+
+const bandText = async ($: any, viewport: { columns: number; rows: number; isFullscreen: boolean }) => {
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport })
+  const all = [...(await ui.findAll({ type: 'Text' })).map((t: any) => t.text), ...(await ui.findAll({ type: 'Button' })).map((b: any) => String(b.props.label ?? ''))].join('')
+  await ui.unmount()
+  return all
+}
+
+test('band shows only the Plan line while the rail owns the plan', { options: { dock: false, usage: false } }, async ($, on) => {
+  railWorld(on)
+  await railPlan($)
+  const text = await bandText($, { columns: 140, rows: 40, isFullscreen: true })
+  expect(text).toContain(' Plan ')
+  expect(text).toContain('0/2')
+  expect(text).not.toContain('1. ')
+  expect(text).not.toContain('shell')
+  expect(text).not.toContain('show all')
+})
+
+test('band takes the plan back when the rail undocks', { options: { dock: false, usage: false } }, async ($, on) => {
+  railWorld(on)
+  await railPlan($)
+  const text = await bandText($, { columns: 100, rows: 40, isFullscreen: true })
+  expect(text).toContain('1. schema')
+  expect(text).toContain('shell')
 })
