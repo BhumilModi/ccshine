@@ -176,7 +176,8 @@ function terminalApp(t) {
     ['CursorColor', data(nsColor(t.cursor))],
     ['Font', data(nsFont('MapleMono-NF-Regular', 14))],
     ['FontAntialias', '<true/>'],
-    ['FontHeightSpacing', '<real>1</real>'],
+    // Terminal adds its own leading; at 0.9 rows of block and powerline glyphs meet exactly (checked on macOS 27).
+    ['FontHeightSpacing', '<real>0.9</real>'],
     ['FontWidthSpacing', '<real>1</real>'],
     ['ProfileCurrentVersion', '<real>2.09</real>'],
     ['SelectionColor', data(nsColor(t.selectionBackground))],
