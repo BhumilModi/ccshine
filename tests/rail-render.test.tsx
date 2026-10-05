@@ -224,3 +224,15 @@ test('/tidepool-rail closes an open rail and opens a closed one', OFF, async ($,
   await $.command.run({ command: 'tidepool-rail', args: '' } as never)
   expect(w.opened.length).toBe(2)
 })
+
+test('with the warm theme the rail paints the Warm Claude background', { options: { ...OFF.options, theme: 'warm' } }, async ($, on) => {
+  world(on)
+  const ui = await $.ui.mount(pane())
+  expect((await ui.find({ type: 'Box' }))?.props.backgroundColor).toBe('#1A1817')
+})
+
+test('with any other theme the rail keeps Claude Code\'s panel colour', OFF, async ($, on) => {
+  world(on)
+  const ui = await $.ui.mount(pane())
+  expect((await ui.find({ type: 'Box' }))?.props.backgroundColor).toBeUndefined()
+})
