@@ -9,7 +9,7 @@
     {
       "name": "tidepool",
       "source": "./",
-      "description": "Each turn's tools, agents and background jobs fold into one line that opens into a timeline, plus a themed transcript, status line, tasks band and chimes for Claude Code.",
+      "description": "Every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and chimes for Claude Code.",
       "version": "0.1.0",
       "homepage": "https://github.com/BhumilModi/tidepool"
     }

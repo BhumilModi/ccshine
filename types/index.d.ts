@@ -139,10 +139,10 @@ declare module 'claude-code' {
       spans: TurnSpan[]
       jobs: Job[]
       chat: number
-      // Turns the person folded (false) or unfolded (true); absent, a turn is open while it runs.
-      railFold: Record<string, boolean>
+      railSel: { turnId?: string; pinned: boolean }
       railOpen: string[]
       railNow: number
+      anchorsSeen: Record<string, boolean>
     }
   }
 }

@@ -3,20 +3,31 @@ import type { EngineInterface, On } from 'claude-code'
 
 import { encodeCells, idleCells, site } from '../dock'
 import { oldStore } from '../migrate'
+import { anchorsOnScreen } from '../rail'
 import { opts } from '../options'
 import { palette } from '../theme'
 import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
 import type { InstallOutcome } from '../setup'
 
 const STATUSLINE = 'tidepool-statusline'
-// The side pane the Tide rail used to be drawn in; a hot reload from that version can leave it open.
-const OLD_RAIL_PANE = 'tidepool-rail'
+// The Tide rail (features/rail.tsx): this module owns session.start, so the rail opens here.
+const RAIL_ID = 'tidepool-rail'
 const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const railNow = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
+const anchorsSeen = atom({ plugin: 'tidepool', key: 'anchorsSeen' } as const, {})
+const railSel = atom({ plugin: 'tidepool', key: 'railSel' } as const, { pinned: false })
 
-// The timeline's live rows grow once a second, only while a turn or a background job runs.
+// The rail's live rows grow once a second, only while a turn or a background job runs.
+// The same tick carries the anchors on screen into state; a change means a scroll, which ends a pin.
 async function tickRail($: EngineInterface) {
+  const shown = await read($, anchorsSeen)
+  const changed = anchorsOnScreen.size !== Object.keys(shown).length || [...anchorsOnScreen].some(([id, on]) => shown[id] !== on)
+  if (changed) {
+    const next = Object.fromEntries(anchorsOnScreen)
+    await update($, anchorsSeen, () => next)
+    await update($, railSel, sel => (sel.pinned ? { ...sel, pinned: false } : sel))
+  }
   const isLive = (await read($, spans)).some(s => s.endedAt === undefined) || (await read($, jobs)).some(j => j.status === 'running')
   if (isLive) {
     const at = await $.clock.now()
@@ -118,8 +129,10 @@ async function migrateHistory($: EngineInterface): Promise<void> {
 export function registerStartup(on: On) {
   on('session.start', async ($, e, next) => {
     await migrateHistory($)
-    // A hot reload from the version that drew the rail in a pane leaves that pane open with nothing to draw it.
-    for (const pane of await $.ui.panes().catch(() => [])) if (pane.id === OLD_RAIL_PANE) await $.ui.close({ id: OLD_RAIL_PANE })
+    // A hot reload keeps the old rail open with nothing left to draw it; start from a fresh one.
+    for (const pane of await $.ui.panes().catch(() => [])) if (pane.id === RAIL_ID) await $.ui.close({ id: RAIL_ID })
+    await $.command.register({ name: RAIL_ID, description: 'Show or hide the Tide rail: tool calls, agents and background jobs beside the chat' })
+    if (opts.rail && opts.tools) await $.ui.open({ id: RAIL_ID, title: 'tidepool' }).catch(() => undefined)
     $.clock.every(1000, () => void tickRail($))
     await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the Tidepool status line' })
     await $.command.register({ name: SETUP, description: 'Install the Maple Mono NF font and Warm Claude theme, and show how to use them in your terminal' })
