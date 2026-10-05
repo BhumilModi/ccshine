@@ -121,3 +121,17 @@ test('the plan leaves room for the dock', async ($, on) => {
   const shown = (text.match(/task \d+/g) ?? []).length
   expect(shown).toBeLessThanOrEqual(12 - 3 - 3)
 })
+
+test('the dock keeps a blank row above it, idle and working', async ($, on) => {
+  const clock = engine(on)
+  const top = async () => {
+    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
+    const dock = (await ui.findAll({ type: 'Box' })).find((b: any) => b.key === 'dock')
+    await ui.unmount()
+    return dock?.props.marginTop
+  }
+  expect(await top()).toBe(1)
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(2000)
+  expect(await top()).toBe(1)
+})

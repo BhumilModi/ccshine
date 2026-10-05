@@ -144,8 +144,8 @@ export function registerTasks(on: On) {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const docking = opts.dock && e.surface === 'terminal' && !e.props.hasSurvey
-    // The plan gives up the dock's rows: three idle, eight while a turn runs.
-    const reserve = docking ? (dockView((await read($, dock)) ?? undefined, await $.clock.now()).kind === 'idle' ? IDLE_ROWS : SCENE_ROWS + 2) : 0
+    // The plan gives up the dock's rows: three idle, eight while a turn runs, plus the blank row above it.
+    const reserve = docking ? 1 + (dockView((await read($, dock)) ?? undefined, await $.clock.now()).kind === 'idle' ? IDLE_ROWS : SCENE_ROWS + 2) : 0
     const plan = e.props.hasSurvey ? null : await planBand($, e, reserve)
     const docked = docking ? await dockBand($, e) : null
     if (!docked) {
@@ -325,7 +325,7 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
     site.cols = undefined
     const project = (await $.session.root()).split(/[\\/]/).filter(Boolean).pop() ?? ''
     return (
-      <Box key="dock" paddingLeft={1}>
+      <Box key="dock" marginTop={1} paddingLeft={1}>
         <Raster key="dock-idle" columns={IDLE_COLS} rows={IDLE_ROWS} cells={encodeCells(idleCells(false, C))} />
         <Box flexDirection="column" flexGrow={1}>
           <Text> </Text>
@@ -354,7 +354,7 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
   const color = MODE_COLOR(C)[mode]
   const recent = turn.calls.slice(-3)
   return (
-    <Box key="dock" flexDirection="column" paddingLeft={1}>
+    <Box key="dock" flexDirection="column" marginTop={1} paddingLeft={1}>
       <Box>
         <Text color={view.kind === 'outro' ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
         <Text color={C.ink} bold wrap="truncate-end">{view.kind === 'outro' ? step : `${step}…`}</Text>
