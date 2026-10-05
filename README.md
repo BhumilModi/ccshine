@@ -68,19 +68,53 @@ git clone https://github.com/BhumilModi/ccshine
 claude --plugin-dir ./ccshine
 ```
 
+## Warm Claude look
+
+ccshine comes with a terminal colour theme and a font, so the whole terminal matches what ccshine draws.
+
+- **Font: [Maple Mono NF](https://github.com/subframe7536/maple-font)** (v7.9, with Nerd Font glyphs for the powerline separators). Rounded shapes and cursive italics; your prompts are drawn in italic.
+- **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm and Alacritty under [`themes/`](themes). Set ccshine's Theme to `warm` to match it.
+
+**What installs by itself.** On the first session after you install ccshine, it copies what is missing (it never overwrites a file) and shows one toast:
+
+| System | Font goes to | Theme goes to |
+|---|---|---|
+| macOS | `~/Library/Fonts` | `~/.config/ghostty/themes/Warm Claude` |
+| Linux | `~/.local/share/fonts` (or `$XDG_DATA_HOME/fonts`), then `fc-cache` | `~/.config/ghostty/themes/Warm Claude` (or under `$XDG_CONFIG_HOME`) |
+| Windows | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, registered for your user (Windows 10 1809 or later, no admin) | Not copied: paste the Windows Terminal scheme yourself |
+
+Turn this off with **Install font and theme** in `/config`. Run `/ccshine-setup` at any time to install again and see the steps for your terminal.
+
+**What you do once in your terminal.** No terminal lets a plugin change its font or colours, so pick them yourself (size 14 and line height 1.2 look right):
+
+| Terminal | Font | Colours |
+|---|---|---|
+| Ghostty | `font-family = Maple Mono NF` | `theme = Warm Claude` |
+| iTerm2 | Settings → Profiles → Text → Font | Profiles → Colors → Color Presets → Import `themes/iterm2/Warm Claude.itermcolors` |
+| Windows Terminal | Profile → Appearance → Font face | Paste `themes/windows-terminal/warm-claude.json` into `schemes`, then pick it (restart the terminal first so it sees the font) |
+| kitty | `font_family Maple Mono NF` | `include <ccshine>/themes/kitty/warm-claude.conf` |
+| WezTerm | `font = wezterm.font 'Maple Mono NF'` | Copy `themes/wezterm/Warm Claude.toml` into your `colors` folder, then `color_scheme = 'Warm Claude'` |
+| Alacritty | `font.normal.family = "Maple Mono NF"` | `import = ["<ccshine>/themes/alacritty/warm-claude.toml"]` |
+| Others | Pick Maple Mono NF | The colours are in `themes/warm-claude.json` |
+
+`/ccshine-setup` prints this table with the full paths to your install.
+
+Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.txt`](fonts/OFL.txt).
+
 ## Settings
 
 Open `/config` and find the ccshine rows. Every switched-off feature leaves Claude Code's own display exactly as it was.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Theme | `claude` | Colours for everything ccshine draws, including the status line: `claude`, `nord`, `dracula`, `mono` |
-| Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, otherwise you see empty boxes |
+| Theme | `claude` | Colours for everything ccshine draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
+| Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, such as the bundled Maple Mono NF; otherwise you see empty boxes |
 | Tasks band | on | Tasks, time left and agents above the prompt |
 | Tool rows | on | One-line tool calls |
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
 | Prompt chrome | on | Mode chips, notices and the background hint; hides the `Baked for` line between turns |
+| Install font and theme | on | Copy the bundled Maple Mono NF font and Warm Claude theme on first start (see [Warm Claude look](#warm-claude-look)) |
 | Usage line | on | Cold-cache warnings and the token split by agent above the prompt |
 | Attention alerts | on | Chime and toast |
 | Alert after (seconds) | `30` | Only alert for turns at least this long |
@@ -109,7 +143,7 @@ git clone https://github.com/BhumilModi/ccshine && cd ccshine
 CLAUDE_CODE_TYPES=/path/to/claude-code.d.ts ./verify.sh
 ```
 
-`verify.sh` validates the manifest, runs the tests with `claude plugin test`, type-checks with `tsc`, and smoke-runs the status line script.
+`verify.sh` validates the manifest, runs the tests with `claude plugin test`, type-checks with `tsc`, smoke-runs the status line script, and checks the terminal theme files are up to date. After changing `themes/warm-claude.mjs`, run `node scripts/build-themes.mjs`.
 
 Claude Code writes its plugin API types into `.claude-plugin/types/` the first time it loads the plugin (run `claude --plugin-dir .` once). Until then, editors show type errors and `verify.sh` needs `CLAUDE_CODE_TYPES` pointing at a `claude-code.d.ts`: Claude Code's built-in plugin-authoring skill prints that file's path when it loads. `docs/spike.md` records what was checked live against Claude Code 2.1.288.
 
