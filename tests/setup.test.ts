@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { FONT_FILES, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../hooks/setup'
+import { encodePowerShell, FONT_FILES, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../hooks/setup'
 
 test('windows roots are told apart from posix roots', async () => {
   expect(isWindowsRoot('C:\\Users\\a\\.claude\\plugins\\ccshine')).toBe(true)
@@ -43,12 +43,54 @@ test('windows script quotes paths as literals and registers every font', async (
   ])
 })
 
+const done = (copied: string[] = []) => ({ copied, failed: false, remote: false })
+
 test('setup guide names the font, every terminal and absolute theme paths', async () => {
-  const guide = setupGuide('/Users/a/ccshine', ['MapleMono-NF-Regular.ttf'])
+  const guide = setupGuide('/Users/a/ccshine', done(['MapleMono-NF-Regular.ttf']))
   expect(guide).toContain('Maple Mono NF')
   for (const terminal of ['Ghostty', 'iTerm2', 'Windows Terminal', 'kitty', 'WezTerm', 'Alacritty']) expect(guide).toContain(terminal)
   expect(guide).toContain('/Users/a/ccshine/themes/iterm2/Warm Claude.itermcolors')
   expect(guide).toContain('MapleMono-NF-Regular.ttf')
-  expect(setupGuide('C:\\ccshine', [])).toContain('C:\\ccshine\\themes\\windows-terminal\\warm-claude.json')
-  expect(setupGuide('C:\\ccshine', [])).toContain('already installed')
+  expect(setupGuide('C:\\ccshine', done())).toContain('C:\\ccshine\\themes\\windows-terminal\\warm-claude.json')
+})
+
+test('windows script makes the fonts usable without signing out', async () => {
+  const script = windowsInstallScript('C:\\ccshine')
+  expect(script).toContain('AddFontResourceW')
+  expect(script).toContain('SendMessageTimeout')
+  expect(script).toContain('0x001D')
+})
+
+test('windows guide talks about the font only', async () => {
+  const guide = setupGuide('C:\\ccshine', done())
+  expect(guide).toContain('The Maple Mono NF font is already installed.')
+  expect(guide).not.toContain('Warm Claude theme are already installed')
+})
+
+test('kitty and alacritty rows copy the file instead of pointing into the versioned install', async () => {
+  for (const root of ['/Users/a/ccshine', 'C:\\Users\\Jane Doe\\ccshine']) {
+    const guide = setupGuide(root, done())
+    expect(guide).not.toContain(`include ${root}`)
+    expect(guide).not.toContain(`import = ["${root}`)
+    expect(guide).toContain('[general]')
+    expect(guide).toContain("import = ['")
+  }
+})
+
+test('a failed install is reported, not called already installed', async () => {
+  const guide = setupGuide('/Users/a/ccshine', { copied: [], failed: true, remote: false })
+  expect(guide).toContain('could not install')
+  expect(guide).not.toContain('already installed')
+})
+
+test('a remote session says to install the font where the terminal runs', async () => {
+  const guide = setupGuide('/home/a/ccshine', { copied: [], failed: false, remote: true })
+  expect(guide).toContain('another machine')
+  expect(guide).toContain('/home/a/ccshine/fonts')
+})
+
+test('powershell scripts are encoded as base64 UTF-16LE', async () => {
+  expect(encodePowerShell('a')).toBe('YQA=')
+  expect(encodePowerShell('dir')).toBe('ZABpAHIA')
+  expect(encodePowerShell("'é'")).toBe('JwDpACcA')
 })

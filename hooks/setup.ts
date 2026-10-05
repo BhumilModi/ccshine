@@ -38,36 +38,77 @@ export function windowsInstallScript(root: string): string {
     'New-Item -ItemType Directory -Force -Path $dir | Out-Null',
     "$reg = 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts'",
     'if (-not (Test-Path -LiteralPath $reg)) { New-Item -Path $reg -Force | Out-Null }',
+    // Windows only picks up a new per-user font at the next sign-in unless it is added to the session and announced.
+    // A locked-down PowerShell refuses Add-Type: the fonts are still copied and registered, and show up after sign-in.
+    "try { Add-Type -Namespace Ccshine -Name Fonts -MemberDefinition '" +
+      '[DllImport("gdi32.dll", CharSet = CharSet.Unicode)] public static extern int AddFontResourceW(string file); ' +
+      '[DllImport("user32.dll")] public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint msg, System.UIntPtr wParam, System.IntPtr lParam, uint flags, uint timeout, out System.UIntPtr result);' +
+      "'; $live = $true } catch { $live = $false }",
+    '$added = 0',
   ]
   for (const font of FONT_FILES) {
     lines.push(
       `$dst = Join-Path $dir ${literal(font.file)}`,
       `if (-not (Test-Path -LiteralPath $dst)) { Copy-Item -LiteralPath (Join-Path $src ${literal(font.file)}) -Destination $dst; ` +
         `New-ItemProperty -Path $reg -Name ${literal(font.registryName)} -Value $dst -PropertyType String -Force | Out-Null; ` +
-        `'copied ${font.file}' }`,
+        `if ($live) { [void][Ccshine.Fonts]::AddFontResourceW($dst) }; $added++; 'copied ${font.file}' }`,
     )
   }
+  // WM_FONTCHANGE (0x001D) to every top-level window, so running apps refresh their font lists.
+  lines.push('if ($live -and $added -gt 0) { $r = [System.UIntPtr]::Zero; [void][Ccshine.Fonts]::SendMessageTimeout([System.IntPtr]0xffff, 0x001D, [System.UIntPtr]::Zero, [System.IntPtr]::Zero, 2, 1000, [ref]$r) }')
   return lines.join('\n')
 }
 
-export function setupGuide(root: string, installed: readonly string[]): string {
-  const sep = isWindowsRoot(root) ? '\\' : '/'
-  const theme = (...parts: string[]) => `\`${[root.replace(/[\\/]+$/, ''), 'themes', ...parts].join(sep)}\``
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+// `powershell -EncodedCommand` takes base64 of UTF-16LE, which no Windows argument quoting can mangle.
+export function encodePowerShell(script: string): string {
+  const bytes: number[] = []
+  for (let i = 0; i < script.length; i++) {
+    const unit = script.charCodeAt(i)
+    bytes.push(unit & 0xff, unit >> 8)
+  }
+  let out = ''
+  for (let i = 0; i < bytes.length; i += 3) {
+    const [a, b, c] = [bytes[i]!, bytes[i + 1], bytes[i + 2]]
+    const n = (a << 16) | ((b ?? 0) << 8) | (c ?? 0)
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + (b === undefined ? '=' : B64[(n >> 6) & 63]!) + (c === undefined ? '=' : B64[n & 63]!)
+  }
+  return out
+}
+
+export type InstallOutcome = { copied: readonly string[]; failed: boolean; remote: boolean }
+
+export function setupGuide(root: string, outcome: InstallOutcome): string {
+  const windows = isWindowsRoot(root)
+  const sep = windows ? '\\' : '/'
+  const base = root.replace(/[\\/]+$/, '')
+  const path = (...parts: string[]) => [base, ...parts].join(sep)
+  const theme = (...parts: string[]) => `\`${path('themes', ...parts)}\``
+  const status = outcome.remote
+    ? `This session runs on another machine than your terminal (WSL or SSH), so ccshine did not install the font here. Copy the files in \`${path('fonts')}\` to the machine your terminal runs on and install them there.`
+    : outcome.failed
+      ? `ccshine could not install the font: \`claude --debug\` shows why. The files are in \`${path('fonts')}\`.`
+      : outcome.copied.length > 0
+        ? `Installed: ${outcome.copied.join(', ')}.`
+        : windows
+          ? `The ${FONT_FAMILY} font is already installed.`
+          : `The ${FONT_FAMILY} font and ${GHOSTTY_THEME} theme are already installed.`
   return [
-    installed.length > 0
-      ? `Installed: ${installed.join(', ')}.`
-      : `The ${FONT_FAMILY} font and ${GHOSTTY_THEME} theme are already installed.`,
+    status,
     '',
-    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.2 suggested), then load the ${GHOSTTY_THEME} colours. On Windows, restart the terminal first so it sees the new font.`,
+    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.2 suggested), then load the ${GHOSTTY_THEME} colours. Restart the terminal first so it sees the new font.`,
     '',
     '| Terminal | Font | Colours |',
     '|---|---|---|',
-    `| Ghostty | \`font-family = ${FONT_FAMILY}\` | \`theme = ${GHOSTTY_THEME}\` (already in your Ghostty themes folder) |`,
+    `| Ghostty | \`font-family = ${FONT_FAMILY}\` | \`theme = ${GHOSTTY_THEME}\` (on macOS and Linux it is already in your Ghostty themes folder) |`,
     `| iTerm2 | Settings → Profiles → Text → Font | Profiles → Colors → Color Presets → Import ${theme('iterm2', 'Warm Claude.itermcolors')} |`,
     `| Windows Terminal | Profile → Appearance → Font face | Paste ${theme('windows-terminal', 'warm-claude.json')} into \`schemes\` in settings.json, then pick it |`,
-    `| kitty | \`font_family ${FONT_FAMILY}\` | \`include ${theme('kitty', 'warm-claude.conf').slice(1, -1)}\` |`,
+    `| kitty | \`font_family ${FONT_FAMILY}\` | Copy ${theme('kitty', 'warm-claude.conf')} into your kitty config folder, then \`include warm-claude.conf\` |`,
     `| WezTerm | \`font = wezterm.font '${FONT_FAMILY}'\` | Copy ${theme('wezterm', 'Warm Claude.toml')} into your \`colors\` folder, then \`color_scheme = '${GHOSTTY_THEME}'\` |`,
-    `| Alacritty | \`font.normal.family = "${FONT_FAMILY}"\` | \`import = ["${theme('alacritty', 'warm-claude.toml').slice(1, -1)}"]\` |`,
+    `| Alacritty | \`font.normal.family = "${FONT_FAMILY}"\` | Copy ${theme('alacritty', 'warm-claude.toml')} into your Alacritty config folder, then add \`[general]\` with \`import = ['<that copy's full path>']\` |`,
     `| Others | Pick ${FONT_FAMILY} | The colours are in ${theme('warm-claude.json')} |`,
+    '',
+    'Copies in your own config folders keep working after ccshine updates; the install folder above changes with each version.',
   ].join('\n')
 }

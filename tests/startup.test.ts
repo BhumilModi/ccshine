@@ -2,6 +2,8 @@ import { expect, test } from 'claude-code/testing'
 
 import { FONT_FILES } from '../hooks/setup'
 
+const WINDOWS_TOAST =
+  'ccshine installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /ccshine-setup has the steps.'
 const TOAST =
   'ccshine installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /ccshine-setup has the steps.'
 
@@ -17,10 +19,12 @@ type Machine = {
 function machine(on: any, m: Machine) {
   const runs: string[][] = []
   const toasts: string[] = []
+  const stdins: (string | undefined)[] = []
   on('env.get', (_$: unknown, e: { name: string }) => ({ value: m.env?.[e.name] }))
   on('fs.exists', (_$: unknown, e: { path: string }) => ({ value: (m.existing ?? []).some(p => e.path.endsWith(p)) }))
-  on('process.run', (_$: unknown, e: { argv: string[] }) => {
+  on('process.run', (_$: unknown, e: { argv: string[]; init?: { stdin?: string } }) => {
     runs.push([...e.argv])
+    if (e.argv[0] === 'powershell') stdins.push(e.init?.stdin)
     const [cmd] = e.argv
     if (cmd === 'uname') {
       if (m.uname instanceof Error) throw m.uname
@@ -39,7 +43,7 @@ function machine(on: any, m: Machine) {
   on('config.list', () => ({ value: [] }))
   on('command.register', (_$: unknown, e: { name: string }) => ({ value: { command: e.name, agent: '' } }))
   on('session.start', () => ({ cwd: '/repo' }))
-  return { runs, toasts }
+  return { runs, toasts, stdins }
 }
 
 const start = ($: any) => $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
@@ -84,12 +88,15 @@ test('windows runs one powershell call and toasts what it copied', async ($, on)
   await start($)
   const ps = runs.filter(r => r[0] === 'powershell')
   expect(ps).toHaveLength(1)
-  expect(ps[0]!.slice(0, 4)).toEqual(['powershell', '-NoProfile', '-NonInteractive', '-Command'])
+  expect(ps[0]!.slice(0, 4)).toEqual(['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand'])
   // The test kit's $ has no plugin root, so check the script's shape rather than its exact text.
-  for (const font of FONT_FILES) expect(ps[0]![4]).toContain(`'${font.registryName}'`)
-  expect(ps[0]![4]).toContain("$env:LOCALAPPDATA")
+  const bytes = atob(ps[0]![4]!)
+  let script = ''
+  for (let i = 0; i < bytes.length; i += 2) script += String.fromCharCode(bytes.charCodeAt(i) | (bytes.charCodeAt(i + 1) << 8))
+  for (const font of FONT_FILES) expect(script).toContain(`'${font.registryName}'`)
+  expect(script).toContain('$env:LOCALAPPDATA')
   expect(runs.some(r => r[0] === 'uname' || r[0] === 'cp')).toBe(false)
-  expect(toasts).toEqual([TOAST])
+  expect(toasts).toEqual([WINDOWS_TOAST])
 })
 
 test('windows with nothing copied shows no toast', async ($, on) => {
@@ -123,4 +130,31 @@ test('/ccshine-setup installs and prints the guide', async ($, on) => {
   const { text } = await $.command.run({ command: 'ccshine-setup', args: '' } as never)
   expect(text).toContain(`Installed: ${[...FONT_FILES.map(f => f.file), 'Warm Claude'].join(', ')}.`)
   expect(text).toContain('| iTerm2 |')
+})
+
+test('windows skips powershell when every font is already there', async ($, on) => {
+  const existing = FONT_FILES.map(f => `\\Microsoft\\Windows\\Fonts\\${f.file}`)
+  const { runs, toasts } = machine(on, { env: { OS: 'Windows_NT', LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local' }, existing })
+  await start($)
+  expect(runs.filter(r => r[0] === 'powershell')).toHaveLength(0)
+  expect(toasts).toEqual([])
+})
+
+test('powershell gets closed standard input so it cannot wait on it', async ($, on) => {
+  const { stdins } = machine(on, { env: { OS: 'Windows_NT', LOCALAPPDATA: 'C:\\L' }, powershellOut: '' })
+  await start($)
+  expect(stdins).toEqual([''])
+})
+
+test('WSL and SSH sessions install nothing and show no toast', async ($, on) => {
+  const { runs, toasts } = machine(on, { uname: 'Linux', env: { HOME: '/home/a', WSL_DISTRO_NAME: 'Ubuntu' } })
+  await start($)
+  expect(copies(runs)).toHaveLength(0)
+  expect(toasts).toEqual([])
+})
+
+test('ssh sessions install nothing', async ($, on) => {
+  const { runs } = machine(on, { uname: 'Linux', env: { HOME: '/home/a', SSH_CONNECTION: '10.0.0.2 51000 10.0.0.1 22' } })
+  await start($)
+  expect(copies(runs)).toHaveLength(0)
 })

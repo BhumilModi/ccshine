@@ -75,7 +75,7 @@ ccshine comes with a terminal colour theme and a font, so the whole terminal mat
 - **Font: [Maple Mono NF](https://github.com/subframe7536/maple-font)** (v7.9, with Nerd Font glyphs for the powerline separators). Rounded shapes and cursive italics; your prompts are drawn in italic.
 - **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm and Alacritty under [`themes/`](themes). Set ccshine's Theme to `warm` to match it.
 
-**What installs by itself.** On the first session after you install ccshine, it copies what is missing (it never overwrites a file) and shows one toast:
+**What installs by itself.** When a session starts, ccshine copies whatever of these is missing (it never overwrites a file); the first session after you install ccshine does the work and shows one toast:
 
 | System | Font goes to | Theme goes to |
 |---|---|---|
@@ -83,7 +83,7 @@ ccshine comes with a terminal colour theme and a font, so the whole terminal mat
 | Linux | `~/.local/share/fonts` (or `$XDG_DATA_HOME/fonts`), then `fc-cache` | `~/.config/ghostty/themes/Warm Claude` (or under `$XDG_CONFIG_HOME`) |
 | Windows | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, registered for your user (Windows 10 1809 or later, no admin) | Not copied: paste the Windows Terminal scheme yourself |
 
-Turn this off with **Install font and theme** in `/config`. Run `/ccshine-setup` at any time to install again and see the steps for your terminal.
+Under WSL or over SSH your terminal runs on another machine, so ccshine installs nothing there; `/ccshine-setup` shows where the font files are so you can install them on that machine. Turn all of this off with **Install font and theme** in `/config`. Run `/ccshine-setup` at any time to install again and see the steps for your terminal.
 
 **What you do once in your terminal.** No terminal lets a plugin change its font or colours, so pick them yourself (size 14 and line height 1.2 look right):
 
@@ -92,12 +92,12 @@ Turn this off with **Install font and theme** in `/config`. Run `/ccshine-setup`
 | Ghostty | `font-family = Maple Mono NF` | `theme = Warm Claude` |
 | iTerm2 | Settings → Profiles → Text → Font | Profiles → Colors → Color Presets → Import `themes/iterm2/Warm Claude.itermcolors` |
 | Windows Terminal | Profile → Appearance → Font face | Paste `themes/windows-terminal/warm-claude.json` into `schemes`, then pick it (restart the terminal first so it sees the font) |
-| kitty | `font_family Maple Mono NF` | `include <ccshine>/themes/kitty/warm-claude.conf` |
+| kitty | `font_family Maple Mono NF` | Copy `themes/kitty/warm-claude.conf` into your kitty config folder, then `include warm-claude.conf` |
 | WezTerm | `font = wezterm.font 'Maple Mono NF'` | Copy `themes/wezterm/Warm Claude.toml` into your `colors` folder, then `color_scheme = 'Warm Claude'` |
-| Alacritty | `font.normal.family = "Maple Mono NF"` | `import = ["<ccshine>/themes/alacritty/warm-claude.toml"]` |
+| Alacritty | `font.normal.family = "Maple Mono NF"` | Copy `themes/alacritty/warm-claude.toml` into your Alacritty config folder, then add `[general]` with `import = ['<that copy>']` |
 | Others | Pick Maple Mono NF | The colours are in `themes/warm-claude.json` |
 
-`/ccshine-setup` prints this table with the full paths to your install.
+`/ccshine-setup` prints this table with the full paths to your install. Copy theme files into your terminal's own config folder rather than pointing at the install: its folder changes with each ccshine version.
 
 Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.txt`](fonts/OFL.txt).
 
