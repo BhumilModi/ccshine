@@ -8,7 +8,7 @@ import { AGENT_LINGER_MS, agentRows, finishedAt, historyFor, topLevel } from '..
 import { planBody, planHeader, planWanted, shellBody } from '../planview'
 import type { PlanData } from '../planview'
 import { lastLine, shellRows } from '../shell'
-import { pickTurn, railRows, railSeat, railSummary, showBars, turnWindow } from '../rail'
+import { pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
 import { gauge, palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
@@ -76,8 +76,8 @@ async function tailLine($: EngineInterface, path: string, at: number): Promise<s
 type PaneInput = Frozen<RenderInput<'Pane'>>
 
 // The plan section pinned to the docked rail's bottom: a rule, the Plan header, the plan's lines around the
-// running task, then the shells. At most half the rail's rows unless showing all. Null when there is nothing.
-async function planSection($: EngineInterface, e: PaneInput, width: number): Promise<{ el: RenderElement; rows: number } | null> {
+// running task, then the shells, in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
+async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number): Promise<{ el: RenderElement; rows: number } | null> {
   await read($, tick)
   const at = await $.clock.now()
   const list = await read($, tasks)
@@ -107,7 +107,7 @@ async function planSection($: EngineInterface, e: PaneInput, width: number): Pro
   const want = planWanted(d)
   // The rule above the section stands in for the band's blank row.
   const fit = fitBand({
-    maxRows: d.all ? Number.MAX_SAFE_INTEGER : Math.floor(e.props.scroll.bodyRows / 2),
+    maxRows: cap,
     dock: 'none',
     header: showTasks,
     focus: want.focus,
@@ -181,18 +181,31 @@ export function registerRail(on: On) {
         <Text color={C.faint}>{follow}</Text>
       </Box>
     )
-    const section = isInline ? null : await planSection($, e, width)
-    const bottom = section ? [<Box key="gap" flexGrow={1} />, section.el] : []
-    if (!turn) return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>, ...bottom])
+    const showAll = await read($, planAll)
+    const pin = (section: { el: RenderElement } | null) => (section ? [<Box key="gap" flexGrow={1} />, section.el] : [])
+    if (!turn) {
+      // Brand and the "no turns" line sit above the section.
+      const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 2, showAll))
+      return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>, ...pin(section)])
+    }
 
     const { start, end } = turnWindow(turn, turn.endedAt ?? clock)
     const allCalls = await read($, calls)
     const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
     const sum = railSummary(all, turn, clock)
-    // Docked, the tool rows take what the brand, title, footer and plan section leave; the "earlier" marker takes one.
-    const footRows = (showBars(p.bodyColumns) && all.length > 0 ? 1 : 0) + 3 + (sum.ctx ? 1 : 0) + sum.files.length + sum.failures.length
-    const budget = p.scroll.bodyRows - 4 - footRows - (section?.rows ?? 0)
-    const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : all.length > budget ? all.length - Math.max(0, budget - 1) : 0
+    // Docked, the plan section takes up to half the rail; the footer's lists and the tool rows share the rest.
+    const fixed = 6 + (sum.ctx ? 1 : 0)
+    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, fixed, showAll))
+    const fits = railBudget({
+      bodyRows: p.scroll.bodyRows,
+      tools: all.length,
+      bars: showBars(p.bodyColumns),
+      ctx: Boolean(sum.ctx),
+      files: sum.files.length,
+      failures: sum.failures.length,
+      section: section?.rows ?? 0,
+    })
+    const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : all.length - fits.shown
     const rows = all.slice(hidden)
     const opened = await read($, open)
     const bars = showBars(p.bodyColumns)
@@ -287,7 +300,7 @@ export function registerRail(on: On) {
           <Text color={C.faint} wrap="truncate-end">{[`${sum.tools} tool${sum.tools === 1 ? '' : 's'}`, sum.agents ? `${sum.agents} agent${sum.agents === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</Text>
         </Box>,
       )
-      for (const [i, f] of sum.files.entries()) {
+      for (const [i, f] of sum.files.slice(0, fits.files).entries()) {
         foot.push(
           <Box key={`file-${i}`} flexDirection="row" height={1}>
             {label(i === 0 ? 'files' : '')}
@@ -299,7 +312,7 @@ export function registerRail(on: On) {
           </Box>,
         )
       }
-      for (const [i, f] of sum.failures.entries()) {
+      for (const [i, f] of sum.failures.slice(0, fits.failures).entries()) {
         foot.push(
           <Box key={`fail-${i}`} flexDirection="row" height={1}>
             {label(i === 0 ? 'fail' : '', C.crit)}
@@ -314,7 +327,7 @@ export function registerRail(on: On) {
       title,
       <Box key="rows" flexDirection="column" marginTop={1}>{body}</Box>,
       <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
-      ...bottom,
+      ...pin(section),
     ])
   })
 

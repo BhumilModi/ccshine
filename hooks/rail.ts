@@ -134,3 +134,28 @@ export function callDetail(tool: string, input: unknown, ran: { result?: unknown
   if (ran.isError && ran.text) lines.push(firstLine(ran.text))
   return lines
 }
+
+// The docked rail's plan section: half the rail (all of it when showing all), never less than its header and
+// running task, and never more than the rows `fixed` rows above it leave.
+export function sectionCap(bodyRows: number, fixed: number, all: boolean): number {
+  if (all) return Number.MAX_SAFE_INTEGER
+  return Math.min(Math.floor(bodyRows / 2), Math.max(2, bodyRows - fixed - 1))
+}
+
+// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, the two margins,
+// the footer's rule and cost line, and ctx. Then failures, files, the axis and the tool rows, keeping room for
+// at least the "earlier" marker or one row. `shown` tool rows; fewer than `tools` means the marker draws.
+// ponytail: a rail under ~12 rows can still pass bodyRows by its fixed rows; drop margins there if it matters.
+export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; ctx: boolean; files: number; failures: number; section: number }) {
+  let left = a.bodyRows - 6 - (a.ctx ? 1 : 0) - a.section
+  const keep = a.tools > 0 ? 1 + (a.bars ? 1 : 0) : 1
+  const failures = Math.min(a.failures, Math.max(0, left - keep))
+  left -= failures
+  const files = Math.min(a.files, Math.max(0, left - keep))
+  left -= files
+  if (a.tools === 0) return { section: a.section, shown: 0, files, failures }
+  if (a.tools + (a.bars ? 1 : 0) <= left) return { section: a.section, shown: a.tools, files, failures }
+  // The marker takes a row; the axis draws only under shown rows.
+  const room = left - 1 - (a.bars ? 1 : 0)
+  return { section: a.section, shown: Math.max(0, room), files, failures }
+}

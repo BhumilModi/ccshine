@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, Job, PlanAgent, TurnSpan } from '../types'
-import { callDetail, pickTurn, railRows, railSummary, showBars, turnOfCall } from '../hooks/rail'
+import { callDetail, pickTurn, railBudget, railRows, railSummary, sectionCap, showBars, turnOfCall } from '../hooks/rail'
 import { gauge, span } from '../hooks/theme'
 
 const SPAN: TurnSpan = { turnId: 't1', startedAt: 1000, endedAt: 11000, ctxStart: 38, ctxEnd: 52, costStart: 1, costEnd: 1.31 }
@@ -136,4 +136,44 @@ test('gauge splits a meter into what the turn started with and what it added', a
   // The cell holding the start stays base-coloured; the added part takes what follows.
   expect(gauge(0.125, 0.375, 4)).toEqual({ base: '━', added: '╸', track: '──' })
   expect(gauge(0.5, 0.5, 4)).toEqual({ base: '━━', added: '', track: '──' })
+})
+
+
+// Rows the docked rail draws for a budget: brand, title, two margins, rule, cost, ctx, the plan section,
+// failures, files, the axis under shown tool rows, then the tool rows or the "no tools" line, and the "earlier" marker.
+const drawn = (a: { tools: number; bars: boolean; ctx: boolean }, b: ReturnType<typeof railBudget>) =>
+  6 + (a.ctx ? 1 : 0) + b.section + b.failures + b.files + (a.bars && b.shown > 0 ? 1 : 0) + (a.tools === 0 ? 1 : b.shown + (b.shown < a.tools ? 1 : 0))
+
+test('a turn that edited many files cannot push the plan section past the rail', async () => {
+  const a = { bodyRows: 30, tools: 5, bars: true, ctx: true, files: 12, failures: 0 }
+  const cap = sectionCap(30, 7, false)
+  expect(cap).toBe(15)
+  const b = railBudget({ ...a, section: cap })
+  expect(b.section).toBe(15)
+  expect(drawn(a, b)).toBeLessThanOrEqual(30)
+  expect(b.files).toBeLessThan(12)
+})
+
+test('the docked rail fits its rows for any mix of tools, files and failures', async () => {
+  for (let bodyRows = 12; bodyRows <= 60; bodyRows += 3) {
+    for (const tools of [0, 1, 5, 40]) {
+      for (const files of [0, 3, 20]) {
+        const a = { bodyRows, tools, bars: true, ctx: true, files, failures: 2 }
+        const b = railBudget({ ...a, section: sectionCap(bodyRows, 7, false) })
+        expect(drawn(a, b)).toBeLessThanOrEqual(bodyRows)
+      }
+    }
+  }
+})
+
+test('every tool row shows when there is room, with no marker', async () => {
+  const a = { bodyRows: 40, tools: 6, bars: true, ctx: true, files: 1, failures: 0 }
+  const b = railBudget({ ...a, section: 8 })
+  expect(b.shown).toBe(6)
+  expect(drawn(a, b)).toBe(7 + 8 + 1 + 1 + 6)
+})
+
+test('show all lifts the section cap', async () => {
+  expect(sectionCap(30, 7, true)).toBe(Number.MAX_SAFE_INTEGER)
+  expect(sectionCap(8, 7, false)).toBe(2)
 })
