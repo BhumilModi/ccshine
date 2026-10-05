@@ -13,7 +13,7 @@ function engine(on: any, component: string) {
 }
 
 async function draw($: any, component: string, props: object, columns = 100) {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component, props, viewport: { columns, rows: 40 } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component, props, viewport: { columns, rows: 40 } })
   const texts = await ui.findAll({ type: 'Text' })
   const markdown = await ui.findAll({ type: 'Markdown' })
   await ui.unmount()
@@ -84,7 +84,7 @@ test('transcript off returns next(e)', { options: { transcript: false } }, async
 
 test('prompts and reply blocks keep a blank line above them', async ($, on) => {
   const top = async (component: any, props: any) => {
-    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component, props })
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component, props })
     const [root] = await ui.findAll({ type: 'Box' })
     await ui.unmount()
     return root?.props.marginTop
@@ -95,7 +95,7 @@ test('prompts and reply blocks keep a blank line above them', async ($, on) => {
 })
 
 test('the you marker never shrinks beside a long prompt', async ($, on) => {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component: 'UserMessage', props: prompt('x'.repeat(300)) as any, viewport: { columns: 40, rows: 40 } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'UserMessage', props: prompt('x'.repeat(300)) as any, viewport: { columns: 40, rows: 40 } })
   const boxes = await ui.findAll({ type: 'Box' })
   await ui.unmount()
   const marker = boxes.filter((b: any) => JSON.stringify(b.children).includes('▌ you')).at(-1)

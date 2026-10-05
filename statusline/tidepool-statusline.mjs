@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// ccshine status line. Claude Code runs this as its statusLine command and pipes session JSON to stdin.
-// Run /ccshine-statusline inside Claude Code for the settings.json line that points here.
+// Tidepool status line. Claude Code runs this as its statusLine command and pipes session JSON to stdin.
+// Run /tidepool-statusline inside Claude Code for the settings.json line that points here.
 import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { gitArgs, parseGitStatus } from './git.mjs'
+import { pickConfigKey } from './config.mjs'
 import { parsePr, prKey, shouldRefresh } from './pr.mjs'
 import { render } from './render.mjs'
 
@@ -19,13 +20,13 @@ function readInput() {
   }
 }
 
-// The plugin's own /config options: pluginConfigs["ccshine"] for a local folder, "ccshine@<marketplace>" when installed.
+// The plugin's own /config options (statusline/config.mjs says which key).
 function readOptions() {
   try {
     const dir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
     const settings = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'))
     const configs = settings.pluginConfigs ?? {}
-    const key = Object.keys(configs).find(k => k === 'ccshine' || k.startsWith('ccshine@'))
+    const key = pickConfigKey(Object.keys(configs))
     return (key && configs[key]?.options) || {}
   } catch {
     return {}
@@ -45,7 +46,7 @@ function readGit(dir) {
 }
 
 // PR badge cache: { [dir::branch]: { checkedAt, pr, refreshingAt? } }, refreshed in the background.
-const PR_CACHE = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'ccshine', 'pr.json')
+const PR_CACHE = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'tidepool', 'pr.json')
 
 function readPrCache() {
   try {

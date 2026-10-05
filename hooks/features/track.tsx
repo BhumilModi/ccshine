@@ -6,16 +6,16 @@ import { activity } from '../activity'
 import { travelled } from '../dock'
 import { addCall, closeTurn, endCall, totalTokens } from '../timing'
 
-export const calls = atom({ plugin: 'ccshine', key: 'calls' } as const, {})
-export const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
+export const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
+export const turns = atom({ plugin: 'tidepool', key: 'turns' } as const, [])
 const MAX_TURNS = 200
 
 // Calls in flight, by tool_use_id. State (not a module map) so the spinner redraws when one starts or ends.
-const live = atom({ plugin: 'ccshine', key: 'live' } as const, {})
+const live = atom({ plugin: 'tidepool', key: 'live' } as const, {})
 // Agent rows (features/tasks.tsx); the tracker records when each agent's turn completes.
-const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
+const agents = atom({ plugin: 'tidepool', key: 'agents' } as const, [])
 // The prompt dock's turn (features/dock.tsx): each main-loop tool call drops a crate, and the turn's end sends the crab home.
-const dock = atom({ plugin: 'ccshine', key: 'dock' } as const, null)
+const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {

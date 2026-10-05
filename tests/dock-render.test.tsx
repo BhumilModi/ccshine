@@ -21,7 +21,7 @@ function engine(on: any, blit: () => unknown = () => ({ value: {} })) {
 }
 
 async function band($: any, surface: 'terminal' | 'desktop' = 'terminal', props: Record<string, unknown> = {}) {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface, ...BAND, props: { ...BAND.props, ...props } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface, ...BAND, props: { ...BAND.props, ...props } })
   const rasters = await ui.findAll({ type: 'Raster' })
   const text = (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
   await ui.unmount()
@@ -62,14 +62,14 @@ test('desktop keeps the engine band', async ($, on) => {
 
 test('spinner line is hidden on the terminal while the dock is on', async ($, on) => {
   engine(on)
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...SPINNER })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...SPINNER })
   expect(await ui.findAll({ type: 'Text' })).toHaveLength(0)
   await ui.unmount()
 })
 
 test('spinner line stays when the dock is off', { options: { dock: false } }, async ($, on) => {
   engine(on)
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...SPINNER })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...SPINNER })
   expect((await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')).toBe('ENGINE')
   await ui.unmount()
 })
@@ -101,13 +101,13 @@ test('a new prompt starts a fresh clock even if the last turn never ended', asyn
 
 test('a narrow band drops the key hints and the phase times, and truncates the rest', async ($, on) => {
   const clock = engine(on)
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 60 } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 60 } })
   const idle = await ui.findAll({ type: 'Text' })
   await ui.unmount()
   expect(idle.map((t: any) => t.text).join('')).not.toContain('shortcuts')
   await $.turn.start({ text: 'go', turnId: 't1' })
   await clock.advance(2000)
-  const ui2 = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 44 } })
+  const ui2 = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 44 } })
   const work = await ui2.findAll({ type: 'Text' })
   await ui2.unmount()
   expect(work.map((t: any) => t.text).join('')).not.toContain('think')
@@ -125,7 +125,7 @@ test('the plan leaves room for the dock', async ($, on) => {
 test('the dock keeps a blank row above it, idle and working', async ($, on) => {
   const clock = engine(on)
   const top = async () => {
-    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
     const dock = (await ui.findAll({ type: 'Box' })).find((b: any) => b.key === 'dock')
     await ui.unmount()
     return dock?.props.marginTop

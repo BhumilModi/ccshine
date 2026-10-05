@@ -3,9 +3,9 @@ import { expect, test } from 'claude-code/testing'
 import { FONT_FILES } from '../hooks/setup'
 
 const WINDOWS_TOAST =
-  'ccshine installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /ccshine-setup has the steps.'
+  'Tidepool installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /tidepool-setup has the steps.'
 const TOAST =
-  'ccshine installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /ccshine-setup has the steps.'
+  'Tidepool installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /tidepool-setup has the steps.'
 
 type Machine = {
   env?: Record<string, string>
@@ -125,9 +125,9 @@ test('install off runs nothing', { options: { installAssets: false } }, async ($
   expect(toasts).toEqual([])
 })
 
-test('/ccshine-setup installs and prints the guide', async ($, on) => {
+test('/tidepool-setup installs and prints the guide', async ($, on) => {
   machine(on, { env: { HOME: '/Users/a' } })
-  const { text } = await $.command.run({ command: 'ccshine-setup', args: '' } as never)
+  const { text } = await $.command.run({ command: 'tidepool-setup', args: '' } as never)
   expect(text).toContain(`Installed: ${[...FONT_FILES.map(f => f.file), 'Warm Claude'].join(', ')}.`)
   expect(text).toContain('| iTerm2 |')
 })

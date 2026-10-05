@@ -22,7 +22,7 @@ const complete = ($: any, turnId: string, cacheRead: number, cacheWrite: number)
   })
 
 const textOf = async ($: any) => {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
   const text = (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
   await ui.unmount()
   return text

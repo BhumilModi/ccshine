@@ -6,19 +6,19 @@ import { palette } from '../theme'
 import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
 import type { InstallOutcome } from '../setup'
 
-const STATUSLINE = 'ccshine-statusline'
-const SETUP = 'ccshine-setup'
-const LIGHT_THEME = 'ccshine palettes are made for dark terminals — set a dark theme in /config'
+const STATUSLINE = 'tidepool-statusline'
+const SETUP = 'tidepool-setup'
+const LIGHT_THEME = 'Tidepool palettes are made for dark terminals — set a dark theme in /config'
 const INSTALLED_WINDOWS =
-  'ccshine installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /ccshine-setup has the steps.'
+  'Tidepool installed the Maple Mono NF font. Restart your terminal and pick "Maple Mono NF" in its font settings. /tidepool-setup has the steps.'
 const INSTALLED =
-  'ccshine installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /ccshine-setup has the steps.'
+  'Tidepool installed the Maple Mono NF font and Warm Claude theme. Pick "Maple Mono NF" in your terminal\'s font settings (restart it first on Windows). /tidepool-setup has the steps.'
 
 // Copies the bundled font (and, outside Windows, the Ghostty theme) into the user's folders.
 // Never overwrites. Failures go to the debug log, never to the session.
 async function installAssets($: EngineInterface): Promise<InstallOutcome> {
   const root = $.plugin.root
-  const log = (text: string) => $.ui.log(`ccshine: ${text}`, { to: 'debug' })
+  const log = (text: string) => $.ui.log(`tidepool: ${text}`, { to: 'debug' })
   const none: InstallOutcome = { copied: [], failed: false, remote: false }
   try {
     // Under WSL or SSH the terminal drawing this session is on another machine, which a copy here cannot reach.
@@ -86,15 +86,15 @@ async function installAssets($: EngineInterface): Promise<InstallOutcome> {
 // The one session.start hook: a module may register it only once.
 export function registerStartup(on: On) {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the ccshine status line' })
+    await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the Tidepool status line' })
     await $.command.register({ name: SETUP, description: 'Install the Maple Mono NF font and Warm Claude theme, and show how to use them in your terminal' })
     // A marketplace update installs into a new versioned folder; a statusLine still pointing at the old one breaks.
     const current = (await $.settings.read()).statusLine
     const command = current && typeof current === 'object' && 'command' in current ? String(current.command) : ''
-    if (command.includes('ccshine-statusline.mjs') && !command.includes($.plugin.root)) {
-      $.ui.toast('ccshine was updated: run /ccshine-statusline and paste the new statusLine path')
+    if (command.includes('ccshine-statusline.mjs') || (command.includes('tidepool-statusline.mjs') && !command.includes($.plugin.root))) {
+      $.ui.toast('Tidepool was updated: run /tidepool-statusline and paste the new statusLine path')
     }
-    // Prompt chrome: Claude Code's theme colours the input box, logo and dialogs. ccshine never changes it, only says so.
+    // Prompt chrome: Claude Code's theme colours the input box, logo and dialogs. Tidepool never changes it, only says so.
     if (opts.chrome) {
       try {
         const theme = (await $.config.list()).find(row => row.key === 'theme')?.value

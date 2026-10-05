@@ -16,7 +16,7 @@ function engine(on: any) {
 }
 
 async function draw($: any, component: string, props: object) {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component, props })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component, props })
   const texts = await ui.findAll({ type: 'Text' })
   await ui.unmount()
   return { texts, text: texts.map((t: any) => t.text).join('') }
@@ -80,7 +80,7 @@ function configEngine(on: any, rows: unknown) {
     throw new Error('no host commands in tests')
   })
   on('env.get', () => ({ value: undefined }))
-  on('command.register', () => ({ value: { command: 'ccshine-statusline', agent: '' } }))
+  on('command.register', () => ({ value: { command: 'tidepool-statusline', agent: '' } }))
   on('session.start', () => ({ cwd: '/repo' }))
   return toasts
 }
@@ -94,7 +94,7 @@ async function startWith($: any, on: any, rows: unknown) {
 const start = ($: any) => $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
 
 const themeRow = (value: unknown) => [{ key: 'theme', label: 'Theme', kind: 'choice', value, provider: { kind: 'engine' } }]
-const TOAST = 'ccshine palettes are made for dark terminals — set a dark theme in /config'
+const TOAST = 'Tidepool palettes are made for dark terminals — set a dark theme in /config'
 
 test('light theme shows one toast', async ($, on) => {
   expect(await startWith($, on, themeRow('light-daltonized'))).toEqual([TOAST])

@@ -26,7 +26,7 @@ test('Edit row shows icon, path, +2 −1 and 2s', async ($, on) => {
   await clock.advance(2000)
   await pending
   for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ plugin: 'ccshine', surface, ...toolUse({ tool_use_id: 'e1', tool: 'Edit', input }) })
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface, ...toolUse({ tool_use_id: 'e1', tool: 'Edit', input }) })
     const text = await textOf(ui)
     expect(text).toContain('◆ Edit src/a.ts')
     expect(text).toContain('+2 −1')
@@ -38,7 +38,7 @@ test('Edit row shows icon, path, +2 −1 and 2s', async ($, on) => {
 test('row for a call the tracker never saw renders without duration', async ($, on) => {
   mock.store(on)
   on('session.root', () => ({ value: '/repo' }))
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...toolUse({ tool_use_id: 'old', tool: 'Read', input: { file_path: '/repo/a.ts' } }) })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...toolUse({ tool_use_id: 'old', tool: 'Read', input: { file_path: '/repo/a.ts' } }) })
   const text = await textOf(ui)
   expect(text).toBe('◇ Read a.ts')
 })
@@ -46,7 +46,7 @@ test('row for a call the tracker never saw renders without duration', async ($, 
 test('errored Bash row uses crit colour', async ($, on) => {
   mock.store(on)
   on('session.root', () => ({ value: '/repo' }))
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...toolUse({ tool_use_id: 'b1', tool: 'Bash', input: { command: 'false' }, isErrored: true }) })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...toolUse({ tool_use_id: 'b1', tool: 'Bash', input: { command: 'false' }, isErrored: true }) })
   const icon = await ui.find({ type: 'Text', text: '✕' })
   expect(icon?.props.color).toBe('#EC7070')
 })
@@ -56,7 +56,7 @@ test('mcp tool row equals next(e)', async ($, on) => {
     const { Text } = $e.ui.resolve(e)
     return <Text>ENGINE</Text>
   })
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...toolUse({ tool_use_id: 'm1', tool: 'mcp__linear__save_issue', input: {} }) })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...toolUse({ tool_use_id: 'm1', tool: 'mcp__linear__save_issue', input: {} }) })
   expect(await textOf(ui)).toBe('ENGINE')
 })
 
@@ -65,7 +65,7 @@ test('tools off returns next(e)', { options: { tools: false } }, async ($, on) =
     const { Text } = $e.ui.resolve(e)
     return <Text>ENGINE</Text>
   })
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...toolUse({ tool_use_id: 'r1', tool: 'Read', input: { file_path: '/a' } }) })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...toolUse({ tool_use_id: 'r1', tool: 'Read', input: { file_path: '/a' } }) })
   expect(await textOf(ui)).toBe('ENGINE')
 })
 
@@ -76,7 +76,7 @@ test('tool group line lists tools with counts', async ($, on) => {
     { tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
     { tool: 'Bash', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
   ]
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
   expect(await textOf(ui)).toBe('◇ Read ×2  ❯ Bash')
 })
 
@@ -89,14 +89,14 @@ test('a group containing an mcp tool is left to the engine', async ($, on) => {
     { tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
     { tool: 'mcp__linear__list_issues', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
   ]
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
   expect(await textOf(ui)).toBe('ENGINE')
 })
 
 test('group line truncates instead of wrapping', async ($, on) => {
   mock.store(on)
   const calls = [{ tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false }]
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded: false } })
   const texts = await ui.findAll({ type: 'Text' })
   expect(texts.every((t: any) => t.props.wrap === 'truncate-end')).toBe(true)
 })
@@ -105,7 +105,7 @@ test('group names how many calls failed', async ($, on) => {
   mock.store(on)
   const bash = (isErrored: boolean) => ({ tool: 'Bash', input: {}, isRunning: false, isErrored, isInterrupted: false })
   const ui = await $.ui.mount({
-    plugin: 'ccshine', surface: 'terminal', component: 'ToolGroup',
+    plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup',
     props: { calls: [bash(false), bash(true), bash(false)], isActive: false, isExpanded: false },
   })
   const text = await textOf(ui)
@@ -117,7 +117,7 @@ test('tool rows and groups keep a blank line above them', async ($, on) => {
   mock.store(on)
   on('session.root', () => ({ value: '/repo' }))
   const top = async (mounted: any) => {
-    const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...mounted })
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...mounted })
     const [root] = await ui.findAll({ type: 'Box' })
     await ui.unmount()
     return root?.props.marginTop

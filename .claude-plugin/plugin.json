@@ -1,13 +1,13 @@
 {
-  "name": "ccshine",
+  "name": "tidepool",
   "version": "0.1.0",
-  "description": "A clearer, better-looking Claude Code terminal: live task and agent progress with time left, one-line tool calls, a spinner that says what is running, usage and prompt-cache state, attention chimes and a matching status line. Needs Claude Code 2.1.288+.",
+  "description": "Low tide for Claude Code: every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and the clay crab. Needs Claude Code 2.1.288+.",
   "author": {
     "name": "Bhumil Modi",
     "url": "https://github.com/BhumilModi"
   },
-  "homepage": "https://github.com/BhumilModi/ccshine",
-  "repository": "https://github.com/BhumilModi/ccshine",
+  "homepage": "https://github.com/BhumilModi/tidepool",
+  "repository": "https://github.com/BhumilModi/tidepool",
   "license": "MIT",
   "keywords": [
     "claude-code",
@@ -15,14 +15,15 @@
     "statusline",
     "progress",
     "usage",
-    "theme"
+    "theme",
+    "timeline"
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "Colour palette for everything ccshine draws; warm matches the bundled Warm Claude terminal theme",
+      "description": "Colour palette for everything Tidepool draws; warm matches the bundled Warm Claude terminal theme",
       "default": "claude",
       "options": [
         "claude",

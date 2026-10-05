@@ -1,10 +1,10 @@
-# ccshine
+# Tidepool
 
 **A clearer, better-looking Claude Code terminal.**
 
-Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, what it cost, and whether your prompt cache just expired. ccshine puts that on screen and restyles the rest of the terminal to match: your prompts, Claude's replies, tool calls, command output and the hint line under the prompt.
+Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, what it cost, and whether your prompt cache just expired. Tidepool puts that on screen and restyles the rest of the terminal to match: your prompts, Claude's replies, tool calls, command output and the hint line under the prompt.
 
-![ccshine with the Warm Claude theme and Maple Mono NF: replies, a tool row, a finished subagent, the token split by agent and the status line](docs/screenshot.png)
+![Tidepool with the Warm Claude theme and Maple Mono NF: replies, a tool row, a finished subagent, the token split by agent and the status line](docs/screenshot.png)
 
 ```
  Plan  2/5 ━━━━╸─────── ~18m left
@@ -17,7 +17,7 @@ Claude Code tracks a lot it never shows you: how far along a plan is, what each 
 
 ## What you get
 
-| Where | Before | With ccshine |
+| Where | Before | With Tidepool |
 |---|---|---|
 | Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once done. |
 | Above the prompt | Nothing | **Usage line, only when it matters:** a warning when a turn re-sent your context at full price because the prompt cache had gone cold, and tokens split by agent when subagents ran. Tokens, cache rate and the cache countdown live in the status line. |
@@ -35,7 +35,7 @@ Claude Code tracks a lot it never shows you: how far along a plan is, what each 
  Session 40% · resets 1h 26m  Weekly 68% · resets 1d 17h
 ```
 
-Everything runs locally. ccshine sends nothing anywhere.
+Everything runs locally. Tidepool sends nothing anywhere.
 
 ## Install
 
@@ -44,8 +44,8 @@ You need **Claude Code 2.1.288 or later**.
 **1. Add the plugin.** Inside Claude Code:
 
 ```
-/plugin marketplace add BhumilModi/ccshine
-/plugin install ccshine@ccshine
+/plugin marketplace add BhumilModi/tidepool
+/plugin install tidepool@tidepool
 ```
 
 Claude Code may say the options are not set yet; every option has a default, so you can skip `/plugin configure`. Start a new session. The transcript style, tool rows and spinner work right away. The tasks band appears the first time Claude works through a task list.
@@ -53,30 +53,30 @@ Claude Code may say the options are not set yet; every option has a default, so 
 **2. Turn on the status line (optional).** Claude Code only runs a status line that `settings.json` points to, and plugins cannot edit that file. So, inside Claude Code, run:
 
 ```
-/ccshine-statusline
+/tidepool-statusline
 ```
 
-It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json` if you use a custom config folder), replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`. It reads the ccshine theme from your user settings, so set the theme there rather than in a project's settings.
+It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json` if you use a custom config folder), replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`. It reads the Tidepool theme from your user settings, so set the theme there rather than in a project's settings.
 
-The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), logged in. ccshine looks the PR up in the background at most once a minute per branch and keeps the answer in `~/.cache/ccshine/pr.json`, so the status line never waits on the network. A new PR shows up within about a minute. Without `gh`, or outside a GitHub repo, the badge just doesn't appear.
+The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), logged in. Tidepool looks the PR up in the background at most once a minute per branch and keeps the answer in `~/.cache/Tidepool/pr.json`, so the status line never waits on the network. A new PR shows up within about a minute. Without `gh`, or outside a GitHub repo, the badge just doesn't appear.
 
-When ccshine updates, its install folder changes. If your status line still points at the old one, ccshine shows a reminder at startup: run `/ccshine-statusline` again and paste the new block.
+When Tidepool updates, its install folder changes. If your status line still points at the old one, Tidepool shows a reminder at startup: run `/tidepool-statusline` again and paste the new block.
 
 **From a local copy** (for trying changes):
 
 ```
-git clone https://github.com/BhumilModi/ccshine
-claude --plugin-dir ./ccshine
+git clone https://github.com/BhumilModi/tidepool
+claude --plugin-dir ./tidepool
 ```
 
 ## Warm Claude look
 
-ccshine comes with a terminal colour theme and a font, so the whole terminal matches what ccshine draws.
+Tidepool comes with a terminal colour theme and a font, so the whole terminal matches what Tidepool draws.
 
 - **Font: [Maple Mono NF](https://github.com/subframe7536/maple-font)** (v7.9, with Nerd Font glyphs for the powerline separators). Rounded shapes and cursive italics; your prompts are drawn in italic.
-- **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm, Alacritty and Warp under [`themes/`](themes). Set ccshine's Theme to `warm` to match it.
+- **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm, Alacritty and Warp under [`themes/`](themes). Set Tidepool's Theme to `warm` to match it.
 
-**What installs by itself.** When a session starts, ccshine copies whatever of these is missing (it never overwrites a file); the first session after you install ccshine does the work and shows one toast:
+**What installs by itself.** When a session starts, Tidepool copies whatever of these is missing (it never overwrites a file); the first session after you install Tidepool does the work and shows one toast:
 
 | System | Font goes to | Theme goes to |
 |---|---|---|
@@ -84,7 +84,7 @@ ccshine comes with a terminal colour theme and a font, so the whole terminal mat
 | Linux | `~/.local/share/fonts` (or `$XDG_DATA_HOME/fonts`), then `fc-cache` | `~/.config/ghostty/themes/Warm Claude` (or under `$XDG_CONFIG_HOME`) |
 | Windows | `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, registered for your user (Windows 10 1809 or later, no admin); restart your terminal to see it | Not copied: paste the Windows Terminal scheme yourself |
 
-Under WSL or over SSH your terminal runs on another machine, so ccshine installs nothing there; `/ccshine-setup` shows where the font files are so you can install them on that machine. Turn all of this off with **Install font and theme** in `/config`. Run `/ccshine-setup` at any time to install again and see the steps for your terminal.
+Under WSL or over SSH your terminal runs on another machine, so Tidepool installs nothing there; `/tidepool-setup` shows where the font files are so you can install them on that machine. Turn all of this off with **Install font and theme** in `/config`. Run `/tidepool-setup` at any time to install again and see the steps for your terminal.
 
 **What you do once in your terminal.** No terminal lets a plugin change its font or colours, so pick them yourself (size 14 and line height 1.2 look right):
 
@@ -99,17 +99,17 @@ Under WSL or over SSH your terminal runs on another machine, so ccshine installs
 | Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import `themes/warp/warm_claude.yaml`, or copy it into your Warp themes folder |
 | Others | Pick Maple Mono NF | The colours are in `themes/warm-claude.json` |
 
-`/ccshine-setup` prints this table with the full paths to your install. Copy theme files into your terminal's own config folder rather than pointing at the install: its folder changes with each ccshine version.
+`/tidepool-setup` prints this table with the full paths to your install. Copy theme files into your terminal's own config folder rather than pointing at the install: its folder changes with each Tidepool version.
 
 Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.txt`](fonts/OFL.txt).
 
 ## Settings
 
-Open `/config` and find the ccshine rows. Every switched-off feature leaves Claude Code's own display exactly as it was.
+Open `/config` and find the Tidepool rows. Every switched-off feature leaves Claude Code's own display exactly as it was.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Theme | `claude` | Colours for everything ccshine draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
+| Theme | `claude` | Colours for everything Tidepool draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
 | Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, such as the bundled Maple Mono NF; otherwise you see empty boxes |
 | Tasks band | on | Tasks, time left and agents above the prompt |
 | Tool rows | on | One-line tool calls |
@@ -128,14 +128,14 @@ Open `/config` and find the ccshine rows. Every switched-off feature leaves Clau
 - **The prompt dock** is drawn in half-block pixels, so it looks best with a Nerd Font such as the bundled Maple Mono NF. Collapse it with ctrl+x ctrl+a, or switch it off in `/config` to get Claude Code's spinner back.
 - **Token counts look large.** A turn's tokens add up every request in that turn, and each request re-reads the cached context. That is how Claude Code bills usage, which is why the cache state matters.
 - **No chime?** Sounds play through `afplay` on macOS. Linux and Windows get the toast only.
-- **Dark terminals.** The palettes are designed for dark backgrounds. If Claude Code's own theme is a light one, ccshine says so once at startup; it never changes the setting.
+- **Dark terminals.** The palettes are designed for dark backgrounds. If Claude Code's own theme is a light one, Tidepool says so once at startup; it never changes the setting.
 - **What stays Claude Code's.** The input box, the logo, permission dialogs and the `bypass permissions on` line are drawn where plugins cannot restyle them. Tool output under each tool row is Claude Code's own too.
-- **Early-access API.** ccshine uses Claude Code's function-hooks plugin API, which may change between releases. If something stops drawing after a Claude Code update, switch that feature off in `/config` and open an issue.
+- **Early-access API.** Tidepool uses Claude Code's function-hooks plugin API, which may change between releases. If something stops drawing after a Claude Code update, switch that feature off in `/config` and open an issue.
 
 ## Uninstall
 
 ```
-/plugin uninstall ccshine@ccshine
+/plugin uninstall tidepool@tidepool
 ```
 
 Then remove the `"statusLine"` block from `~/.claude/settings.json` if you added it.
@@ -143,7 +143,7 @@ Then remove the `"statusLine"` block from `~/.claude/settings.json` if you added
 ## Development
 
 ```
-git clone https://github.com/BhumilModi/ccshine && cd ccshine
+git clone https://github.com/BhumilModi/tidepool && cd tidepool
 CLAUDE_CODE_TYPES=/path/to/claude-code.d.ts ./verify.sh
 ```
 

@@ -24,15 +24,15 @@ import type { Segment } from '../theme'
 import { activity } from '../activity'
 import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
 
-const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
-const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
+const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
+const agents = atom({ plugin: 'tidepool', key: 'agents' } as const, [])
 // Written by the tracker (features/track.tsx); atoms must be declared in the file that reads them.
-const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
+const turns = atom({ plugin: 'tidepool', key: 'turns' } as const, [])
 // Bumped every second while something runs, so live timers redraw.
-const tick = atom({ plugin: 'ccshine', key: 'tick' } as const, 0)
+const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
 // The prompt dock's turn (features/dock.tsx) and the calls in flight (features/track.tsx).
-const dock = atom({ plugin: 'ccshine', key: 'dock' } as const, null)
-const liveCalls = atom({ plugin: 'ccshine', key: 'live' } as const, {})
+const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
+const liveCalls = atom({ plugin: 'tidepool', key: 'live' } as const, {})
 const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 

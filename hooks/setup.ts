@@ -1,4 +1,4 @@
-// Where the bundled font and theme go on each system, and what /ccshine-setup prints. Pure: the hooks run the commands.
+// Where the bundled font and theme go on each system, and what /tidepool-setup prints. Pure: the hooks run the commands.
 
 export const FONT_FILES = [
   { file: 'MapleMono-NF-Regular.ttf', registryName: 'Maple Mono NF (TrueType)' },
@@ -86,9 +86,9 @@ export function setupGuide(root: string, outcome: InstallOutcome): string {
   const path = (...parts: string[]) => [base, ...parts].join(sep)
   const theme = (...parts: string[]) => `\`${path('themes', ...parts)}\``
   const status = outcome.remote
-    ? `This session runs on another machine than your terminal (WSL or SSH), so ccshine did not install the font here. Copy the files in \`${path('fonts')}\` to the machine your terminal runs on and install them there.`
+    ? `This session runs on another machine than your terminal (WSL or SSH), so Tidepool did not install the font here. Copy the files in \`${path('fonts')}\` to the machine your terminal runs on and install them there.`
     : outcome.failed
-      ? `ccshine could not install the font: \`claude --debug\` shows why. The files are in \`${path('fonts')}\`.`
+      ? `Tidepool could not install the font: \`claude --debug\` shows why. The files are in \`${path('fonts')}\`.`
       : outcome.copied.length > 0
         ? `Installed: ${outcome.copied.join(', ')}.`
         : windows
@@ -110,6 +110,6 @@ export function setupGuide(root: string, outcome: InstallOutcome): string {
     `| Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import ${theme('warp', 'warm_claude.yaml')}, or copy it into your Warp themes folder |`,
     `| Others | Pick ${FONT_FAMILY} | The colours are in ${theme('warm-claude.json')} |`,
     '',
-    'Copies in your own config folders keep working after ccshine updates; the install folder above changes with each version.',
+    'Copies in your own config folders keep working after Tidepool updates; the install folder above changes with each version.',
   ].join('\n')
 }

@@ -1,17 +1,17 @@
 {
-  "name": "ccshine",
-  "description": "ccshine: a clearer, better-looking Claude Code terminal.",
+  "name": "tidepool",
+  "description": "Tidepool: low tide for Claude Code.",
   "owner": {
     "name": "Bhumil Modi",
     "url": "https://github.com/BhumilModi"
   },
   "plugins": [
     {
-      "name": "ccshine",
+      "name": "tidepool",
       "source": "./",
-      "description": "Live task and agent progress, one-line tool calls, an honest spinner, usage and cache state, chimes and a matching status line for Claude Code.",
+      "description": "Every tool, agent and background job on a timeline beside your chat, plus a themed transcript, status line, tasks band and chimes for Claude Code.",
       "version": "0.1.0",
-      "homepage": "https://github.com/BhumilModi/ccshine"
+      "homepage": "https://github.com/BhumilModi/tidepool"
     }
   ]
 }

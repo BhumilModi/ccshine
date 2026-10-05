@@ -7,9 +7,9 @@ import { opts } from '../options'
 import { palette } from '../theme'
 
 // The main turn the dock draws; the tracker (features/track.tsx) adds its tool calls and its end.
-const dock = atom({ plugin: 'ccshine', key: 'dock' } as const, null)
+const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 // Bumped to redraw the band (features/tasks.tsx): on a change of layout, and once a second for the clock.
-const tick = atom({ plugin: 'ccshine', key: 'tick' } as const, 0)
+const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
 
 const FRAME_MS = 50
 let timer: Timer | undefined

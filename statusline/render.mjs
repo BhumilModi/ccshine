@@ -1,4 +1,4 @@
-// Draws the ccshine status line from the JSON Claude Code sends a statusLine command.
+// Draws the Tidepool status line from the JSON Claude Code sends a statusLine command.
 // Pure: no I/O, so the plugin's tests can import it. Every field is optional; missing ones drop their segment.
 import { palettes } from '../hooks/palettes.mjs'
 

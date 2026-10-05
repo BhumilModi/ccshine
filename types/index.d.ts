@@ -69,7 +69,7 @@ export type DockTurn = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'ccshine': {
+    'tidepool': {
       tasks: PlanTask[]
       agents: PlanAgent[]
       tick: number
