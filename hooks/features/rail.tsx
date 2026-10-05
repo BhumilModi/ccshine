@@ -62,7 +62,8 @@ type PaneInput = Frozen<RenderInput<'Pane'>>
 
 // The plan section, pinned above the docked rail's footer: a rule, the Plan header, the plan's lines around the
 // running task, then the shells, in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
-async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number): Promise<{ el: RenderElement; rows: number } | null> {
+// Agents whose Agent call is in `shown`, the tool rows of the turn on screen, are left to those rows.
+async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number, shown: ReadonlySet<string> = new Set()): Promise<{ el: RenderElement; rows: number } | null> {
   await read($, tick)
   const at = await $.clock.now()
   const list = await read($, tasks)
@@ -75,7 +76,7 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
   const C = palette()
   const d: PlanData = {
     tasks: showTasks && doneAt === undefined ? list : [],
-    agents: agentRows(await read($, agents), await read($, turns)),
+    agents: agentRows(await read($, agents), await read($, turns)).filter(a => a.callId === undefined || !shown.has(a.callId)),
     shells,
     tails: {},
     shellHistory: (await read($, shellHistory)) ?? {},
@@ -98,8 +99,10 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     expanded: d.all,
   })
   const out: RenderElement[] = []
-  if (fit.margin || finished) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
-  if (finished && doneAt !== undefined) {
+  // The done card, its rule included, draws only when it fits the cap.
+  const card = finished && doneAt !== undefined && DONE_ROWS + 1 <= cap
+  if (fit.margin || card) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
+  if (card) {
     // The crab's frames are blitted by features/tasks.tsx for DONE_MS after the plan finishes; this draws the frame due now.
     const { Raster } = ui as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
     const crab = <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(at - doneAt, C))} />
@@ -123,7 +126,8 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     out.push(...shellBody(ui, C, { ...d, shells: drawn, tails }, fit.tails))
   }
   // The done card is one element four rows tall.
-  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (finished ? DONE_ROWS - 1 : 0) }
+  if (out.length === 0) return null
+  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (card ? DONE_ROWS - 1 : 0) }
 }
 
 export function registerRail(on: On) {
@@ -187,7 +191,8 @@ export function registerRail(on: On) {
     const sum = railSummary(all, turn, clock)
     // Docked, the plan section takes its share (hooks/rail.ts); the footer's lists and the tool rows share the rest.
     // Fixed rows above and below it: brand, title, two margins, the footer's rule and cost line.
-    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 6, showAll))
+    const agentCalls = new Set(all.filter(r => r.kind === 'agent').map(r => r.id))
+    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 6, showAll), agentCalls)
     const fits = railBudget({
       bodyRows: p.scroll.bodyRows,
       tools: all.length,
@@ -303,9 +308,9 @@ export function registerRail(on: On) {
     return surface('rail', [
       brand,
       title,
-      <Box key="rows" flexDirection="column" marginTop={1}>{body}</Box>,
+      <Box key="rows" flexDirection="column" marginTop={isInline || fits.margins ? 1 : 0}>{body}</Box>,
       ...pin(section),
-      <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
+      <Box key="foot" flexDirection="column" marginTop={isInline || fits.margins ? 1 : 0}>{foot}</Box>,
     ])
   })
 

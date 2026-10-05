@@ -369,3 +369,19 @@ test('finishing the plan plays the crab in the rail for 2.4s, then stops', OFF, 
   await w.clock.advance(3000)
   expect(blits.filter(b => b.key === 'plan-crab').length).toBeLessThanOrEqual(played + 2)
 })
+
+test('an agent of the turn on screen shows in the tool rows, not again in the plan', OFF, async ($, on) => {
+  const w = world(on)
+  await plan($, w, 2)
+  await $.turn.start({ text: 'look', turnId: 't1' })
+  await call($, w, 'tu1', 'Agent', { description: 'Explore auth', prompt: 'p', subagent_type: 'Explore' }, 100)
+  await $.agent.spawn({
+    tool_use_id: 'tu1', prompt: 'p', description: 'Explore auth', subagentType: 'Explore',
+    provider: { plugin: 'engine', tier: 'core' }, parentModel: 'm', background: true, fork: false,
+  })
+  const text = await textOf(await $.ui.mount(pane()))
+  expect(text).toContain(' Plan ')
+  // The tool row's target button truncates to "Explore a…"; the plan's agent line would read "  Explore auth".
+  expect(text).toContain('Explore a…')
+  expect(text).not.toContain('  Explore auth')
+})

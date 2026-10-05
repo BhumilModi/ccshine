@@ -290,7 +290,7 @@ test('sub-items nest under their running task, count apart from the plan, and sh
 })
 
 function railWorld(on: any, rail = { placed: true }) {
-  mock.clock(on)
+  const clock = mock.clock(on)
   mock.store(on)
   on('session.root', () => ({ value: '/repo/a' }))
   on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
@@ -303,6 +303,7 @@ function railWorld(on: any, rail = { placed: true }) {
     const { Text } = $e.ui.resolve(e)
     return <Text>ENGINE</Text>
   })
+  return clock
 }
 
 async function railPlan($: any) {
@@ -395,4 +396,31 @@ test('two shells finishing together both teach the ETA', { options: { dock: fals
   expect(text.match(/~15s left/g)?.length).toBe(2)
   await clock.advance(20_000)
   await Promise.all(again)
+})
+
+test('a band left mounted takes the plan back on its next tick once the rail undocks', { options: { dock: false, usage: false } }, async ($, on) => {
+  const rail = { placed: true }
+  const clock = railWorld(on, rail)
+  await railPlan($)
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport: { columns: 140, rows: 40, isFullscreen: true } })
+  const text = async () => (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
+  expect(await text()).not.toContain('1. schema')
+  rail.placed = false
+  await clock.advance(1000)
+  expect(await text()).toContain('1. schema')
+  await ui.unmount()
+})
+
+test('a plan finished while the rail is docked never shows ✓ Plan in the band, and has folded away when it undocks', { options: { dock: false, usage: false } }, async ($, on) => {
+  const rail = { placed: true }
+  const clock = railWorld(on, rail)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'schema', description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'schema', status: 'in_progress' })
+  await clock.advance(5000)
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'schema', status: 'completed' })
+  const view = { columns: 140, rows: 40, isFullscreen: true }
+  expect(await bandText($, view)).not.toContain('Plan')
+  await clock.advance(31_000)
+  rail.placed = false
+  expect(await bandText($, view)).not.toContain('Plan')
 })

@@ -147,19 +147,23 @@ export function sectionCap(bodyRows: number, fixed: number, all: boolean): numbe
   return Math.min(Math.floor(bodyRows * PLAN_SHARE), Math.max(2, bodyRows - fixed - 1))
 }
 
-// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, the two margins, and the
-// footer's rule and cost line. Failures, then files, fill the rest of the footer's share; the tool rows take
-// what is left, the axis and an "earlier" marker included. `shown` below `tools` means the marker draws.
-// ponytail: a rail under ~12 rows can still pass bodyRows by its fixed rows; drop margins there if it matters.
+// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, and the footer's rule and
+// cost line; the two margins only while they leave a row for the timeline. Failures, then files, fill the rest of
+// the footer's share; the tool rows take what is left, the axis and an "earlier" marker included. `shown` below
+// `tools` means the marker draws.
+// ponytail: a rail under 7 rows still passes bodyRows by a row or two; nothing seats a rail that short today.
 export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; files: number; failures: number; section: number }) {
   const base = 2
   let extra = Math.max(0, Math.floor(a.bodyRows * FOOT_SHARE) - base)
   const failures = Math.min(a.failures, extra)
   extra -= failures
   const files = Math.min(a.files, extra)
-  const left = a.bodyRows - 4 - base - failures - files - a.section
-  if (a.tools === 0) return { section: a.section, shown: 0, files, failures }
-  if (a.tools + (a.bars ? 1 : 0) <= left) return { section: a.section, shown: a.tools, files, failures }
+  const room = a.bodyRows - 2 - base - failures - files - a.section
+  const margins = room >= 3
+  const left = margins ? room - 2 : room
+  const fits = { section: a.section, files, failures, margins }
+  if (a.tools === 0) return { ...fits, shown: 0 }
+  if (a.tools + (a.bars ? 1 : 0) <= left) return { ...fits, shown: a.tools }
   // The marker takes a row; the axis draws only under shown rows.
-  return { section: a.section, shown: Math.max(0, left - 1 - (a.bars ? 1 : 0)), files, failures }
+  return { ...fits, shown: Math.max(0, left - 1 - (a.bars ? 1 : 0)) }
 }
