@@ -4,7 +4,7 @@
 
 Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, what it cost, and whether your prompt cache just expired. ccshine puts that on screen and restyles the rest of the terminal to match: your prompts, Claude's replies, tool calls, command output and the hint line under the prompt.
 
-![ccshine in a Claude Code session: tasks band with a subagent, usage line and status line](docs/screenshot.png)
+![ccshine with the Warm Claude theme and Maple Mono NF: replies, a tool row, a finished subagent, the token split by agent and the status line](docs/screenshot.png)
 
 ```
  Plan  2/5 ━━━━╸─────── ~18m left
