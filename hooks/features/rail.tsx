@@ -51,11 +51,12 @@ export function registerRail(on: On) {
     if (isInline && !live && list.length > 0) {
       const last = list.at(-1)!
       const sum = railSummary(railRows(await read($, calls), await read($, agents), await read($, jobs), last, clock), last, clock)
-      const line = [`turn ${list.length}`, fmtShort(sum.ms), `${sum.tools} tools`, sum.failures.length ? `${sum.failures.length} failed` : ''].filter(Boolean).join(' · ')
+      const failed = sum.failures.reduce((n, f) => n + f.times, 0)
+      const line = [`turn ${list.length}`, fmtShort(sum.ms), `${sum.tools} tools`, failed ? `${failed} failed` : ''].filter(Boolean).join(' · ')
       return (
         <Box flexDirection="row" height={1}>
           <Text color={C.accent}>≈ tidepool</Text>
-          <Text color={sum.failures.length ? C.crit : C.faint} wrap="truncate-end">{`  ${line}`}</Text>
+          <Text color={failed ? C.crit : C.faint} wrap="truncate-end">{`  ${line}`}</Text>
         </Box>
       )
     }

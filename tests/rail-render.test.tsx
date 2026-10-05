@@ -121,6 +121,16 @@ test('inline placement shows the live turn only, at most 6 rows, then one summar
   expect(idle).not.toContain('f7.ts')
 })
 
+test('the one-line inline summary counts every failed call', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await $.turn.start({ text: 'again', turnId: 't2' })
+  await call($, w, 'b2', 'Bash', { command: 'npm test' }, 100, { isError: true, result: 'Exit code 1', text: 'Exit code 1' })
+  await call($, w, 'b3', 'Bash', { command: 'npm test' }, 100, { isError: true, result: 'Exit code 1', text: 'Exit code 1' })
+  await $.turn.complete(complete('t2'))
+  expect(await textOf(await $.ui.mount(pane('inline', 80)))).toContain('2 failed')
+})
+
 test('narrow dock drops bars', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)

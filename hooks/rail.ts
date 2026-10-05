@@ -39,9 +39,10 @@ export function railRows(calls: Record<string, CallTiming>, agents: PlanAgent[],
     .map(([id, c]) => {
       const job = jobs.find(j => j.callId === id)
       const agent = agents.find(a => a.callId === id)
-      // A background shell runs on after its Bash call returns; an agent's own end is when its turn completed.
-      const running = job ? job.status === 'running' : agent ? agent.endedAt === undefined && c.endedAt === undefined && isOpen : c.endedAt === undefined && isOpen
-      const stop = job ? (job.endedAt ?? now) : agent?.endedAt ?? c.endedAt ?? (isOpen ? now : end)
+      // A background shell runs on after its Bash call returns, and an agent after its Agent call returns:
+      // each ends at its own end (the job's notification, the agent's turn completing).
+      const running = job ? job.status === 'running' : agent ? agent.endedAt === undefined : c.endedAt === undefined && isOpen
+      const stop = job ? (job.endedAt ?? now) : agent ? (agent.endedAt ?? now) : (c.endedAt ?? (isOpen ? now : end))
       const row: RailRow = {
         id,
         tool: c.tool,

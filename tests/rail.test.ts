@@ -115,3 +115,17 @@ test('callDetail: an error shows its first line', async () => {
   expect(callDetail('Read', { file_path: '/x' }, { isError: true, text: 'File not found' })).toEqual(['File not found'])
   expect(callDetail('Read', { file_path: '/x' }, { result: {} })).toEqual([])
 })
+
+test('a background agent keeps running past its Agent call until its own end', async () => {
+  const calls: Record<string, CallTiming> = { a1: { tool: 'Agent', startedAt: 2000, endedAt: 2100, target: 'Explore' } }
+  const agents: PlanAgent[] = [{ id: 'ag', description: 'Explore', type: 'Explore', startedAt: 2000, callId: 'a1' }]
+  const live: TurnSpan = { turnId: 't', startedAt: 1000 }
+  expect(railRows(calls, agents, [], live, 6000)[0]).toMatchObject({ running: true, to: 1, ms: 4000 })
+  expect(railRows(calls, agents, [], SPAN, 20000)[0]).toMatchObject({ running: true, over: true, to: 1, ms: 18000 })
+})
+
+test('an agent that finished ends where its own turn ended', async () => {
+  const calls: Record<string, CallTiming> = { a1: { tool: 'Agent', startedAt: 2000, endedAt: 2100, target: 'Explore' } }
+  const agents: PlanAgent[] = [{ id: 'ag', description: 'Explore', type: 'Explore', startedAt: 2000, callId: 'a1', endedAt: 8000 }]
+  expect(railRows(calls, agents, [], SPAN, 20000)[0]).toMatchObject({ running: false, over: false, ms: 6000 })
+})
