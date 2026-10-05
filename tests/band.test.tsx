@@ -138,3 +138,30 @@ test('tasks off: band hook returns next(e)', { options: { dock: false, tasks: fa
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['ENGINE'])
 })
+
+test('band leaves agent rows to a docked rail and keeps them otherwise', { options: { dock: false } }, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
+  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  await $.tool.call({ tool: 'TaskCreate', subject: 'tests', description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'tests', status: 'in_progress' })
+  await $.agent.spawn({
+    tool_use_id: 'tu1', prompt: 'run', description: 'Running engine tests', subagentType: 'general-purpose',
+    provider: { plugin: 'engine', tier: 'core' }, parentModel: 'claude-opus-5-5', background: true, fork: false,
+  })
+  const text = async (viewport: { columns: number; rows: number; isFullscreen: boolean }) => {
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport })
+    const all = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+    await ui.unmount()
+    return all
+  }
+  const docked = await text({ columns: 140, rows: 40, isFullscreen: true })
+  expect(docked).toContain('tests')
+  expect(docked).not.toContain('general-purpose')
+  expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
+  expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
+})

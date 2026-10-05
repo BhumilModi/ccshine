@@ -168,6 +168,16 @@ export function registerTasks(on: On) {
 
 type Band = Frozen<RenderInput<'AbovePrompt'>>
 
+// A rail docked beside the transcript (fullscreen, 110+ columns) already shows the agents.
+async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
+  if (!opts.rail || e.viewport?.isFullscreen !== true || e.viewport.columns < 110) return false
+  try {
+    return (await $.ui.panes()).some(pane => pane.id === 'tidepool-rail' && pane.isPlaced)
+  } catch {
+    return false
+  }
+}
+
 // The plan, its agents and the usage rows; null when there is nothing to show.
 async function planBand($: EngineInterface, e: Band, reserve: number): Promise<RenderElement | null> {
   {
@@ -182,7 +192,7 @@ async function planBand($: EngineInterface, e: Band, reserve: number): Promise<R
     const { Box, Text } = $.ui.resolve(e)
     await read($, tick)
     const now = await $.clock.now()
-    const agentList = agentRows(await read($, agents), turnList)
+    const agentList = (await railDocked($, e)) ? [] : agentRows(await read($, agents), turnList)
 
     // Usage: only what the status line does not show — a cold-cache warning, and tokens split by agent.
     let usage: RenderElement | null = null
