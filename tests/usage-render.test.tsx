@@ -78,8 +78,8 @@ test('usage off and no plan returns next(e)', { options: { dock: false, usage: f
 
 test('band keeps the done header after the plan finishes', async ($, on) => {
   const clock = engine(on)
-  on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
-  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e: { taskId: string }) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e) => ({ result: { task: { id: String(e.subject), subject: String(e.subject) } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e) => ({ result: { success: true, taskId: String(e.taskId), updatedFields: ['status'] } }))
   await $.tool.call({ tool: 'TaskCreate', subject: 'a', description: '' })
   await $.tool.call({ tool: 'TaskUpdate', taskId: 'a', status: 'in_progress' })
   await clock.advance(5000)

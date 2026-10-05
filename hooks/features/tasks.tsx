@@ -92,20 +92,27 @@ async function apply($: EngineInterface, change: (list: PlanTask[]) => PlanTask[
   await syncTicker($)
 }
 
+// Claude Code 2.1.289 stopped typing these tools' inputs and results; the shapes are unchanged.
+type TaskCreateInput = { subject: string; activeForm?: string }
+type TaskUpdateInput = { taskId: string; status?: PlanTask['status'] | 'deleted'; subject?: string; activeForm?: string }
+type TodoWriteInput = { todos: Parameters<typeof syncTodos>[1] }
+
 export function registerTasks(on: On) {
-  on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
-    const ran = await next(e)
+  on('tool.call', { tool: 'TaskCreate' }, async ($, raw, next) => {
+    const e = raw as typeof raw & TaskCreateInput
+    const ran = await next(raw)
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
-    const task: PlanTask = { id: ran.result.task.id, subject: e.subject, status: 'pending', createdAt: now }
+    const task: PlanTask = { id: (ran.result as { task: { id: string } }).task.id, subject: e.subject, status: 'pending', createdAt: now }
     if (e.activeForm) task.activeForm = e.activeForm
     // A new task after everything finished starts a new plan.
     await apply($, list => [...(list.every(t => t.status === 'completed') ? [] : list), task])
     return ran
   })
 
-  on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
-    const ran = await next(e)
+  on('tool.call', { tool: 'TaskUpdate' }, async ($, raw, next) => {
+    const e = raw as typeof raw & TaskUpdateInput
+    const ran = await next(raw)
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
     const status = e.status
@@ -119,8 +126,9 @@ export function registerTasks(on: On) {
     return ran
   })
 
-  on('tool.call', { tool: 'TodoWrite' }, async ($, e, next) => {
-    const ran = await next(e)
+  on('tool.call', { tool: 'TodoWrite' }, async ($, raw, next) => {
+    const e = raw as typeof raw & TodoWriteInput
+    const ran = await next(raw)
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
     await apply($, list => syncTodos(list, e.todos, now))
