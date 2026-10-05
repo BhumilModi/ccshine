@@ -85,6 +85,12 @@
       "title": "Prompt chrome",
       "description": "Themed mode labels, notices and background hint; hides the turn duration line",
       "default": true
+    },
+    "installAssets": {
+      "type": "boolean",
+      "title": "Install font and theme",
+      "description": "Copy the bundled Maple Mono NF font and Warm Claude theme into your font and theme folders",
+      "default": true
     }
   }
 }

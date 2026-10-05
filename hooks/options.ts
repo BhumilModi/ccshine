@@ -9,6 +9,7 @@ export type Options = {
   alertAfterSeconds: number
   transcript: boolean
   chrome: boolean
+  installAssets: boolean
 }
 
 export const DEFAULTS: Options = {
@@ -22,6 +23,7 @@ export const DEFAULTS: Options = {
   alertAfterSeconds: 30,
   transcript: true,
   chrome: true,
+  installAssets: true,
 }
 
 // The engine fills defaults from plugin.json; DEFAULTS covers anything it leaves out.

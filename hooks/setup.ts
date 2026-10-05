@@ -15,15 +15,6 @@ export function isWindowsRoot(root: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(root) || root.includes('\\')
 }
 
-export function parseEnv(stdout: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of stdout.split('\n')) {
-    const eq = line.indexOf('=')
-    if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
-  }
-  return env
-}
-
 export function unixTargets(os: 'Darwin' | 'Linux', env: Record<string, string>): { fontDir: string; themeDir: string } | undefined {
   const home = env.HOME
   if (!home) return undefined

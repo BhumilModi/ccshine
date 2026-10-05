@@ -1,15 +1,11 @@
 import { expect, test } from 'claude-code/testing'
 
-import { FONT_FILES, isWindowsRoot, parseEnv, setupGuide, unixTargets, windowsInstallScript } from '../hooks/setup'
+import { FONT_FILES, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../hooks/setup'
 
 test('windows roots are told apart from posix roots', async () => {
   expect(isWindowsRoot('C:\\Users\\a\\.claude\\plugins\\ccshine')).toBe(true)
   expect(isWindowsRoot('D:/plugins/ccshine')).toBe(true)
   expect(isWindowsRoot('/Users/a/.claude/mods/ccshine')).toBe(false)
-})
-
-test('env output parses on the first equals sign', async () => {
-  expect(parseEnv('HOME=/Users/a\nLS_COLORS=di=34:ln=35\n\n')).toEqual({ HOME: '/Users/a', LS_COLORS: 'di=34:ln=35' })
 })
 
 test('macOS targets keep spaces in the home path', async () => {
