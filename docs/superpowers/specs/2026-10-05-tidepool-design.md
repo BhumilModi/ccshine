@@ -79,8 +79,8 @@ Rail, docked beside the chat:
 - **Anchor line**: the first tool row of a main-thread turn draws it; every other `ToolUse`,
   `ToolResult` and `ToolGroup` of that turn draws an empty `Box`. Counts update live. Pressing it
   selects that turn in the rail. Errors show in the theme's critical colour.
-- **Rail selection**: the turn under the top of the chat viewport, from the `onScreen` reports on
-  `UserMessage` and `AssistantMessage` renders. While a turn runs and the chat is scrolled to the
+- **Rail selection**: the first turn whose anchor line is on screen, from the anchor row's
+  `onScreen` reports (the anchor is the one tool row per turn the chat still draws). While a turn runs and the chat is scrolled to the
   bottom, the live turn. Pressing an anchor pins that turn until the next scroll.
 - **Bar style**: the status line's context-meter look, nothing new. A heavy `━` line on a thin `─`
   track in the palette's `track` colour, at half-cell precision (`╸` for a half cell at the end, `╺`
