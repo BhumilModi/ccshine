@@ -14,18 +14,25 @@ Claude Code tracks a lot it never shows you: when each tool ran and for how long
 ◆ claude                                    │ Bash  npm run dev     ─━━━━━━━━━━━⇢ running · 1m 5s
   Found it: the token check compared expiry │ Edit  auth.ts         ─────────╺── 0.1s  +12 −3
   with < instead of <=.                     │                       0s        52s
-                                            │ ctx  ━━━━━━╸───── 38% → 52%  $0.31
+                                            │ ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+                                            │  Plan  2/3 ━━━━━━━━────  ~4m left  ▾ show all
+                                            │ ✓ 1. Find the expiry check        3m
+                                            │ ▶ 2. Fix the comparison           52s
+                                            │     ▸ add a regression test       12s
+                                            │ · 3. Run the full suite
+                                            │ ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+                                            │ cost  $0.31  14 tools · 1 agent
                                             │ files auth.ts +12 −3
-                                            │ ✕ Bash npm test ×2
+                                            │ fail  Bash npm test ×2
 ```
 
 ## What you get
 
 | Where | Before | With Tidepool |
 |---|---|---|
-| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: context before and after, what the turn cost, files changed and calls that failed more than once. The rail follows your scroll. |
+| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: **the plan** (see the tasks band below), then what the turn cost, files changed and calls that failed more than once. The rail follows your scroll. |
 | In the chat | Every tool call and its output | **One anchor line per turn:** `◇ 14 tools · 1 agent · 52s · 1 error  ▸ rail`. Press it to pin that turn in the rail. |
-| Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once done. |
+| Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Steps inside a task nest under it as sub-items, and subagents appear under the task they work on, with a live timer and their tokens once done. When not every row fits, `▾ show all` on the Plan header shows the rest. Running shell commands get rows too: how long each has run, `~40s left` once the same command has run before, and a background job's latest output line. A finished plan shows its total for 30 seconds, then folds away. While the Tide rail is docked, the plan and the shells move into the rail, and this band keeps only the usage line and the prompt dock. |
 | Above the prompt | Nothing | **Usage line, only when it matters:** a warning when a turn re-sent your context at full price because the prompt cache had gone cold, and tokens split by agent when subagents ran. Tokens, cache rate and the cache countdown live in the status line. |
 | Your prompts and replies | `> fix the queue test`, `●` before each reply | **A styled transcript:** `▌ you` before your prompts and `◆ claude` above each reply, in the theme's accent colour. Replies still go through Claude Code's own markdown renderer, so code blocks and links look the same. Slash command output (`/cost` and others) gets a title line. |
 | Each tool call, with the rail off | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`, with `· 1 failed` when any of them failed. |
@@ -54,7 +61,7 @@ You need **Claude Code 2.1.288 or later**.
 /plugin install tidepool@tidepool
 ```
 
-Claude Code may say the options are not set yet; every option has a default, so you can skip `/plugin configure`. Start a new session. The transcript style, tool rows and spinner work right away. The tasks band appears the first time Claude works through a task list.
+Claude Code may say the options are not set yet; every option has a default, so you can skip `/plugin configure`. Start a new session. The transcript style, tool rows and spinner work right away. The tasks band appears the first time Claude works through a task list (see step 3).
 
 **2. Turn on the status line (optional).** Claude Code only runs a status line that `settings.json` points to, and plugins cannot edit that file. So, inside Claude Code, run:
 
@@ -67,6 +74,17 @@ It prints a `"statusLine"` block with the path to your install. Paste it into `~
 The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), logged in. Tidepool looks the PR up in the background at most once a minute per branch and keeps the answer in `~/.cache/tidepool/pr.json`, so the status line never waits on the network. A new PR shows up within about a minute. Without `gh`, or outside a GitHub repo, the badge just doesn't appear.
 
 When Tidepool updates, its install folder changes. If your status line still points at the old one, Tidepool shows a reminder at startup: run `/tidepool-statusline` again and paste the new block.
+
+**3. Let Claude keep a task list (needed on current models).** The plan comes from Claude's task tools (`TaskCreate`, `TaskUpdate`, `TodoWrite`). Claude Code 2.1.289 only turns them on by default for older models, so on Claude 5 models there is no task list and the plan never shows. Add this to `~/.claude/settings.json` and start a new session:
+
+```json
+{
+  "env": { "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" },
+  "todoFeatureEnabled": false
+}
+```
+
+The first line turns the task tools on. The second hides Claude Code's own task panel, which otherwise opens above the prompt on every task change, duplicates the plan and leaves the prompt dock too little room. Merge both into your existing `env` and settings rather than replacing them. The task tools keep working with the panel hidden.
 
 **Coming from ccshine?** Tidepool is ccshine's new name. Uninstall `ccshine@ccshine`, install `tidepool@tidepool`, and run `/tidepool-statusline` to point the status line at the new install. Your plan-time history carries over on the first start; settings in `/config` start from their defaults.
 
@@ -115,10 +133,10 @@ Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.t
 
 The rail opens by itself when a session starts.
 
-- **Fullscreen, 110 columns or wider:** it docks beside the chat and shows the turn you are reading. Scroll the chat and it follows; press an anchor line to pin a turn until you scroll again.
+- **Fullscreen:** it docks beside the chat and shows the turn you are reading. Scroll the chat and it follows; press an anchor line to pin a turn until you scroll again. The rail that opens at startup docks from 110 columns; one you open yourself with `/tidepool-rail` docks at any width.
 - **Anything else** (the main screen, a narrow window): Claude Code places it above the prompt. There it shows the turn that is running, six rows at most, and between turns shrinks to one line: `≈ tidepool  turn 4 · 52s · 14 tools`.
 - `/tidepool-rail` hides or shows it for the session. Switch it off for good with the Tide rail setting; tool rows then go back to one line each in the chat.
-- While the rail is docked, the tasks band leaves subagents to the rail and keeps the plan.
+- **While it is docked, the rail owns the plan.** Top to bottom: the turn's timeline (about 40% of the rail), the plan with its sub-items, agents and shells (up to 45%), then the footer with cost, failures and files (up to 15%). Rows the plan or footer leave go to the timeline. `▾ show all` lifts the plan's cap and the rail scrolls. The tasks band above the prompt then draws no plan, so the prompt dock keeps its room.
 
 ## Settings
 
@@ -129,7 +147,7 @@ Open `/config` and find the Tidepool rows. Every switched-off feature leaves Cla
 | Theme | `claude` | Colours for everything Tidepool draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
 | Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, such as the bundled Maple Mono NF; otherwise you see empty boxes |
 | Tide rail | on | Tool calls, agents and background jobs on a timeline beside the chat, with one anchor line per turn in the chat |
-| Tasks band | on | Tasks, time left and agents above the prompt |
+| Tasks band | on | Tasks, sub-items, agents, running shells and time left above the prompt, or in the rail while it is docked |
 | Tool rows | on | Tidepool's tool rows: the anchor line and rail, or one-line calls with the rail off. Off leaves Claude Code's own rows |
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
@@ -142,7 +160,9 @@ Open `/config` and find the Tidepool rows. Every switched-off feature leaves Cla
 
 ## Good to know
 
-- **Tasks band empty?** It only shows while Claude has a task list. Ask for a plan, or anything with several steps.
+- **Tasks band empty?** It only shows while Claude has a task list. Ask for a plan, or anything with several steps. On Claude 5 models it also needs `CLAUDE_CODE_ENABLE_TODO_TOOLS` (install step 3); without it Claude has no task tools.
+- **Sub-items** are tasks Claude creates with `metadata: { parent: "<task id>" }`. They nest under their task and do not count toward the plan's progress or time left. Tell Claude to use them (for example in your `CLAUDE.md`) if you want steps inside a task.
+- **The crab looks squeezed?** Claude Code's own task panel shares the space above the prompt. Hide it with `"todoFeatureEnabled": false` (install step 3). When space is short the scene shrinks to four rows before it drops, and the dock's status line always stays.
 - **The prompt dock** is drawn in half-block pixels, so it looks best with a Nerd Font such as the bundled Maple Mono NF. Collapse it with ctrl+x ctrl+a, or switch it off in `/config` to get Claude Code's spinner back.
 - **Token counts look large.** A turn's tokens add up every request in that turn, and each request re-reads the cached context. That is how Claude Code bills usage, which is why the cache state matters.
 - **No chime?** Sounds play through `afplay` on macOS. Linux and Windows get the toast only.
