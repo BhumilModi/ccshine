@@ -186,3 +186,16 @@ test('a plan in a tight band shrinks the running dock to its step line instead o
   expect(tight.text).toContain('▶ 1. one')
   expect(tight.text).toContain('more')
 })
+
+test("with Claude Code's own task list leaving five rows, the idle dock label and the plan header both stay", async ($, on) => {
+  engine(on)
+  on('tool.call', { tool: 'TaskUpdate' }, (_$: unknown, e) => ({ result: { success: true, taskId: String(e.taskId), updatedFields: ['status'] } }))
+  for (const s of ['a', 'b', 'c', 'd', 'e', 'f']) await $.tool.call({ tool: 'TaskCreate', subject: s, description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'c', status: 'in_progress' })
+  const { rasters, text } = await band($, 'terminal', { maxRows: 5 })
+  expect(rasters).toHaveLength(0)
+  expect(text).toContain('Ask Claude')
+  expect(text).toContain(' Plan ')
+  expect(text).toContain('▶ 3. c')
+  expect(text).not.toContain('1. a')
+})

@@ -166,14 +166,17 @@ export function finishedAt(tasks: PlanTask[]): number | undefined {
 }
 
 // Which lines fit in `room` rows, an "N earlier" and a "+N more" marker counted as one row each;
-// keeps the line before the focus for context.
-export function windowLines<T>(lines: T[], focus: number, room: number): { start: number; shown: T[]; after: number } {
+// keeps the line before the focus for context. `before` and `after` count what each shown marker hides.
+export function windowLines<T>(lines: T[], focus: number, room: number): { start: number; shown: T[]; before: number; after: number } {
   const len = lines.length
-  if (len <= room) return { start: 0, shown: lines, after: 0 }
-  const one = Math.max(1, room - 1)
-  if (focus < one) return { start: 0, shown: lines.slice(0, one), after: len - one }
-  if (focus >= len - one) return { start: len - one, shown: lines.slice(len - one), after: 0 }
-  const body = Math.max(1, room - 2)
-  const start = Math.min(Math.max(1, focus - 1), len - body - 1)
-  return { start, shown: lines.slice(start, start + body), after: len - start - body }
+  if (len <= room) return { start: 0, shown: lines, before: 0, after: 0 }
+  // Too little room for markers around the focus: the focus alone, then a "+N more" if a row is left.
+  if (room <= 2) return { start: focus, shown: lines.slice(focus, focus + 1), before: 0, after: room === 2 ? len - focus - 1 : 0 }
+  const one = room - 1
+  if (focus < one) return { start: 0, shown: lines.slice(0, one), before: 0, after: len - one }
+  if (focus >= len - one) return { start: len - one, shown: lines.slice(len - one), before: len - one, after: 0 }
+  const body = room - 2
+  // The line before the focus only when the body has room for both.
+  const start = Math.min(Math.max(1, body > 1 ? focus - 1 : focus), len - body - 1)
+  return { start, shown: lines.slice(start, start + body), before: start, after: len - start - body }
 }

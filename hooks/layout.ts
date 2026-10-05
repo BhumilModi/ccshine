@@ -1,17 +1,27 @@
 import { IDLE_ROWS, SCENE_ROWS } from './dock'
 
-export type DockSize = 'none' | 'idle' | 'idle-compact' | 'full' | 'compact'
+export type DockSize = 'none' | 'idle' | 'idle-compact' | 'full' | 'compact' | 'tiny'
 
-// Rows each dock takes, the blank row above it included: the idle crab and its label, its label alone;
-// a running turn's status line, scene and recent calls, or the status line and calls alone.
-export const DOCK_ROWS: Record<DockSize, number> = { none: 0, idle: 1 + IDLE_ROWS, 'idle-compact': 2, full: 1 + 1 + SCENE_ROWS + 1, compact: 3 }
+// Rows each dock takes, the blank row above it included: the idle crab and its label, or the label alone;
+// a running turn's status line, scene and recent calls, the status line and calls, or the status line alone.
+export const DOCK_ROWS: Record<DockSize, number> = {
+  none: 0,
+  idle: 1 + IDLE_ROWS,
+  'idle-compact': 2,
+  full: 1 + 1 + SCENE_ROWS + 1,
+  compact: 3,
+  tiny: 2,
+}
 
 export type BandAsk = {
-  // The band's row cap: a taller tree scrolls, which pushes the dock out of sight.
+  // The band's row cap: a taller tree scrolls, which pushes the dock out of sight. Claude Code's own
+  // task list shares the slot, so this can be as small as a few rows.
   maxRows: number
   dock: 'none' | 'idle' | 'live'
-  // Rows always shown when present: the plan header and the row it is on, and every shell row.
-  pinned: number
+  // A plan header to show, and the row of the task it is on.
+  header: boolean
+  focus: boolean
+  // The shell section's rows, its label included.
   shell: number
   // Every other plan row wanted (tasks, sub-items, agents, labels).
   plan: number
@@ -20,22 +30,51 @@ export type BandAsk = {
   expanded: boolean
 }
 
-export type BandFit = { dock: DockSize; plan: number; tails: boolean; usage: boolean }
+export type BandFit = {
+  dock: DockSize
+  // The blank row between the chat and the band.
+  margin: boolean
+  header: boolean
+  focus: boolean
+  shell: number
+  plan: number
+  tails: boolean
+  usage: boolean
+}
 
-// The plan keeps at least this many of its other rows before the dock's scene, usage or output tails.
+// The plan keeps this many of its other rows before the dock's scene, usage or output tails.
 const MIN_PLAN = 2
 
-// Shares the band's rows so the whole tree fits in maxRows: the dock's scene goes first, then usage,
-// then output tails; the plan's other rows take what is left. "Show all" asks for every plan row and may scroll.
+// Hands out the band's rows by priority, so the tree never passes maxRows and the dock's status line
+// is never scrolled away: the dock's line, the plan header and its task, the shells, the dock's calls,
+// a little plan, the dock's picture, usage, output tails, then the rest of the plan.
+// "Show all" is the one ask that may pass maxRows: the person asked to see every row, and the band scrolls.
 export function fitBand(a: BandAsk): BandFit {
-  const above = a.pinned + a.shell + a.plan + a.tails + a.usage > 0 ? 1 : 0
-  const keep = a.expanded ? a.plan : Math.min(a.plan, MIN_PLAN)
-  let dock: DockSize = a.dock === 'live' ? 'full' : a.dock === 'idle' ? 'idle' : 'none'
-  if (above + a.pinned + a.shell + keep + DOCK_ROWS[dock] > a.maxRows) dock = dock === 'full' ? 'compact' : dock === 'idle' ? 'idle-compact' : dock
-  let left = a.maxRows - above - DOCK_ROWS[dock] - a.pinned - a.shell
-  const usage = a.usage > 0 && left - a.usage >= keep
-  if (usage) left -= a.usage
-  const tails = a.tails > 0 && left - a.tails >= keep
-  if (tails) left -= a.tails
-  return { dock, plan: a.expanded ? a.plan : Math.max(0, Math.min(a.plan, left)), tails, usage }
+  let left = a.maxRows
+  const take = (n: number) => {
+    if (n > left) return false
+    left -= n
+    return true
+  }
+  const live = a.dock === 'live'
+  const fit: BandFit = { dock: 'none', margin: false, header: false, focus: false, shell: 0, plan: 0, tails: false, usage: false }
+  if (a.dock !== 'none' && take(2)) fit.dock = live ? 'tiny' : 'idle-compact'
+  fit.header = a.header && take(1)
+  fit.focus = fit.header && a.focus && take(1)
+  // A shell label without a row under it says nothing.
+  const shell = Math.min(a.shell, left)
+  if (shell >= 2 && take(shell)) fit.shell = shell
+  fit.margin = (fit.header || fit.shell > 0 || a.usage > 0) && take(1)
+  if (live && fit.dock === 'tiny' && take(1)) fit.dock = 'compact'
+  if (fit.focus) {
+    // Showing all takes its rows before the dock's picture.
+    fit.plan = a.expanded ? a.plan : Math.min(a.plan, MIN_PLAN, left)
+    left = Math.max(0, left - fit.plan)
+  }
+  if (fit.dock === 'compact' && take(SCENE_ROWS)) fit.dock = 'full'
+  if (fit.dock === 'idle-compact' && take(IDLE_ROWS - 1)) fit.dock = 'idle'
+  fit.usage = a.usage > 0 && fit.margin && take(a.usage)
+  fit.tails = a.tails > 0 && fit.shell > 0 && take(a.tails)
+  if (fit.focus && !a.expanded) fit.plan += Math.min(a.plan - fit.plan, left)
+  return fit
 }

@@ -210,13 +210,14 @@ export function registerTasks(on: On) {
     const kind = !docking ? 'none' : dockView((await read($, dock)) ?? undefined, await $.clock.now()).kind === 'idle' ? 'idle' : 'live'
     // The plan and the dock share the band's rows (layout.ts), so the dock is never scrolled out of sight.
     const band = e.props.hasSurvey ? null : await planBand($, e, kind)
-    const docked = docking ? await dockBand($, e, band?.dock ?? (kind === 'idle' ? 'idle' : 'full')) : null
+    const alone = { maxRows: e.props.maxRows, dock: kind, header: false, focus: false, shell: 0, plan: 0, tails: 0, usage: 0, expanded: false } as const
+    const docked = docking ? await dockBand($, e, band?.dock ?? fitBand(alone).dock) : null
     if (!docked) {
       site.id = undefined
       return band?.el ?? next(e)
     }
     const { Box } = $.ui.resolve(e)
-    return band ? <Box flexDirection="column">{band.el}{docked}</Box> : docked
+    return band?.el ? <Box flexDirection="column">{band.el}{docked}</Box> : docked
   })
 }
 
@@ -246,17 +247,19 @@ type Line =
   | { kind: 'note'; text: string }
 
 // The plan as one row per line: each task, the running task's sub-items and agents (every task's sub-items
-// when showing all), then agents that belong to no task. `focus` is the first unfinished task's line.
+// when showing all), then agents that belong to no task. `focus` is the running task's line, else the first unfinished one.
 function planLines(list: PlanTask[], agentList: AgentRow[], now: number, all: boolean): { lines: Line[]; focus: number } {
   const lines: Line[] = []
   let focus = -1
+  let next = -1
   const agentsOf = (taskId: string | undefined, indent: string): Line[] => {
     const live = visibleAgents(agentList, taskId, now)
     const out: Line[] = live.length > MAX_AGENT_ROWS ? [{ kind: 'note', text: `${indent}+${live.length - MAX_AGENT_ROWS} earlier agents` }] : []
     return [...out, ...live.slice(-MAX_AGENT_ROWS).map(agent => ({ kind: 'agent' as const, agent, indent }))]
   }
   topLevel(list).forEach((t, i) => {
-    if (focus < 0 && t.status !== 'completed') focus = lines.length
+    if (focus < 0 && t.status === 'in_progress') focus = lines.length
+    if (next < 0 && t.status !== 'completed') next = lines.length
     lines.push({ kind: 'task', task: t, n: i + 1 })
     const open = t.status === 'in_progress'
     if (open || all) {
@@ -269,12 +272,12 @@ function planLines(list: PlanTask[], agentList: AgentRow[], now: number, all: bo
   })
   const loose = agentsOf(undefined, '    ')
   if (loose.length > 0) lines.push({ kind: 'note', text: '  agents' }, ...loose)
-  return { lines, focus: Math.max(0, focus) }
+  return { lines, focus: Math.max(0, focus >= 0 ? focus : next) }
 }
 
 // The plan, its agents, running shells and the usage rows, fitted with the dock into the band's rows.
 // Null when there is nothing to show; `dock` is the size the dock should draw at.
-async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' | 'live'): Promise<{ el: RenderElement; dock: DockSize } | null> {
+async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' | 'live'): Promise<{ el: RenderElement | null; dock: DockSize } | null> {
   const list = await read($, tasks)
   const turnList = await read($, turns)
   const last = lastTurn(turnList)
@@ -314,24 +317,26 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const fit = fitBand({
     maxRows: e.props.maxRows,
     dock: dockKind,
-    pinned: (showTasks ? 1 : 0) + (lines.length > 0 ? 1 : 0),
+    header: showTasks,
+    focus: lines.length > 0,
     shell: shells.length ? 1 + shells.length : 0,
     plan: all ? others : Math.min(others, MAX_TASK_ROWS),
     tails: tailCount,
     usage: usageRows.length,
     expanded: all,
   })
-  const shell = shells.length ? await shellSection($, e, shells, now, fit.tails) : null
+  // The newest shells when not all fit; the section's label takes one of its rows.
+  const shell = fit.shell > 1 ? await shellSection($, e, shells.slice(-(fit.shell - 1)), now, fit.tails) : null
   const usage = fit.usage && usageRows.length ? <Box key="usage" flexDirection="column">{usageRows}</Box> : null
   const band = (rows: (RenderElement | null | undefined)[]) => ({
     dock: fit.dock,
     el: (
-      <Box flexDirection="column" marginTop={1} paddingLeft={1}>
+      <Box flexDirection="column" marginTop={fit.margin ? 1 : 0} paddingLeft={1}>
         {rows}
       </Box>
     ),
   })
-  if (!showTasks) return shell || usage ? band([shell?.el, usage]) : null
+  if (!showTasks || !fit.header) return shell || usage ? band([shell?.el, usage]) : { el: null, dock: fit.dock }
 
   const past = await projectHistory($)
   const { done, total } = estimate(top, now, past)
@@ -348,8 +353,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     },
     { bg: C.segAlt, parts: [{ text: ` ${timeLeft(top, now, past)} `, color: finished ? C.mid : C.ink }] },
   ]
-  const room = fit.plan + 1
-  const { start, shown, after } = windowLines(lines, focus, room)
+  const { start, shown, before, after } = fit.focus ? windowLines(lines, focus, fit.plan + 1) : { start: 0, shown: [], before: 0, after: 0 }
   // The toggle shows whenever rows are hidden: past the window, or sub-items of tasks not running.
   const hidden = all ? 0 : planLines(list, agentList, now, true).lines.length - shown.length
   const toggle = all ? ' ▴ fewer' : hidden > 0 ? ` ▾ show all` : ''
@@ -423,7 +427,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
 
   return band([
     headerRow,
-    start > 0 ? <Text key="before" color={C.faint}>{`  ${start} earlier`}</Text> : null,
+    before > 0 ? <Text key="before" color={C.faint}>{`  ${before} earlier`}</Text> : null,
     ...shown.map(draw),
     after > 0 ? <Text key="after" color={C.faint}>{`  +${after} more`}</Text> : null,
     shell?.el,
@@ -528,7 +532,7 @@ async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<Re
       </Box>
     )
   }
-  const compact = size === 'compact'
+  const compact = size === 'compact' || size === 'tiny'
   const cols = Math.max(20, Math.min(SCENE_MAX, e.props.bodyColumns - 2))
   site.cols = compact ? undefined : cols
   const mode = modeAt(turn, now)
@@ -555,7 +559,7 @@ async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<Re
         {!result && <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>}
       </Box>
       {!compact && <Raster key="dock-scene" columns={cols} rows={SCENE_ROWS} cells={encodeCells(sceneCells(view, turn, now, cols, C))} />}
-      <Box>
+      {size !== 'tiny' && <Box>
         {recent.length === 0 ? (
           <Text color={C.faint} wrap="truncate-end">Waiting for the first tool call</Text>
         ) : (
@@ -566,7 +570,7 @@ async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<Re
             </Box>
           ))
         )}
-      </Box>
+      </Box>}
     </Box>
   )
 }
