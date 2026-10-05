@@ -279,3 +279,33 @@ export function encodeCells(words: Uint32Array): string {
 
 // The band's requestId, recorded when the band draws, so the timer can repaint its Raster.
 export const site: { id: string | undefined; cols: number | undefined; rows?: number } = { id: undefined, cols: undefined }
+
+// The rail's plan-done card: a small crab that runs in, does victory hops with sparks, then stands still.
+export const DONE_MS = 2400
+export const DONE_COLS = 14
+export const DONE_ROWS = 4
+const DONE_RUN_MS = 700
+const DONE_X = 2
+
+export function doneCrabBox(ms: number): { left: number; top: number; frame: string[] } {
+  const rest = DONE_ROWS * 2 - CRAB_H
+  if (ms < DONE_RUN_MS) {
+    const k = ms / DONE_RUN_MS
+    const left = Math.round(lerp(-CRAB_W, DONE_X, easeOut(k)))
+    return { left, top: rest, frame: CRAB[Math.floor(ms / 90) % 2]! }
+  }
+  if (ms >= DONE_MS) return { left: DONE_X, top: rest, frame: CRAB[0]! }
+  const lift = Math.min(rest, Math.round(rest * Math.abs(Math.sin((2 * Math.PI * (ms - DONE_RUN_MS)) / 850))))
+  return { left: DONE_X, top: rest - lift, frame: lift > 0 ? CRAB[2]! : CRAB[0]! }
+}
+
+export function doneCrabCells(ms: number, p: Palette): Uint32Array {
+  const px = new Pixels(DONE_COLS, DONE_ROWS * 2)
+  const crab = doneCrabBox(ms)
+  if (ms >= DONE_RUN_MS && ms < DONE_MS) {
+    const beat = Math.floor(ms / 150)
+    SPARKS.forEach(([dx, dy], i) => (beat + i) % 2 === 0 && px.put(crab.left + dx, crab.top + dy, hex(i % 2 ? p.warn : p.accent)))
+  }
+  px.sprite(crab.frame, crab.left, crab.top, hex(p.accent), hex(p.onAccent))
+  return px.cells()
+}

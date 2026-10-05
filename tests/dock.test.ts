@@ -18,6 +18,7 @@ import {
   travelled,
 } from '../hooks/dock'
 import type { DockTurn } from '../hooks/dock'
+import { DONE_COLS, DONE_MS, DONE_ROWS, doneCrabBox, doneCrabCells } from '../hooks/dock'
 import { palettes } from '../hooks/palettes.mjs'
 
 const P = palettes.warm
@@ -151,4 +152,18 @@ test('a four-row scene keeps the crab inside it, running and through the finish'
     expect(box.bottom).toBeLessThanOrEqual(4 * 2 - 3)
   }
   expect(sceneCells({ kind: 'work', k: 0 }, t, INTRO_MS + 30, 40, P, 4).length).toBe(40 * 4 * 3)
+})
+
+test('the plan-done crab runs in, hops inside its card, then stands still', async () => {
+  const boxes = Array.from({ length: 60 }, (_, i) => doneCrabBox((i * DONE_MS) / 50))
+  for (const b of boxes) {
+    expect(b.top).toBeGreaterThanOrEqual(0)
+    expect(b.top + b.frame.length).toBeLessThanOrEqual(DONE_ROWS * 2)
+  }
+  // It enters from the left edge and ends standing where it hopped.
+  expect(boxes[0]!.left).toBeLessThan(0)
+  const still = doneCrabBox(DONE_MS)
+  expect(doneCrabBox(DONE_MS + 9000)).toEqual(still)
+  expect(boxes.some(b => b.top < still.top)).toBe(true)
+  expect(doneCrabCells(500, P).length).toBe(DONE_COLS * DONE_ROWS * 3)
 })

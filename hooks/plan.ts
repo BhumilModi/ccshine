@@ -189,3 +189,16 @@ export function historyFor(saved: unknown, root: string): number[] {
   const nums = (v: unknown) => (Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : [])
   return by[root] !== undefined ? nums(by[root]) : Object.values(by).flatMap(nums)
 }
+
+// A finished plan's summary: top-level tasks, sub-items, total time, and the fastest and longest task.
+export function planStats(tasks: PlanTask[]): { tasks: number; subs: number; ms: number; fastest?: number; longest?: number } {
+  const top = topLevel(tasks)
+  const took = [...durations(top).values()]
+  const { elapsed } = estimate(top, Math.max(...top.map(t => t.doneAt ?? 0)))
+  return {
+    tasks: top.length,
+    subs: tasks.length - top.length,
+    ms: elapsed,
+    ...(took.length ? { fastest: Math.min(...took), longest: Math.max(...took) } : {}),
+  }
+}

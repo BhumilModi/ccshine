@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { PlanTask, TurnRecord } from '../types'
-import { agentRows, estimate, newlyDone, summary, syncTodos, window } from '../hooks/plan'
+import { agentRows, estimate, newlyDone, planStats, summary, syncTodos, window } from '../hooks/plan'
 import { bar, powerline } from '../hooks/theme'
 
 const MIN = 60000
@@ -127,4 +127,12 @@ test('a finished plan keeps its total time instead of counting on', async () => 
   ]
   expect(summary(list, 20 * MIN)).toBe('Plan 2/2 done in 20m')
   expect(summary(list, 50 * MIN)).toBe('Plan 2/2 done in 20m')
+})
+
+test('planStats counts tasks and sub-items and finds the fastest and longest task', async () => {
+  const t = (id: string, startedAt: number, doneAt: number, parent?: string): PlanTask => ({
+    id, subject: id, status: 'completed', createdAt: 0, startedAt, doneAt, ...(parent ? { parent } : {}),
+  })
+  const stats = planStats([t('a', 0, 60_000), t('a1', 0, 1000, 'a'), t('b', 60_000, 600_000), t('c', 600_000, 660_000)])
+  expect(stats).toEqual({ tasks: 3, subs: 1, ms: 660_000, fastest: 60_000, longest: 540_000 })
 })
