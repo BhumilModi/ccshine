@@ -8,6 +8,9 @@ import { palette } from '../theme'
 // eslint-disable-next-line no-control-regex
 const fits = (text: string) => text.length <= 10_000 && !/[\u0000-\u0008\u000B-\u001F\u007F]/.test(text)
 
+// Columns kept clear at the chat's right edge, so wrapped text never runs into the docked rail's separator.
+const GUTTER = 2
+
 export function registerTranscript(on: On) {
   // The person's own prompts only; notifications and other agents' messages keep the engine's row.
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
@@ -17,7 +20,7 @@ export function registerTranscript(on: On) {
     const C = palette()
     // marginTop keeps the blank line the engine puts between messages.
     return (
-      <Box marginTop={1}>
+      <Box marginTop={1} paddingRight={GUTTER}>
         <Box flexShrink={0}>
           <Text color={C.accent} bold>{'▌ you  '}</Text>
         </Box>
@@ -33,7 +36,7 @@ export function registerTranscript(on: On) {
     const { Box, Text, Markdown } = $.ui.resolve(e)
     const C = palette()
     return (
-      <Box flexDirection="column" marginTop={1}>
+      <Box flexDirection="column" marginTop={1} paddingRight={GUTTER}>
         {p.isFirstOfReply && <Text color={C.accent} bold>{'◆ claude'}</Text>}
         <Box paddingLeft={2}>
           <Markdown text={p.text} />
@@ -50,10 +53,10 @@ export function registerTranscript(on: On) {
     const title = `/${p.command}`
     const columns = e.viewport?.columns ?? 40
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" paddingRight={GUTTER}>
         <Box>
           <Text color={C.accent} bold>{title}</Text>
-          <Text color={C.track} wrap="truncate-end">{` ${'─'.repeat(Math.max(0, columns - title.length - 3))}`}</Text>
+          <Text color={C.track} wrap="truncate-end">{` ${'─'.repeat(Math.max(0, columns - title.length - 3 - GUTTER))}`}</Text>
         </Box>
         <Markdown text={p.text} />
       </Box>

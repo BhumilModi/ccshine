@@ -108,3 +108,14 @@ test('prompt text is italic, the marker is not', async ($, on) => {
   expect(texts.find((t: any) => t.text === 'fix the queue test')?.props.italic).toBe(true)
   expect(texts.find((t: any) => t.text.includes('▌ you'))?.props.italic).toBeUndefined()
 })
+
+test('prompts and replies keep a two-column gutter clear of the rail separator', async ($, on) => {
+  const right = async (component: any, props: any) => {
+    const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component, props })
+    const [root] = await ui.findAll({ type: 'Box' })
+    await ui.unmount()
+    return root?.props.paddingRight
+  }
+  expect(await right('UserMessage', prompt('hi'))).toBe(2)
+  expect(await right('AssistantMessage', reply('first', true))).toBe(2)
+})
