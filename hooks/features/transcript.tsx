@@ -21,7 +21,7 @@ export function registerTranscript(on: On) {
         <Box flexShrink={0}>
           <Text color={C.accent} bold>{'▌ you  '}</Text>
         </Box>
-        <Text color={C.ink} wrap="wrap">{p.text}</Text>
+        <Text color={C.ink} italic wrap="wrap">{p.text}</Text>
       </Box>
     )
   })

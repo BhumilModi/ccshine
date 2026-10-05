@@ -19,3 +19,9 @@ test('mono palette uses no accent hue', async () => {
 test('theme palettes are the shared palette file', async () => {
   expect(palettes).toBe(sharedPalettes)
 })
+
+test('warm palette matches the Warm Claude terminal theme', async () => {
+  expect(Object.keys(palettes.warm).sort()).toEqual([...KEYS].sort())
+  expect(palettes.warm.accent).toBe('#D97757')
+  expect(palettes.warm.onAccent).toBe('#1A1817')
+})

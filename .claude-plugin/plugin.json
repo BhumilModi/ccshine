@@ -22,10 +22,11 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "Colour palette for everything ccshine draws",
+      "description": "Colour palette for everything ccshine draws; warm matches the bundled Warm Claude terminal theme",
       "default": "claude",
       "options": [
         "claude",
+        "warm",
         "nord",
         "dracula",
         "mono"

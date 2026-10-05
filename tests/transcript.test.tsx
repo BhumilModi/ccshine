@@ -101,3 +101,10 @@ test('the you marker never shrinks beside a long prompt', async ($, on) => {
   const marker = boxes.filter((b: any) => JSON.stringify(b.children).includes('▌ you')).at(-1)
   expect(marker?.props.flexShrink).toBe(0)
 })
+
+test('prompt text is italic, the marker is not', async ($, on) => {
+  engine(on, 'UserMessage')
+  const { texts } = await draw($, 'UserMessage', prompt('fix the queue test'))
+  expect(texts.find((t: any) => t.text === 'fix the queue test')?.props.italic).toBe(true)
+  expect(texts.find((t: any) => t.text.includes('▌ you'))?.props.italic).toBeUndefined()
+})

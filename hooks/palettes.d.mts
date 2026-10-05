@@ -13,4 +13,4 @@ export type Palette = {
   info: string
 }
 
-export declare const palettes: Record<'claude' | 'nord' | 'dracula' | 'mono', Palette>
+export declare const palettes: Record<'claude' | 'warm' | 'nord' | 'dracula' | 'mono', Palette>
