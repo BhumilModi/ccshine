@@ -361,7 +361,7 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
         <Text color={ending ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
         <Text color={C.ink} bold wrap="truncate-end">{ending ? step : `${step}…`}</Text>
         {result && <Text color={C.warn} bold wrap="truncate-end">{'  ★ '}</Text>}
-        {result && <Text color={C.ink} wrap="truncate-end">{`${result.jumped} jumped · ${result.crates} crates · ${fmtClock(result.ms)}`}</Text>}
+        {result && <Text color={C.ink} wrap="truncate-end">{`${result.jumped} jumped · ${result.crates} crate${result.crates === 1 ? '' : 's'} · ${fmtClock(result.ms)}`}</Text>}
         <Box flexGrow={1} />
         {!ending && e.props.bodyColumns >= PHASES_FROM &&
           (['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [

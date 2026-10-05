@@ -136,6 +136,19 @@ test('the dock keeps a blank row above it, idle and working', async ($, on) => {
   expect(await top()).toBe(1)
 })
 
+test('one crate reads as one crate', async ($, on) => {
+  const clock = engine(on)
+  on('turn.complete', () => ({ text: 'ok' }))
+  on('tool.call', { tool: 'Read' }, () => ({ result: { type: 'text', file: { filePath: '/a', content: '', numLines: 0, startLine: 1, totalLines: 0 } } as never }))
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(1500)
+  await $.tool.call({ tool: 'Read', tool_use_id: 'r1', file_path: '/a' })
+  await clock.advance(1500)
+  await $.turn.complete({ answer: 'ok', durationMs: 3000, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.advance(300)
+  expect((await band($)).text).toContain('· 1 crate ·')
+})
+
 test('a finished turn shows the score; a stopped one says so', async ($, on) => {
   const clock = engine(on)
   on('turn.complete', () => ({ text: 'ok' }))
