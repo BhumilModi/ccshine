@@ -1,28 +1,34 @@
 # Tidepool
 
-**A clearer, better-looking Claude Code terminal.**
+**Low tide for Claude Code: see every tool, agent and job beside your chat.**
 
-Claude Code tracks a lot it never shows you: how far along a plan is, what each subagent is doing, what it cost, and whether your prompt cache just expired. Tidepool puts that on screen and restyles the rest of the terminal to match: your prompts, Claude's replies, tool calls, command output and the hint line under the prompt.
+Claude Code tracks a lot it never shows you: when each tool ran and for how long, which calls ran side by side, what each subagent and background shell is doing, what a turn cost and how much context it used. Tidepool moves all of that out of the chat into the **Tide rail**, a timeline beside the conversation, so the chat holds only what you and Claude said. It also restyles the rest of the terminal to match: your prompts, Claude's replies, the tasks band, the spinner and the status line.
 
-![Tidepool with the Warm Claude theme and Maple Mono NF: replies, a tool row, a finished subagent, the token split by agent and the status line](docs/screenshot.png)
+![Tidepool with the Warm Claude theme and Maple Mono NF: the chat on the left, the Tide rail with a turn's timeline on the right, and the status line](docs/screenshot.png)
 
 ```
- Plan  2/5 ━━━━╸─────── ~18m left
- ✓ 1. Schema migration  6m
- ▶ 2. Engine tests  4m 12s
-     ◆ general-purpose  Running engine and orchestrator tests  2m 47s
- · 3. API routes
- main 101.2k · general-purpose 42.0k
+▌ you  fix the login bug                    │ ≈ tidepool  turn 4 · 52s
+                                            │ Read  auth.ts         ╸─────────── 0.4s
+  ◇ 14 tools · 1 agent · 52s · 1 error ▸ rail│ ✕ Bash npm test     ─━━━━━━━╸─── 41s
+                                            │ Agent Explore auth    ──━━━━━━━─── 30s  9 tools ▸
+◆ claude                                    │ Bash  npm run dev     ─━━━━━━━━━━━⇢ running · 1m 5s
+  Found it: the token check compared expiry │ Edit  auth.ts         ─────────╺── 0.1s  +12 −3
+  with < instead of <=.                     │                       0s        52s
+                                            │ ctx  ━━━━━━╸───── 38% → 52%  $0.31
+                                            │ files auth.ts +12 −3
+                                            │ ✕ Bash npm test ×2
 ```
 
 ## What you get
 
 | Where | Before | With Tidepool |
 |---|---|---|
+| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: context before and after, what the turn cost, files changed and calls that failed more than once. The rail follows your scroll. |
+| In the chat | Every tool call and its output | **One anchor line per turn:** `◇ 14 tools · 1 agent · 52s · 1 error  ▸ rail`. Press it to pin that turn in the rail. |
 | Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once done. |
 | Above the prompt | Nothing | **Usage line, only when it matters:** a warning when a turn re-sent your context at full price because the prompt cache had gone cold, and tokens split by agent when subagents ran. Tokens, cache rate and the cache countdown live in the status line. |
 | Your prompts and replies | `> fix the queue test`, `●` before each reply | **A styled transcript:** `▌ you` before your prompts and `◆ claude` above each reply, in the theme's accent colour. Replies still go through Claude Code's own markdown renderer, so code blocks and links look the same. Slash command output (`/cost` and others) gets a title line. |
-| Each tool call | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`, with `· 1 failed` when any of them failed. |
+| Each tool call, with the rail off | `Read(src/very/long/path/file.ts)` blocks | **One line each:** `◆ Edit src/queue.ts  +12 −3  0.4s`, with Claude Code's own diff and output kept underneath. Runs of reads and searches fold into `◇ Read ×6  ⌕ Grep ×2`, with `· 1 failed` when any of them failed. |
 | Spinner | A random word (`Sauteing…`) | **What is actually running:** `Editing queue.ts`, `Run the test suite`, `Agent: Find entry points`. Claude Code's timer and token count stay. |
 | Above the prompt | Nothing | **The prompt dock.** A little clay crab lives above the input. Idle, it stands beside `◆ Ask Claude` and the keys that matter. When you send a prompt it hops onto a dinosaur-game course and runs while Claude works: walking while it waits on the API, jogging while it thinks, sprinting while tools run or the reply streams. Cacti and rocks come by, every tool call drops a crate, and it jumps them all. Above the scene: the current step, the time in each phase and the turn's clock; below it, the latest calls ticking to ✓. When the turn finishes, a checkered flag scrolls in, the crab runs through it and does a victory hop, and the header shows the score: `★ 23 jumped · 6 crates · 1m 42s`. Then it hops home. A turn you stop with Esc skips the flag. |
 | Under the prompt | Dim labels | **Themed labels:** mode labels as small chips, notices with their `/command` in the accent colour, the run-in-background hint as `⇣ ctrl+b to run in background`. The hint line (`? for shortcuts`) stays Claude Code's, so its keys keep working. |
@@ -58,9 +64,11 @@ Claude Code may say the options are not set yet; every option has a default, so 
 
 It prints a `"statusLine"` block with the path to your install. Paste it into `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json` if you use a custom config folder), replacing any existing `"statusLine"`, and start a new session. The status line needs **Node 18 or later** on your `PATH`. It reads the Tidepool theme from your user settings, so set the theme there rather than in a project's settings.
 
-The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), logged in. Tidepool looks the PR up in the background at most once a minute per branch and keeps the answer in `~/.cache/Tidepool/pr.json`, so the status line never waits on the network. A new PR shows up within about a minute. Without `gh`, or outside a GitHub repo, the badge just doesn't appear.
+The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), logged in. Tidepool looks the PR up in the background at most once a minute per branch and keeps the answer in `~/.cache/tidepool/pr.json`, so the status line never waits on the network. A new PR shows up within about a minute. Without `gh`, or outside a GitHub repo, the badge just doesn't appear.
 
 When Tidepool updates, its install folder changes. If your status line still points at the old one, Tidepool shows a reminder at startup: run `/tidepool-statusline` again and paste the new block.
+
+**Coming from ccshine?** Tidepool is ccshine's new name. Uninstall `ccshine@ccshine`, install `tidepool@tidepool`, and run `/tidepool-statusline` to point the status line at the new install. Your plan-time history carries over on the first start; settings in `/config` start from their defaults.
 
 **From a local copy** (for trying changes):
 
@@ -103,6 +111,15 @@ Under WSL or over SSH your terminal runs on another machine, so Tidepool install
 
 Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.txt`](fonts/OFL.txt).
 
+## Tide rail
+
+The rail opens by itself when a session starts.
+
+- **Fullscreen, 110 columns or wider:** it docks beside the chat and shows the turn you are reading. Scroll the chat and it follows; press an anchor line to pin a turn until you scroll again.
+- **Anything else** (the main screen, a narrow window): Claude Code places it above the prompt. There it shows the turn that is running, six rows at most, and between turns shrinks to one line: `≈ tidepool  turn 4 · 52s · 14 tools`.
+- `/tidepool-rail` hides or shows it for the session. Switch it off for good with the Tide rail setting; tool rows then go back to one line each in the chat.
+- While the rail is docked, the tasks band leaves subagents to the rail and keeps the plan.
+
 ## Settings
 
 Open `/config` and find the Tidepool rows. Every switched-off feature leaves Claude Code's own display exactly as it was.
@@ -111,8 +128,9 @@ Open `/config` and find the Tidepool rows. Every switched-off feature leaves Cla
 |---|---|---|
 | Theme | `claude` | Colours for everything Tidepool draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
 | Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, such as the bundled Maple Mono NF; otherwise you see empty boxes |
+| Tide rail | on | Tool calls, agents and background jobs on a timeline beside the chat, with one anchor line per turn in the chat |
 | Tasks band | on | Tasks, time left and agents above the prompt |
-| Tool rows | on | One-line tool calls |
+| Tool rows | on | Tidepool's tool rows: the anchor line and rail, or one-line calls with the rail off. Off leaves Claude Code's own rows |
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
 | Prompt chrome | on | Mode chips, notices and the background hint; hides the `Baked for` line between turns |
