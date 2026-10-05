@@ -388,3 +388,22 @@ test('an agent of the turn on screen shows in the tool rows, not again in the pl
   expect(text).toContain('Explore a…')
   expect(text).not.toContain('  Explore auth')
 })
+
+test('plan and shell rows keep their marks and times whole in a narrow rail', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 2)
+  w.waits['sh-long'] = 8000
+  const pending = $.tool.call({ tool: 'Bash', tool_use_id: 'sh-long', command: 'npm run build', description: 'Capture the screen to a scratchpad PNG' })
+  await w.clock.advance(6000)
+  const ui = await $.ui.mount(pane('dock', 30))
+  const fixed = async (text: string) => {
+    const boxes = (await ui.findAll({ type: 'Box' })).filter((b: any) => b.props.flexShrink === 0)
+    return boxes.some((b: any) => JSON.stringify(b).includes(text))
+  }
+  expect(await fixed('▶ ')).toBe(true)
+  expect(await fixed('    ▶ ')).toBe(true)
+  expect(await fixed('  6s')).toBe(true)
+  await w.clock.advance(2000)
+  await pending
+})

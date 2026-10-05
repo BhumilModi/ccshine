@@ -133,10 +133,12 @@ function drawLine(ui: PlanUi, C: Palette, now: number, line: Line, key: string):
     const isLive = a.status === 'running'
     return (
       <Box key={key}>
-        <Text color={isLive ? C.accent : C.track}>{`${line.indent}${mark} `}</Text>
-        <Text color={isLive ? C.soft : C.faint}>{a.type}</Text>
+        <Box flexShrink={0}>
+          <Text color={isLive ? C.accent : C.track}>{`${line.indent}${mark} `}</Text>
+          <Text color={isLive ? C.soft : C.faint}>{a.type}</Text>
+        </Box>
         <Text color={C.faint} wrap="truncate-end">{`  ${a.description}`}</Text>
-        <Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text>
+        <Box flexShrink={0}><Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text></Box>
       </Box>
     )
   }
@@ -147,9 +149,9 @@ function drawLine(ui: PlanUi, C: Palette, now: number, line: Line, key: string):
     const took = t.startedAt !== undefined && t.doneAt !== undefined ? fmt(t.doneAt - t.startedAt) : ''
     return (
       <Box key={key}>
-        <Text color={C.mid}>{`${indent}✓ `}</Text>
+        <Box flexShrink={0}><Text color={C.mid}>{`${indent}✓ `}</Text></Box>
         <Text color={C.faint} wrap="truncate-end">{label}</Text>
-        {took && <Text color={C.track}>{`  ${took}`}</Text>}
+        {took && <Box flexShrink={0}><Text color={C.track}>{`  ${took}`}</Text></Box>}
       </Box>
     )
   }
@@ -158,15 +160,15 @@ function drawLine(ui: PlanUi, C: Palette, now: number, line: Line, key: string):
     const isSub = line.kind === 'sub'
     return (
       <Box key={key}>
-        <Text color={C.accent} bold={!isSub}>{`${indent}${isSub ? '▸' : '▶'} `}</Text>
+        <Box flexShrink={0}><Text color={C.accent} bold={!isSub}>{`${indent}${isSub ? '▸' : '▶'} `}</Text></Box>
         <Text color={isSub ? C.soft : C.ink} bold={!isSub} wrap="truncate-end">{label}</Text>
-        {running && <Text color={C.mid}>{`  ${running}`}</Text>}
+        {running && <Box flexShrink={0}><Text color={C.mid}>{`  ${running}`}</Text></Box>}
       </Box>
     )
   }
   return (
     <Box key={key}>
-      <Text color={C.track}>{`${indent}· `}</Text>
+      <Box flexShrink={0}><Text color={C.track}>{`${indent}· `}</Text></Box>
       <Text color={C.soft} wrap="truncate-end">{label}</Text>
     </Box>
   )
@@ -199,10 +201,12 @@ export function shellBody(ui: PlanUi, C: Palette, d: PlanData, tails: boolean): 
     const mark = isLive ? '▶' : r.status === 'done' ? '✓' : '✕'
     out.push(
       <Box key={`shell-${r.id}`}>
-        <Text color={isLive ? C.accent : r.status === 'error' ? C.crit : C.track}>{`    ${mark} `}</Text>
-        {r.background && <Text color={C.warn}>{'bg '}</Text>}
+        <Box flexShrink={0}>
+          <Text color={isLive ? C.accent : r.status === 'error' ? C.crit : C.track}>{`    ${mark} `}</Text>
+          {r.background && <Text color={C.warn}>{'bg '}</Text>}
+        </Box>
         <Text color={isLive ? C.ink : C.faint} wrap="truncate-end">{r.label}</Text>
-        <Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text>
+        <Box flexShrink={0}><Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text></Box>
       </Box>,
     )
     const said = tails && isLive && r.outputFile !== undefined ? d.tails[r.outputFile] : undefined
