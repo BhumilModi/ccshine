@@ -352,3 +352,20 @@ test('a finished plan shows the done card with its crab, then folds away after 3
   await ui.unmount()
   expect(await textOf(await $.ui.mount(pane()))).not.toContain('Plan')
 })
+
+test('finishing the plan plays the crab in the rail for 2.4s, then stops', OFF, async ($, on) => {
+  const blits: { requestId: string; key: string }[] = []
+  on('ui.blit', (_$: unknown, e: { requestId: string; key: string }) => {
+    blits.push(e)
+    return { value: {} }
+  })
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 1)
+  await call($, w, 'tu-done', 'TaskUpdate', { taskId: 't1', status: 'completed' }, 0, { result: { success: true } })
+  await w.clock.advance(2400)
+  const played = blits.filter(b => b.requestId === 'tidepool-rail' && b.key === 'plan-crab').length
+  expect(played).toBeGreaterThan(20)
+  await w.clock.advance(3000)
+  expect(blits.filter(b => b.key === 'plan-crab').length).toBeLessThanOrEqual(played + 2)
+})

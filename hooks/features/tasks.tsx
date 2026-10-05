@@ -23,7 +23,7 @@ import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
 import { activity } from '../activity'
 import { lastLine, parseHistory, shellRows } from '../shell'
-import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
+import { DONE_MS, IDLE_COLS, IDLE_ROWS, SCENE_ROWS, doneCrabCells, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
 
 const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
 const agents = atom({ plugin: 'tidepool', key: 'agents' } as const, [])
@@ -95,10 +95,31 @@ async function projectHistory($: EngineInterface): Promise<number[]> {
   return all[await $.session.root()] ?? Object.values(all).flat()
 }
 
+const RAIL_ID = 'tidepool-rail'
+let doneLoop: Timer | undefined
+
+// Plays the rail's plan-done crab (features/rail.tsx draws the card): a frame every 50ms for DONE_MS.
+// A rail that is closed or off screen refuses the blit; that frame is skipped.
+function playDone($: EngineInterface, doneAt: number) {
+  doneLoop?.cancel()
+  doneLoop = $.clock.every(50, () => {
+    void (async () => {
+      const ms = (await $.clock.now()) - doneAt
+      if (ms >= DONE_MS) {
+        doneLoop?.cancel()
+        doneLoop = undefined
+      }
+      await $.ui.blit({ requestId: RAIL_ID, key: 'plan-crab', cells: encodeCells(doneCrabCells(Math.min(ms, DONE_MS), palette())) }).catch(() => undefined)
+    })()
+  })
+}
+
 async function apply($: EngineInterface, change: (list: PlanTask[]) => PlanTask[]) {
   const before = await read($, tasks)
   const after = change(before)
   await update($, tasks, () => after)
+  const doneAt = finishedAt(topLevel(after))
+  if (opts.rail && finishedAt(topLevel(before)) === undefined && doneAt !== undefined) playDone($, doneAt)
   const finished = newlyDone(topLevel(before), topLevel(after))
   if (finished.length > 0) {
     const all = await loadHistory($)
