@@ -67,7 +67,8 @@ row is shown, in addition to the running turn and background jobs it already fol
 - **`features/rail.tsx`.** Reads the same atoms (`tasks`, `agents`, `turns`, `calls`, `live`,
   `jobs`, `shellHistory`, `planAll`, `tick`), reads output tails itself, budgets the turn rows and
   calls planview for the section. Atoms are declared in each file that reads them, as now.
-- **`features/startup.tsx`.** The rail's live-tick condition adds the plan, agents and shells.
+- **Live timers.** The rail reads the band's `tick` atom, which `features/tasks.tsx` bumps every
+  second while a task, agent or shell is live or lingering; `features/startup.tsx` is unchanged.
 
 ## Testing
 

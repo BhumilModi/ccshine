@@ -325,3 +325,15 @@ test('a short rail keeps the plan header and the running task', OFF, async ($, o
   expect(text).toContain(' Plan ')
   expect(text).toContain('▶ |5. task 5')
 })
+
+test('finished plan folds away from the rail after 30s', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 1)
+  await call($, w, 'tu-done', 'TaskUpdate', { taskId: 't1', status: 'completed' }, 0, { result: { success: true } })
+  const ui = await $.ui.mount(pane())
+  expect(await textOf(ui)).toContain('✓ Plan')
+  await w.clock.advance(31_000)
+  await ui.unmount()
+  expect(await textOf(await $.ui.mount(pane()))).not.toContain('Plan')
+})
