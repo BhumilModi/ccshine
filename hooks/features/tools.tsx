@@ -3,7 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { TurnSpan } from '../../types'
 import { opts } from '../options'
-import { anchorOf, anchorsOnScreen, railRows, railSeat, turnOfCall } from '../rail'
+import { anchorOf, anchorsOnScreen, pickTurn, railRows, railSeat, turnOfCall } from '../rail'
 import { palette } from '../theme'
 import { describeCall, editStats, fmtShort, groupSummary, isKnownTool } from '../tools'
 
@@ -16,6 +16,7 @@ const agents = atom({ plugin: 'tidepool', key: 'agents' } as const, [])
 const railSel = atom({ plugin: 'tidepool', key: 'railSel' } as const, { pinned: false })
 // Ticks once a second while something runs, so a live anchor's counts and time move.
 const railNow = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
+const anchorsSeen = atom({ plugin: 'tidepool', key: 'anchorsSeen' } as const, {})
 
 // With the rail docked beside the transcript, tool calls live there and the chat keeps one anchor line per turn.
 // Above the prompt the rail shows only the live turn, so rows stay in the chat.
@@ -66,12 +67,14 @@ export function registerTools(on: On) {
         `${fmtShort((turn.endedAt ?? now) - turn.startedAt)}${live ? ' …' : ''}`,
       ].filter(Boolean)
       const pin = () => update($, railSel, () => ({ turnId: turn.turnId, pinned: true }))
+      // The turn the rail is showing reads in accent on a faint band; pointing at it lights the rail's turn line too.
+      const isShown = pickTurn(await read($, spans), await read($, railSel), await read($, anchorsSeen))?.turnId === turn.turnId
       return (
-        <Box marginTop={1} flexDirection="row" height={1}>
-          <Text color={C.faint} wrap="truncate-end">{`◇ ${parts.join(' · ')}`}</Text>
+        <Box marginTop={1} flexDirection="row" height={1} backgroundColor={isShown ? C.seg : undefined} hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>
+          <Text color={isShown ? C.soft : C.faint} wrap="truncate-end">{` ◇ ${parts.join(' · ')}`}</Text>
           {errors > 0 && <Text color={C.crit}>{` · ${errors} error${errors === 1 ? '' : 's'}`}</Text>}
-          <Button key="anchor" plain dimColor onPress={pin}>
-            {'  ▸ rail'}
+          <Button key="anchor" plain dimColor={!isShown} onPress={pin}>
+            {'  ▸ rail '}
           </Button>
         </Box>
       )

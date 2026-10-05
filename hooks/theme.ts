@@ -43,6 +43,13 @@ export function bar(fraction: number, width = 12): { filled: string; track: stri
   return { filled: '━'.repeat(full) + (half ? '╸' : ''), track: '─'.repeat(width - full - half) }
 }
 
+// The meter split in two: the cells up to `from` (what a turn started with), then the cells it added.
+export function gauge(from: number, to: number, width = 12): { base: string; added: string; track: string } {
+  const whole = bar(Math.max(from, to), width)
+  const cells = bar(from, width).filled.length
+  return { base: whole.filled.slice(0, cells), added: whole.filled.slice(cells), track: whole.track }
+}
+
 // The same look for a stretch of time inside a window: track, heavy line from `from` to `to`, track.
 // Ends round outward to half cells, so even a 0 ms call shows as one half cell.
 export function span(from: number, to: number, width: number): { before: string; filled: string; after: string } {

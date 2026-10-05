@@ -79,6 +79,8 @@ export type DockTurn = {
 // One main-loop turn, for the rail: when it ran and what context and cost stood at either end.
 export type TurnSpan = {
   turnId: string
+  // The prompt's first line, shortened: the rail's turn header shows it.
+  prompt?: string
   startedAt: number
   endedAt?: number
   aborted?: true

@@ -19,8 +19,10 @@ export function endCall(calls: Record<string, CallTiming>, id: string, at: numbe
 const MAX_SPANS = 200
 
 // Main-loop turns for the rail, opened at turn.start and closed at turn.complete.
-export function openSpan(spans: TurnSpan[], turn: { turnId: string; at: number; ctx?: number; cost?: number }): TurnSpan[] {
+export function openSpan(spans: TurnSpan[], turn: { turnId: string; at: number; ctx?: number; cost?: number; prompt?: string }): TurnSpan[] {
   const span: TurnSpan = { turnId: turn.turnId, startedAt: turn.at }
+  const line = turn.prompt?.split('\n')[0]?.trim()
+  if (line) span.prompt = line.slice(0, 80)
   if (turn.ctx !== undefined) span.ctxStart = turn.ctx
   if (turn.cost !== undefined) span.costStart = turn.cost
   return [...spans, span].slice(-MAX_SPANS)

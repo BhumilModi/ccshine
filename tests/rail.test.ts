@@ -2,7 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, Job, PlanAgent, TurnSpan } from '../types'
 import { callDetail, pickTurn, railRows, railSummary, showBars, turnOfCall } from '../hooks/rail'
-import { span } from '../hooks/theme'
+import { gauge, span } from '../hooks/theme'
 
 const SPAN: TurnSpan = { turnId: 't1', startedAt: 1000, endedAt: 11000, ctxStart: 38, ctxEnd: 52, costStart: 1, costEnd: 1.31 }
 
@@ -128,4 +128,12 @@ test('an agent that finished ends where its own turn ended', async () => {
   const calls: Record<string, CallTiming> = { a1: { tool: 'Agent', startedAt: 2000, endedAt: 2100, target: 'Explore' } }
   const agents: PlanAgent[] = [{ id: 'ag', description: 'Explore', type: 'Explore', startedAt: 2000, callId: 'a1', endedAt: 8000 }]
   expect(railRows(calls, agents, [], SPAN, 20000)[0]).toMatchObject({ running: false, over: false, ms: 6000 })
+})
+
+test('gauge splits a meter into what the turn started with and what it added', async () => {
+  // 25% → 50% on 4 cells: one cell of base, one of added, two of track.
+  expect(gauge(0.25, 0.5, 4)).toEqual({ base: '━', added: '━', track: '──' })
+  // The cell holding the start stays base-coloured; the added part takes what follows.
+  expect(gauge(0.125, 0.375, 4)).toEqual({ base: '━', added: '╸', track: '──' })
+  expect(gauge(0.5, 0.5, 4)).toEqual({ base: '━━', added: '', track: '──' })
 })

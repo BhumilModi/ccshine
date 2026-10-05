@@ -96,7 +96,7 @@ export function registerDock(on: On) {
     const started = await next(e)
     const at = await $.clock.now()
     const level = await gauges($)
-    await update($, spans, list => openSpan(list, { turnId: e.turnId, at, ...level }))
+    await update($, spans, list => openSpan(list, { turnId: e.turnId, at, prompt: e.text, ...level }))
     if (!opts.dock) return started
     // Subagent runs raise no turn.start, so every one is a main turn: always start fresh.
     const now = await $.clock.now()

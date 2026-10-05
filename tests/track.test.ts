@@ -78,3 +78,10 @@ test('endCall can mark a call failed', async () => {
   expect(endCall({ a: call('Bash', 0) }, 'a', 5, true).a).toEqual({ tool: 'Bash', startedAt: 0, endedAt: 5, failed: true })
   expect(endCall({ a: call('Bash', 0) }, 'a', 5).a?.failed).toBeUndefined()
 })
+
+test('openSpan keeps the first line of the prompt, shortened', async () => {
+  const [span] = openSpan([], { turnId: 't', at: 0, prompt: 'fix the login bug\nand more' })
+  expect(span?.prompt).toBe('fix the login bug')
+  const [long] = openSpan([], { turnId: 't', at: 0, prompt: 'x'.repeat(200) })
+  expect(long?.prompt?.length).toBe(80)
+})

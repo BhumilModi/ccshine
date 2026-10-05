@@ -1,10 +1,10 @@
 import { atom, read, update } from 'claude-code'
-import type { On } from 'claude-code'
+import type { On, RenderChildren } from 'claude-code'
 
 import type { RailRow } from '../../types'
 import { opts } from '../options'
 import { pickTurn, railRows, railSeat, railSummary, showBars, turnWindow } from '../rail'
-import { bar, palette, span } from '../theme'
+import { gauge, palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
 export const RAIL_ID = 'tidepool-rail'
@@ -21,18 +21,24 @@ const now = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
 // Anchor rows on screen, by turn (features/tools.tsx writes it).
 const seen = atom({ plugin: 'tidepool', key: 'anchorsSeen' } as const, {})
 
-const NAME = 22
-const META = 14
+const TOOL = 6
+const META = 13
 const INLINE_ROWS = 6
 
 const fit = (text: string, width: number) => (text.length <= width ? text.padEnd(width) : `${text.slice(0, width - 1)}…`)
 
-function meta(r: RailRow): string {
-  const parts: string[] = []
-  if (r.kind === 'job' && r.running) parts.push(`running · ${fmtShort(r.ms)}`)
-  else parts.push(r.running ? `${fmtShort(r.ms)} …` : fmtShort(r.ms))
-  if (r.added || r.removed) parts.push(`+${r.added ?? 0} −${r.removed ?? 0}`)
-  return parts.join('  ')
+// Column widths for a body `width` cells wide: tool, target, bar, then what is left for timings.
+// The target takes what the bar does not need, the bar stops at 20 cells, timings take the rest.
+function columns(width: number, bars: boolean): { target: number; bar: number } {
+  if (!bars) return { target: Math.max(8, width - TOOL - META - 2), bar: 0 }
+  const room = width - TOOL - META - 3
+  const target = Math.min(24, Math.max(10, room - 12))
+  return { target, bar: Math.max(6, Math.min(20, room - target)) }
+}
+
+function timing(r: RailRow): string {
+  if (r.kind === 'job' && r.running) return `running · ${fmtShort(r.ms)}`
+  return r.running ? `${fmtShort(r.ms)} …` : fmtShort(r.ms)
 }
 
 export function registerRail(on: On) {
@@ -42,6 +48,14 @@ export function registerRail(on: On) {
     const C = palette()
     const p = e.props
     railSeat.placement = p.placement
+    // Painted in the theme's own background (each palette's onAccent), so the rail reads as part of the
+    // terminal rather than a grey panel laid over it. One column of air on each side.
+    const width = Math.max(10, p.bodyColumns - 2)
+    const surface = (key: string, children: RenderChildren) => (
+      <Box key={key} flexDirection="column" backgroundColor={C.onAccent} paddingX={1} minHeight={p.placement === 'dock' ? p.scroll.bodyRows : undefined}>
+        {children}
+      </Box>
+    )
 
     const list = await read($, spans)
     // Reading railNow redraws the rail on each live tick; the clock itself is the truth.
@@ -53,112 +67,141 @@ export function registerRail(on: On) {
       const last = list.at(-1)!
       const sum = railSummary(railRows(await read($, calls), await read($, agents), await read($, jobs), last, clock), last, clock)
       const failed = sum.failures.reduce((n, f) => n + f.times, 0)
-      const line = [`turn ${list.length}`, fmtShort(sum.ms), `${sum.tools} tools`, failed ? `${failed} failed` : ''].filter(Boolean).join(' · ')
-      return (
+      const line = [`turn ${list.length}`, fmtShort(sum.ms), `${sum.tools} tools`].join(' · ')
+      return surface(
+        'idle',
         <Box flexDirection="row" height={1}>
-          <Text color={C.accent}>≈ tidepool</Text>
-          <Text color={failed ? C.crit : C.faint} wrap="truncate-end">{`  ${line}`}</Text>
-        </Box>
+          <Text color={C.accent} bold>≈ tidepool</Text>
+          <Text color={C.faint} wrap="truncate-end">{`  ${line}`}</Text>
+          {failed > 0 && <Text color={C.crit}>{` · ${failed} failed`}</Text>}
+        </Box>,
       )
     }
+    const pinned = (await read($, sel)).pinned
     const turn = isInline ? live : pickTurn(list, await read($, sel), await read($, seen))
-    if (!turn) {
-      return (
-        <Box flexDirection="column">
-          <Text color={C.accent}>≈ tidepool</Text>
-          <Text color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>
-        </Box>
-      )
-    }
+    const follow = isInline ? '' : pinned ? 'pinned · scroll to follow' : 'following scroll'
+    const brand = (
+      <Box key="brand" flexDirection="row" height={1} justifyContent="space-between">
+        <Text color={C.accent} bold>≈ tidepool</Text>
+        <Text color={C.faint}>{follow}</Text>
+      </Box>
+    )
+    if (!turn) return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>])
 
-    const at = turn.endedAt === undefined ? clock : turn.endedAt
-    const { start, end } = turnWindow(turn, at)
+    const { start, end } = turnWindow(turn, turn.endedAt ?? clock)
     const allCalls = await read($, calls)
     const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
     const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : 0
     const rows = all.slice(hidden)
     const opened = await read($, open)
     const bars = showBars(p.bodyColumns)
-    const width = Math.max(6, Math.min(16, p.bodyColumns - NAME - META - 2))
-    const nameWidth = bars ? NAME : Math.max(10, p.bodyColumns - META - 2)
+    const col = columns(width, bars)
     const state = turn.endedAt === undefined ? 'live' : turn.aborted ? 'stopped' : ''
-    const header = [`turn ${list.indexOf(turn) + 1}`, state, fmtShort(end - start)].filter(Boolean).join(' · ')
     const toggle = (id: string) => update($, open, ids => (ids.includes(id) ? ids.filter(one => one !== id) : [...ids, id]))
+
+    // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
+    const title = (
+      <Box key="title" flexDirection="row" height={1} hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>
+        <Text color={C.ink} bold>{`turn ${list.indexOf(turn) + 1}`}</Text>
+        {state && <Text color={state === 'live' ? C.accent : C.warn}>{` · ${state}`}</Text>}
+        <Text color={C.ink}>{` · ${fmtShort(end - start)}`}</Text>
+        {turn.prompt && <Text color={C.faint} wrap="truncate-end">{`  ${turn.prompt}`}</Text>}
+      </Box>
+    )
 
     const body = []
     if (rows.length === 0) body.push(<Text key="empty" color={C.faint}>no tools this turn</Text>)
-    if (hidden) body.push(<Text key="earlier" color={C.faint}>{`${hidden} earlier`}</Text>)
+    if (hidden) body.push(<Text key="earlier" color={C.faint}>{`${' '.repeat(TOOL + 1)}${hidden} earlier`}</Text>)
     for (const r of rows) {
       const color = r.failed ? C.crit : r.kind === 'job' ? C.warn : r.kind === 'agent' ? C.info : r.running ? C.mid : C.soft
-      const b = span(r.from, r.to, width)
-      const label = `${r.failed ? '✕ ' : ''}${r.tool.padEnd(6)}${r.target}`
-      const more = r.children !== undefined ? `  ${r.children} tools ${opened.includes(r.id) ? '▾' : '▸'}` : ''
+      const b = bars ? span(r.from, r.to, col.bar) : { before: '', filled: '', after: '' }
+      const isOpen = opened.includes(r.id)
       body.push(
-        <Box key={`r-${r.id}`} flexDirection="row" height={1}>
+        <Box key={`r-${r.id}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
+          <Text color={r.failed ? C.crit : C.mid}>{fit(r.failed ? `✕ ${r.tool}` : r.tool, TOOL)}</Text>
+          <Text> </Text>
           <Button key={`row:${r.id}`} plain onPress={() => toggle(r.id)}>
-            {fit(label, nameWidth)}
+            {fit(r.target || r.tool, col.target)}
           </Button>
           {bars && <Text color={C.track}>{` ${b.before}`}</Text>}
           {bars && <Text color={color}>{b.filled}</Text>}
           {bars && <Text color={C.track}>{b.after}</Text>}
           {bars && r.over && <Text color={color}>⇢</Text>}
-          <Text color={r.failed ? C.crit : C.faint} wrap="truncate-end">{` ${meta(r)}${more}`}</Text>
+          <Text color={r.running ? C.mid : C.faint} wrap="truncate-end">{` ${timing(r)}`}</Text>
+          {(r.added || r.removed) ? <Text color={C.info}>{`  +${r.added ?? 0}`}</Text> : null}
+          {(r.added || r.removed) ? <Text color={C.crit}>{` −${r.removed ?? 0}`}</Text> : null}
+          {r.children !== undefined && <Text color={C.info}>{`  ${r.children} tools ${isOpen ? '▾' : '▸'}`}</Text>}
         </Box>,
       )
-      if (!opened.includes(r.id)) continue
+      if (!isOpen) continue
       if (r.kind === 'agent') {
         const agentId = (await read($, agents)).find(a => a.callId === r.id)?.id
         const kids = Object.values(allCalls)
           .filter(c => c.agentId !== undefined && c.agentId === agentId)
           .sort((x, y) => x.startedAt - y.startedAt)
         for (const [i, c] of kids.entries()) {
-          body.push(<Text key={`k-${r.id}-${i}`} color={C.mid} wrap="truncate-end">{`  └ ${c.tool} ${c.target ?? ''}`}</Text>)
+          body.push(<Text key={`k-${r.id}-${i}`} color={C.mid} wrap="truncate-end">{`${' '.repeat(TOOL - 2)}└ ${fit(c.tool, TOOL)} ${c.target ?? ''}`}</Text>)
         }
       }
       for (const [i, line] of (allCalls[r.id]?.detail ?? []).entries()) {
-        body.push(<Text key={`d-${r.id}-${i}`} color={C.faint} wrap="truncate-end">{`    ${line}`}</Text>)
+        body.push(<Text key={`d-${r.id}-${i}`} color={C.faint} wrap="truncate-end">{`${' '.repeat(TOOL + 1)}${line}`}</Text>)
       }
     }
 
     const foot = []
     if (bars && rows.length > 0) {
       const label = fmtShort(end - start)
-      foot.push(<Text key="axis" color={C.faint}>{`${' '.repeat(nameWidth + 1)}0s${label.padStart(width - 2)}`}</Text>)
+      foot.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
     }
     if (!isInline) {
       const sum = railSummary(all, turn, clock)
+      const label = (text: string) => <Text color={C.faint}>{text.padEnd(TOOL)}</Text>
+      foot.push(<Text key="rule" color={C.track}>{'╌'.repeat(width)}</Text>)
       if (sum.ctx) {
-        const g = bar(sum.ctx[1] / 100, 12)
+        const g = gauge(sum.ctx[0] / 100, sum.ctx[1] / 100, 12)
         foot.push(
           <Box key="ctx" flexDirection="row" height={1}>
-            <Text color={C.faint}>{'ctx  '}</Text>
-            {bars && <Text color={C.accent}>{g.filled}</Text>}
-            {bars && <Text color={C.track}>{g.track}</Text>}
-            <Text color={C.mid}>{` ${sum.ctx[0]}% → ${sum.ctx[1]}%`}</Text>
-            {sum.cost !== undefined && <Text color={C.ink}>{`  $${sum.cost.toFixed(2)}`}</Text>}
+            {label('ctx')}
+            {bars && <Text color={C.soft}>{g.base}</Text>}
+            {bars && <Text color={C.accent}>{g.added}</Text>}
+            {bars && <Text color={C.track}>{`${g.track} `}</Text>}
+            <Text color={C.mid}>{`${sum.ctx[0]}% → ${sum.ctx[1]}%`}</Text>
           </Box>,
         )
       }
-      if (sum.files.length) {
-        const files = sum.files.map(f => `${f.path.split('/').pop()} +${f.added} −${f.removed}`).join(' · ')
-        foot.push(<Text key="files" color={C.soft} wrap="truncate-end">{`files ${files}`}</Text>)
+      foot.push(
+        <Box key="cost" flexDirection="row" height={1}>
+          {label('cost')}
+          {sum.cost !== undefined && <Text color={C.ink}>{`$${sum.cost.toFixed(2)}  `}</Text>}
+          <Text color={C.faint}>{[`${sum.tools} tool${sum.tools === 1 ? '' : 's'}`, sum.agents ? `${sum.agents} agent${sum.agents === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</Text>
+        </Box>,
+      )
+      for (const [i, f] of sum.files.entries()) {
+        foot.push(
+          <Box key={`file-${i}`} flexDirection="row" height={1}>
+            {label(i === 0 ? 'files' : '')}
+            <Text color={C.ink} wrap="truncate-end">{f.path.split('/').pop()}</Text>
+            <Text color={C.info}>{`  +${f.added}`}</Text>
+            <Text color={C.crit}>{` −${f.removed}`}</Text>
+          </Box>,
+        )
       }
-      for (const f of sum.failures) {
-        foot.push(<Text key={`f-${f.label}`} color={C.crit} wrap="truncate-end">{`✕ ${f.label}${f.times > 1 ? ` ×${f.times}` : ''}`}</Text>)
+      for (const [i, f] of sum.failures.entries()) {
+        foot.push(
+          <Box key={`fail-${i}`} flexDirection="row" height={1}>
+            <Text color={C.crit}>{(i === 0 ? 'fail' : '').padEnd(TOOL)}</Text>
+            <Text color={C.crit} wrap="truncate-end">{`${f.label}${f.times > 1 ? ` ×${f.times}` : ''}`}</Text>
+          </Box>,
+        )
       }
     }
 
-    return (
-      <Box flexDirection="column">
-        <Box flexDirection="row" height={1}>
-          <Text color={C.accent}>≈ tidepool</Text>
-          <Text color={C.ink}>{`  ${header}`}</Text>
-          {(await read($, sel)).pinned && !isInline && <Text color={C.faint}>{'  · pinned'}</Text>}
-        </Box>
-        {body}
-        {foot}
-      </Box>
-    )
+    return surface('rail', [
+      brand,
+      title,
+      <Box key="rows" flexDirection="column" marginTop={1}>{body}</Box>,
+      <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
+    ])
   })
 
   on('command.run', { command: RAIL_ID }, async $ => {
