@@ -127,7 +127,7 @@ Tidepool comes with five colour themes and a font. Each theme has two halves tha
 | `dracula` | **Tidepool Dracula** | [Dracula](https://draculatheme.com/)'s purple-grey (`#282A36`) and purple accent |
 | `mono` | **Tidepool Mono** | Neutral greys (`#1C1C1C`), white accent, muted colours for code |
 
-Every terminal theme is shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm, Alacritty, Warp and VS Code under [`themes/`](themes), and listed colour by colour in the [colour reference](#colour-reference) for every other terminal. **To switch themes, change both halves:** pick the Theme in `/config`, then pick the matching terminal theme in your terminal ([Set up your terminal](#set-up-your-terminal)). Tidepool shows a reminder when the Theme changes, and `/tidepool-setup` prints the steps with the file paths for the theme you picked.
+Every terminal theme is shipped for Ghostty, iTerm2, macOS Terminal, Windows Terminal, kitty, WezTerm, Alacritty, Warp and VS Code under [`themes/`](themes), and listed colour by colour in the [colour reference](#colour-reference) for every other terminal. **To switch themes, change both halves:** pick the Theme in `/config`, then pick the matching terminal theme in your terminal ([Set up your terminal](#set-up-your-terminal)). Tidepool shows a reminder when the Theme changes, and `/tidepool-setup` prints the steps with the file paths for the theme you picked.
 
 - **Font: [Maple Mono NF](https://github.com/subframe7536/maple-font)** (v7.9, with Nerd Font glyphs for the powerline separators). Rounded shapes and cursive italics; your prompts are drawn in italic. It goes with every theme.
 
@@ -156,7 +156,7 @@ Tidepool draws its own parts, but the terminal draws everything around them. For
 
 **File names for each theme.** The steps below use Warm Claude. For another theme, use its name instead:
 
-| Theme in `/config` | Ghostty, iTerm2, WezTerm | Windows Terminal, kitty, Alacritty, VS Code | Warp, Orca |
+| Theme in `/config` | Ghostty, iTerm2, macOS Terminal, WezTerm | Windows Terminal, kitty, Alacritty, VS Code | Warp, Orca |
 |---|---|---|---|
 | `warm` | `Warm Claude` | `warm-claude` | `warm_claude` |
 | `claude` | `Tidepool Claude` | `tidepool-claude` | `tidepool_claude` |
@@ -186,13 +186,8 @@ iTerm2 has 24-bit colour on by default.
 
 ### macOS Terminal
 
-Terminal cannot import any of the theme files, so you enter the colours by hand once, in a profile of their own:
-
-1. Settings → Profiles, select **Basic**, then the `…` menu under the list → Duplicate Profile. Name the copy `Warm Claude`.
-2. On its **Text** tab, Font → Change…: **Maple Mono NF**, size 14.
-3. On the same tab, click each colour swatch and set it from the [colour reference](#colour-reference): Background, Text, Bold Text, Selection, Cursor, and the 16 ANSI colours (the top row is Normal, the bottom row is Bright, in the order black, red, green, yellow, blue, magenta, cyan, white). In the colour picker, open the sliders tab, choose RGB Sliders and paste the hex value into **Hex Color #**.
-4. On the **Window** tab, set Columns to at least 144.
-5. Click **Default** under the profile list so new windows use it, then open a new window.
+1. Double-click `themes/terminal-app/Warm Claude.terminal` (or `open` it from a shell). Terminal adds a **Warm Claude** profile, with the colours, Maple Mono NF at size 14, line spacing 1.2 and a 160-column window, and opens a window with it.
+2. Settings → Profiles, select **Warm Claude**, then click **Default** under the profile list so new windows use it.
 
 Older versions of Terminal only show 256 colours. If the [colour check](#check-your-setup) shows a striped or wrong-coloured block, use one of the other terminals here for the full look.
 
@@ -297,7 +292,7 @@ The steps above are for Claude Code running in a terminal. In the Claude desktop
 
 ### Colour reference
 
-Every colour of every terminal theme, for terminals with no theme file (macOS Terminal, JetBrains and others):
+Every colour of every terminal theme, for terminals with no theme file (JetBrains and others):
 
 <!-- theme-colours:start -->
 | Colour | Warm Claude | Tidepool Claude | Tidepool Nord | Tidepool Dracula | Tidepool Mono |
@@ -344,7 +339,7 @@ Inside Claude Code, the status line should sit under the prompt, the crab above 
 | Nothing changed at all | Claude Code older than 2.1.288, or a session started before the install | `claude update`, then start a new session |
 | `?` or empty boxes in the status line and headers | The terminal font has no Nerd Font glyphs | Pick Maple Mono NF, or turn Powerline glyphs off in `/config` |
 | The rail is a different shade from the chat | The terminal theme does not match the Tidepool Theme | Pick the matching terminal theme ([file names](#set-up-your-terminal)) |
-| Colours look banded, washed out or off | No 24-bit colour, or VS Code's contrast adjustment | tmux: the lines above. VS Code: `minimumContrastRatio: 1`. macOS Terminal: try another terminal |
+| Colours look banded, washed out or off | No 24-bit colour, or VS Code's contrast adjustment | tmux: the lines above. VS Code: `minimumContrastRatio: 1`. An older macOS Terminal: try another terminal |
 | The rail sits above the prompt, not beside the chat | Not in fullscreen, or the window is narrower than 144 columns | `/tui fullscreen`, widen the window, or `/tidepool-rail` from 110 columns |
 | No status line | The `statusLine` block is not in your settings, or Node 18+ is missing | Install step 2 |
 | No plan in the rail or band | The task tools are off on Claude 5 models | Install step 3 |

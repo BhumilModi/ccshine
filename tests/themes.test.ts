@@ -23,7 +23,7 @@ test('each terminal background is its palette\'s onAccent, so the rail paints th
 test('every text theme file carries its theme\'s colours', async () => {
   for (const theme of Object.values(terminalThemes)) {
     for (const [pattern, render] of Object.entries(FORMATS)) {
-      if (pattern.endsWith('.itermcolors')) continue
+      if (pattern.endsWith('.itermcolors') || pattern.endsWith('.terminal')) continue
       const out = render(theme).toLowerCase()
       for (const hex of [theme.background, theme.foreground, ...theme.palette]) expect([theme.name, pattern, out.includes(bare(hex))]).toEqual([theme.name, pattern, true])
     }
@@ -67,4 +67,23 @@ test('warp theme is YAML with named normal and bright colours', async () => {
   expect(out).toContain('terminal_colors:\n  normal:\n    black:')
   expect(out).toContain(`  bright:\n    black: '${warmClaude.palette[8]}'`)
   expect(out).toContain(`    magenta: '${warmClaude.palette[5]}'`)
+})
+
+// A .terminal profile keeps each colour as a base64 NSKeyedArchiver archive; check the sRGB components inside.
+test('macOS Terminal profile archives every colour in sRGB, and the font', async () => {
+  const render = FORMATS['themes/terminal-app/{name}.terminal']!
+  for (const theme of Object.values(terminalThemes)) {
+    const out = render(theme)
+    expect(out).toContain(`<string>${theme.name}</string>`)
+    const field = (key: string) => atob(out.split(`<key>${key}</key>\n\t<data>`)[1]!.split('</data>')[0]!)
+    const components = (key: string) => atob(field(key).split('<key>NSComponents</key><data>')[1]!.split('</data>')[0]!)
+    const srgb = (hex: string) => [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16))).join(' ')
+    const back = (key: string) => components(key).split(' ').slice(0, 3).map(x => Math.round(Number(x) * 255)).join(' ')
+    expect(back('BackgroundColor')).toBe(srgb(theme.background))
+    expect(back('TextColor')).toBe(srgb(theme.foreground))
+    expect(back('ANSIRedColor')).toBe(srgb(theme.palette[1]!))
+    expect(back('ANSIBrightWhiteColor')).toBe(srgb(theme.palette[15]!))
+    expect(field('BackgroundColor')).toContain('<key>NSID</key><integer>7</integer>')
+    expect(field('Font')).toContain('<string>MapleMono-NF-Regular</string>')
+  }
 })

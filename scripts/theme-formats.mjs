@@ -137,6 +137,59 @@ function warp(t) {
   ].join('\n')
 }
 
+// macOS Terminal: a .terminal profile, opened with a double-click. Terminal keeps each colour and the font as an
+// NSKeyedArchiver archive inside the profile; these are written as XML archives, which Terminal reads the same.
+const xmlEscape = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const uid = n => `<dict><key>CF$UID</key><integer>${n}</integer></dict>`
+const classInfo = name => `<dict><key>$classes</key><array><string>${name}</string><string>NSObject</string></array><key>$classname</key><string>${name}</string></dict>`
+const plist = body => `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n${body}\n</plist>\n`
+const archive = objects =>
+  plist(`<dict><key>$archiver</key><string>NSKeyedArchiver</string><key>$objects</key><array><string>$null</string>${objects.join('')}</array><key>$top</key><dict><key>root</key>${uid(1)}</dict><key>$version</key><integer>100000</integer></dict>`)
+const data = text => `<data>${btoa(text)}</data>`
+
+// An sRGB colour (colour space id 7), so the hex values show as written.
+function nsColor(hex) {
+  const rgb = [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(10).replace(/0+$/, '').replace(/\.$/, '')).join(' ')
+  return archive([
+    `<dict><key>$class</key>${uid(3)}<key>NSColorSpace</key><integer>1</integer><key>NSComponents</key>${data(`${rgb} 1`)}<key>NSCustomColorSpace</key>${uid(2)}<key>NSRGB</key>${data(`${rgb}\0`)}</dict>`,
+    `<dict><key>$class</key>${uid(4)}<key>NSID</key><integer>7</integer></dict>`,
+    classInfo('NSColor'),
+    classInfo('NSColorSpace'),
+  ])
+}
+
+function nsFont(postscriptName, size) {
+  return archive([
+    `<dict><key>$class</key>${uid(3)}<key>NSName</key>${uid(2)}<key>NSSize</key><real>${size}</real><key>NSfFlags</key><integer>16</integer></dict>`,
+    `<string>${xmlEscape(postscriptName)}</string>`,
+    classInfo('NSFont'),
+  ])
+}
+
+const TERMINAL_ANSI = ['Black', 'Red', 'Green', 'Yellow', 'Blue', 'Magenta', 'Cyan', 'White']
+
+function terminalApp(t) {
+  const entries = [
+    ...TERMINAL_ANSI.map((name, i) => [`ANSI${name}Color`, data(nsColor(t.palette[i]))]),
+    ...TERMINAL_ANSI.map((name, i) => [`ANSIBright${name}Color`, data(nsColor(t.palette[i + 8]))]),
+    ['BackgroundColor', data(nsColor(t.background))],
+    ['CursorColor', data(nsColor(t.cursor))],
+    ['Font', data(nsFont('MapleMono-NF-Regular', 14))],
+    ['FontAntialias', '<true/>'],
+    ['FontHeightSpacing', '<real>1.2</real>'],
+    ['FontWidthSpacing', '<real>1</real>'],
+    ['ProfileCurrentVersion', '<real>2.09</real>'],
+    ['SelectionColor', data(nsColor(t.selectionBackground))],
+    ['TextBoldColor', data(nsColor(t.foreground))],
+    ['TextColor', data(nsColor(t.foreground))],
+    ['columnCount', '<integer>160</integer>'],
+    ['name', `<string>${xmlEscape(t.name)}</string>`],
+    ['rowCount', '<integer>48</integer>'],
+    ['type', '<string>Window Settings</string>'],
+  ].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return plist(`<dict>\n${entries.map(([key, value]) => `\t<key>${key}</key>\n\t${value}`).join('\n')}\n</dict>`)
+}
+
 // VS Code, Cursor and other VS Code-based editors: a block to merge into the user's settings.json.
 function vscode(t) {
   const colours = {
@@ -167,6 +220,7 @@ export const FORMATS = {
   'themes/alacritty/{slug}.toml': alacritty,
   'themes/warp/{snake}.yaml': warp,
   'themes/vscode/{slug}.json': vscode,
+  'themes/terminal-app/{name}.terminal': terminalApp,
 }
 
 export function themePath(pattern, name) {
