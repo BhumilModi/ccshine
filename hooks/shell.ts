@@ -61,8 +61,11 @@ export type ShellRow = {
 
 // A finished foreground shell this quick is noise in the band; the rail still lists it.
 const SHORT_MS = 5000
+// The band and the docked rail list at most this many shells, the newest.
+const MAX_SHELL_ROWS = 4
 
-// Shells for the band: running ones, and finished ones fading out like agents do. Oldest first.
+// Shells for the band and the rail's plan section: running ones, and finished ones fading out like agents do.
+// The newest MAX_SHELL_ROWS, oldest first.
 export function shellRows(calls: Record<string, CallTiming>, live: Record<string, LiveCall>, jobs: Job[], now: number): ShellRow[] {
   const rows: ShellRow[] = []
   const jobCalls = new Set(jobs.map(j => j.callId))
@@ -96,5 +99,33 @@ export function shellRows(calls: Record<string, CallTiming>, live: Record<string
       ...(j.outputFile === undefined ? {} : { outputFile: j.outputFile }),
     })
   }
-  return rows.sort((a, b) => a.startedAt - b.startedAt)
+  return rows.sort((a, b) => a.startedAt - b.startedAt).slice(-MAX_SHELL_ROWS)
+}
+
+const TAIL_EVERY_MS = 2000
+export const MAX_TAIL_BYTES = 4 * 1024 * 1024
+const tailCache = new Map<string, { at: number; line?: string }>()
+
+// Each running background shell's newest output line, by output file; a file is re-read at most every 2s.
+// `read` returns a file's text, or undefined when it is too big; the caller passes it since `$` never crosses an import.
+export async function shellTails(shells: ShellRow[], read: (path: string) => Promise<string | undefined>, now: number): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  for (const r of shells) {
+    if (r.status !== 'running' || r.outputFile === undefined) continue
+    const path = r.outputFile
+    let seen = tailCache.get(path)
+    if (!seen || now - seen.at >= TAIL_EVERY_MS) {
+      let line: string | undefined
+      try {
+        const text = await read(path)
+        line = text === undefined ? undefined : lastLine(text)
+      } catch {
+        line = undefined
+      }
+      seen = { at: now, ...(line === undefined ? {} : { line }) }
+      tailCache.set(path, seen)
+    }
+    if (seen.line) out[path] = seen.line
+  }
+  return out
 }

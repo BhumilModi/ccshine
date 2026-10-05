@@ -165,6 +165,13 @@ export function finishedAt(tasks: PlanTask[]): number | undefined {
   return Math.max(...tasks.map(t => t.doneAt ?? 0))
 }
 
+// The plan shows while it has tasks, and for AGENT_LINGER_MS after its last task finishes.
+export function planShows(tasks: PlanTask[], now: number): boolean {
+  const top = topLevel(tasks)
+  const at = finishedAt(top)
+  return top.length > 0 && (at === undefined || now - at < AGENT_LINGER_MS)
+}
+
 // Which lines fit in `room` rows, an "N earlier" and a "+N more" marker counted as one row each;
 // keeps the line before the focus for context. `before` and `after` count what each shown marker hides.
 export function windowLines<T>(lines: T[], focus: number, room: number): { start: number; shown: T[]; before: number; after: number } {

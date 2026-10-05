@@ -4,11 +4,11 @@ import type { EngineInterface, Frozen, On, RenderChildren, RenderElement, Render
 import type { RailRow } from '../../types'
 import { fitBand } from '../layout'
 import { opts } from '../options'
-import { AGENT_LINGER_MS, agentRows, finishedAt, historyFor, topLevel } from '../plan'
+import { agentRows, finishedAt, historyFor, planShows, topLevel } from '../plan'
 import { doneCard, planBody, planHeader, planWanted, shellBody } from '../planview'
 import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
-import { lastLine, shellRows } from '../shell'
+import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
 import { pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
 import { palette, span } from '../theme'
 import { fmtShort } from '../tools'
@@ -33,7 +33,6 @@ const live = atom({ plugin: 'tidepool', key: 'live' } as const, {})
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
 const planAll = atom({ plugin: 'tidepool', key: 'planAll' } as const, false)
 const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
-const MAX_SHELL_ROWS = 4
 
 const TOOL = 6
 const META = 13
@@ -55,24 +54,9 @@ function timing(r: RailRow): string {
   return r.running ? `${fmtShort(r.ms)} …` : fmtShort(r.ms)
 }
 
-const TAIL_EVERY_MS = 2000
-const MAX_TAIL_BYTES = 4 * 1024 * 1024
-const tails = new Map<string, { at: number; line?: string }>()
-
-// A background job's newest output line, re-read at most every 2s (the band keeps its own copy: `$` stays in-file).
-async function tailLine($: EngineInterface, path: string, at: number): Promise<string | undefined> {
-  const known = tails.get(path)
-  if (known && at - known.at < TAIL_EVERY_MS) return known.line
-  let line: string | undefined
-  try {
-    const { size } = await $.fs.stat(path)
-    if (size <= MAX_TAIL_BYTES) line = lastLine(String(await $.fs.read(path)))
-  } catch {
-    line = undefined
-  }
-  tails.set(path, { at, ...(line === undefined ? {} : { line }) })
-  return line
-}
+// A background job's output file for shellTails (shell.ts); a file too big for one read shows nothing.
+const readTail = ($: EngineInterface) => async (path: string) =>
+  (await $.fs.stat(path)).size <= MAX_TAIL_BYTES ? String(await $.fs.read(path)) : undefined
 
 type PaneInput = Frozen<RenderInput<'Pane'>>
 
@@ -83,23 +67,17 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
   const at = await $.clock.now()
   const list = await read($, tasks)
   const doneAt = finishedAt(topLevel(list))
-  const showTasks = opts.tasks && topLevel(list).length > 0 && (doneAt === undefined || at - doneAt < AGENT_LINGER_MS)
-  const shells = opts.tasks ? shellRows(await read($, calls), await read($, live), await read($, jobs), at).slice(-MAX_SHELL_ROWS) : []
+  const showTasks = opts.tasks && planShows(list, at)
+  const shells = opts.tasks ? shellRows(await read($, calls), await read($, live), await read($, jobs), at) : []
   if (!showTasks && shells.length === 0) return null
   const ui = $.ui.resolve(e)
   const { Box, Text } = ui
   const C = palette()
-  const said: Record<string, string> = {}
-  for (const r of shells) {
-    if (r.status !== 'running' || r.outputFile === undefined) continue
-    const line = await tailLine($, r.outputFile, at)
-    if (line) said[r.outputFile] = line
-  }
   const d: PlanData = {
     tasks: showTasks && doneAt === undefined ? list : [],
     agents: agentRows(await read($, agents), await read($, turns)),
     shells,
-    tails: said,
+    tails: {},
     shellHistory: (await read($, shellHistory)) ?? {},
     planHistory: historyFor(await $.store.get('history-by-project'), await $.session.root()),
     now: at,
@@ -138,7 +116,12 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
       ...body.rows,
     )
   }
-  if (fit.shell > 1) out.push(...shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails))
+  if (fit.shell > 1) {
+    // Output files are read only for the shells drawn, and only when their output rows fit.
+    const drawn = shells.slice(-(fit.shell - 1))
+    const tails = fit.tails ? await shellTails(drawn, readTail($), at) : {}
+    out.push(...shellBody(ui, C, { ...d, shells: drawn, tails }, fit.tails))
+  }
   // The done card is one element four rows tall.
   return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (finished ? DONE_ROWS - 1 : 0) }
 }

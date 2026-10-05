@@ -9,7 +9,9 @@ import {
   fmtClock,
   fmtTokens,
   finishedAt,
+  historyFor,
   newlyDone,
+  planShows,
   setStatus,
   syncTodos,
   topLevel,
@@ -22,7 +24,7 @@ import { palette } from '../theme'
 import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
 import { activity } from '../activity'
-import { lastLine, parseHistory, shellRows } from '../shell'
+import { MAX_TAIL_BYTES, parseHistory, shellRows, shellTails } from '../shell'
 import { DONE_MS, IDLE_COLS, IDLE_ROWS, SCENE_ROWS, doneCrabCells, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
 
 const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
@@ -41,25 +43,20 @@ const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
 // Every plan row, or only what fits beside the dock; toggled from the Plan header.
 const planAll = atom({ plugin: 'tidepool', key: 'planAll' } as const, false)
-const MAX_SHELL_ROWS = 4
 
 let ticker: Timer | undefined
-
-// A finished plan shows its total briefly, then folds away until a new one starts.
-function lingers(list: PlanTask[], now: number): boolean {
-  const at = finishedAt(topLevel(list))
-  return at !== undefined && now - at < AGENT_LINGER_MS
-}
 
 // Runs the 1s redraw timer only while a task, agent or shell is live, or a finished one is still fading out.
 // `force` starts it before the tracker has recorded a new shell; the next tick re-checks.
 async function syncTicker($: EngineInterface, force = false) {
   const now = await $.clock.now()
+  const list = await read($, tasks)
   const live =
     force ||
     (opts.tasks && shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).length > 0) ||
-    (await read($, tasks)).some(t => t.status === 'in_progress') ||
-    lingers(await read($, tasks), now) ||
+    list.some(t => t.status === 'in_progress') ||
+    // A finished plan shows its total briefly, then folds away until a new one starts.
+    (finishedAt(topLevel(list)) !== undefined && planShows(list, now)) ||
     agentRows(await read($, agents), await read($, turns)).some(a => a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS)
   if (live && ticker === undefined) {
     ticker = $.clock.every(1000, () => {
@@ -77,22 +74,8 @@ const HISTORY_SIZE = 50
 let byProject: Record<string, number[]> | undefined
 
 async function loadHistory($: EngineInterface): Promise<Record<string, number[]>> {
-  if (byProject === undefined) {
-    const saved = await $.store.get('history-by-project')
-    byProject = {}
-    if (saved && typeof saved === 'object') {
-      for (const [root, list] of Object.entries(saved)) {
-        if (Array.isArray(list)) byProject[root] = list.filter((n): n is number => typeof n === 'number')
-      }
-    }
-  }
+  byProject ??= parseHistory(await $.store.get('history-by-project'))
   return byProject
-}
-
-// This project's history; a project with none yet borrows every other project's until it has its own.
-async function projectHistory($: EngineInterface): Promise<number[]> {
-  const all = await loadHistory($)
-  return all[await $.session.root()] ?? Object.values(all).flat()
 }
 
 const RAIL_ID = 'tidepool-rail'
@@ -261,13 +244,12 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const last = lastTurn(turnList)
   await read($, tick)
   const now = await $.clock.now()
-  const top = topLevel(list)
-  const doneAt = finishedAt(top)
-  const showTasks = opts.tasks && top.length > 0 && (doneAt === undefined || now - doneAt < AGENT_LINGER_MS)
+  const doneAt = finishedAt(topLevel(list))
+  const showTasks = opts.tasks && planShows(list, now)
   const showUsage = opts.usage && last !== undefined
   // A docked rail owns the plan and the shells (features/rail.tsx); the band draws neither.
   const docked = await railDocked($, e)
-  const shells = opts.tasks && !docked ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).slice(-MAX_SHELL_ROWS) : []
+  const shells = opts.tasks && !docked ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now) : []
   if (!showTasks && !showUsage && shells.length === 0) return null
   const C = palette()
   const ui = $.ui.resolve(e)
@@ -287,19 +269,13 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   }
 
   const finished = doneAt !== undefined
-  const tails: Record<string, string> = {}
-  for (const r of shells) {
-    if (r.status !== 'running' || r.outputFile === undefined) continue
-    const line = await tailLine($, r.outputFile, now)
-    if (line) tails[r.outputFile] = line
-  }
   const d: PlanData = {
     tasks: showTasks && !finished ? list : [],
     agents: agentRows(await read($, agents), turnList),
     shells,
-    tails,
+    tails: {},
     shellHistory: (await read($, shellHistory)) ?? {},
-    planHistory: await projectHistory($),
+    planHistory: historyFor(await loadHistory($), await $.session.root()),
     now,
     all: await read($, planAll),
   }
@@ -315,8 +291,11 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     usage: usageRows.length,
     expanded: d.all,
   })
-  // The newest shells when not all fit; the section's label takes one of its rows.
-  const shell = fit.shell > 1 ? <Box key="shell" flexDirection="column">{shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails)}</Box> : null
+  // The newest shells when not all fit; the section's label takes one of its rows. Output files are read only
+  // for the shells drawn, and only when their output rows fit.
+  const drawn = shells.slice(-(fit.shell - 1))
+  const tails = fit.shell > 1 && fit.tails ? await shellTails(drawn, readTail($), now) : {}
+  const shell = fit.shell > 1 ? <Box key="shell" flexDirection="column">{shellBody(ui, C, { ...d, shells: drawn, tails }, fit.tails)}</Box> : null
   const usage = fit.usage && usageRows.length ? <Box key="usage" flexDirection="column">{usageRows}</Box> : null
   const band = (rows: (RenderElement | null | undefined)[]) => ({
     fit,
@@ -338,24 +317,9 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   return band([header, ...body.rows, shell, usage])
 }
 
-const TAIL_EVERY_MS = 2000
-const MAX_TAIL_BYTES = 4 * 1024 * 1024
-const tails = new Map<string, { at: number; line?: string }>()
-
-// A background job's newest output line, re-read at most every 2s; a file too big for one read shows nothing.
-async function tailLine($: EngineInterface, path: string, now: number): Promise<string | undefined> {
-  const seen = tails.get(path)
-  if (seen && now - seen.at < TAIL_EVERY_MS) return seen.line
-  let line: string | undefined
-  try {
-    const { size } = await $.fs.stat(path)
-    if (size <= MAX_TAIL_BYTES) line = lastLine(String(await $.fs.read(path)))
-  } catch {
-    line = undefined
-  }
-  tails.set(path, { at: now, ...(line === undefined ? {} : { line }) })
-  return line
-}
+// A background job's output file for shellTails (shell.ts); a file too big for one read shows nothing.
+const readTail = ($: EngineInterface) => async (path: string) =>
+  (await $.fs.stat(path)).size <= MAX_TAIL_BYTES ? String(await $.fs.read(path)) : undefined
 
 const SCENE_MAX = 64
 // Below these widths the key hints, then the phase times, drop rather than wrap the row.

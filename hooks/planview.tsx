@@ -65,16 +65,15 @@ export function planLines(list: PlanTask[], agentList: AgentRow[], now: number, 
   return { lines, focus: Math.max(0, focus >= 0 ? focus : next) }
 }
 
-const tailed = (d: PlanData) => d.shells.filter(r => r.status === 'running' && r.outputFile !== undefined && d.tails[r.outputFile])
-
-// What the plan asks of a row budget: rows past the header's task line, the shell section, output lines.
+// What the plan asks of a row budget: rows past the header's task line, the shell section, and a row for each
+// running background shell's output line. Callers read output files only once the fit says those rows are drawn.
 export function planWanted(d: PlanData): { plan: number; shell: number; tails: number; focus: boolean } {
   const { lines } = planLines(d.tasks, d.agents, d.now, d.all)
   const others = Math.max(0, lines.length - 1)
   return {
     plan: d.all ? others : Math.min(others, MAX_TASK_ROWS),
     shell: d.shells.length ? 1 + d.shells.length : 0,
-    tails: tailed(d).length,
+    tails: d.shells.filter(r => r.status === 'running' && r.outputFile !== undefined).length,
     focus: lines.length > 0,
   }
 }
