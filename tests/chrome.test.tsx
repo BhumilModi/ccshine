@@ -75,6 +75,11 @@ function configEngine(on: any, rows: unknown) {
     return { value: rows }
   })
   on('settings.read', () => ({ value: {} }))
+  // Session start also installs the bundled font: never let a test run real commands.
+  on('process.run', () => {
+    throw new Error('no host commands in tests')
+  })
+  on('env.get', () => ({ value: undefined }))
   on('command.register', () => ({ value: { command: 'ccshine-statusline', agent: '' } }))
   on('session.start', () => ({ cwd: '/repo' }))
   return toasts

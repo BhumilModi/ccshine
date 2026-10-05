@@ -17,6 +17,11 @@ test('a status line pointing at an old ccshine install gets a nudge', async ($, 
     return { value: undefined }
   })
   on('command.register', () => ({ value: { command: 'ccshine-statusline', agent: '' } }))
+  // Session start also installs the bundled font: never let a test run real commands.
+  on('process.run', () => {
+    throw new Error('no host commands in tests')
+  })
+  on('env.get', () => ({ value: undefined }))
   on('session.start', () => ({ cwd: '/repo' }))
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   expect(toasts).toEqual(['ccshine was updated: run /ccshine-statusline and paste the new statusLine path'])
@@ -30,6 +35,11 @@ test('a current or unrelated status line gets no nudge', async ($, on) => {
     return { value: undefined }
   })
   on('command.register', () => ({ value: { command: 'ccshine-statusline', agent: '' } }))
+  // Session start also installs the bundled font: never let a test run real commands.
+  on('process.run', () => {
+    throw new Error('no host commands in tests')
+  })
+  on('env.get', () => ({ value: undefined }))
   on('session.start', () => ({ cwd: '/repo' }))
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   expect(toasts).toEqual([])
