@@ -33,6 +33,9 @@ const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
 // The prompt dock's turn (features/dock.tsx) and the calls in flight (features/track.tsx).
 const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 const liveCalls = atom({ plugin: 'tidepool', key: 'live' } as const, {})
+// The tracker's calls and the rail's turns: a docked rail shows the newest turn's agents itself.
+const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
+const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 
@@ -168,7 +171,8 @@ export function registerTasks(on: On) {
 
 type Band = Frozen<RenderInput<'AbovePrompt'>>
 
-// A rail docked beside the transcript (fullscreen, 110+ columns) already shows the agents.
+// A rail docked beside the transcript (fullscreen, 110+ columns) already shows the newest turn's agents;
+// agents from earlier turns still running stay in the band, where they would otherwise be out of sight.
 async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
   if (!opts.rail || e.viewport?.isFullscreen !== true || e.viewport.columns < 110) return false
   try {
@@ -176,6 +180,12 @@ async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+async function onRail($: EngineInterface, agent: PlanAgent): Promise<boolean> {
+  const call = agent.callId === undefined ? undefined : (await read($, calls))[agent.callId]
+  const newest = (await read($, spans)).at(-1)
+  return call !== undefined && newest !== undefined && call.startedAt >= newest.startedAt
 }
 
 // The plan, its agents and the usage rows; null when there is nothing to show.
@@ -192,7 +202,10 @@ async function planBand($: EngineInterface, e: Band, reserve: number): Promise<R
     const { Box, Text } = $.ui.resolve(e)
     await read($, tick)
     const now = await $.clock.now()
-    const agentList = (await railDocked($, e)) ? [] : agentRows(await read($, agents), turnList)
+    const docked = await railDocked($, e)
+    const listed = []
+    for (const agent of await read($, agents)) if (!docked || !(await onRail($, agent))) listed.push(agent)
+    const agentList = agentRows(listed, turnList)
 
     // Usage: only what the status line does not show — a cold-cache warning, and tokens split by agent.
     let usage: RenderElement | null = null

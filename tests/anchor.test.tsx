@@ -19,7 +19,11 @@ function world(on: any, placed = true) {
     if (waits[e.tool_use_id]) await clock.sleep(waits[e.tool_use_id]!)
     return results[e.tool_use_id] ?? { result: {} }
   })
-  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: placed }] }))
+  const asked = { panes: 0 }
+  on('ui.panes', () => {
+    asked.panes++
+    return { value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: placed }] }
+  })
   on('ui.open', () => ({ value: { isPlaced: placed } }))
   on('ui.close', () => ({ value: undefined }))
   on('env.get', () => ({ value: undefined }))
@@ -27,7 +31,7 @@ function world(on: any, placed = true) {
   on('settings.read', () => ({ value: {} }))
   on('command.register', (_$: unknown, e: { name: string }) => ({ value: { command: e.name, agent: '' } }))
   on('session.start', () => ({ cwd: '/repo' }))
-  return { clock, results, waits }
+  return { clock, results, waits, asked }
 }
 
 type World = ReturnType<typeof world>
@@ -47,8 +51,12 @@ const row = (id: string, tool: string, input: unknown, extra: Record<string, unk
   props: { tool_use_id: id, tool, input, isRunning: false, isErrored: false, isInterrupted: false, ...extra },
 }) as const
 
-const pane = { plugin: 'tidepool', surface: 'terminal', component: 'Pane', requestId: 'tidepool-rail',
-  props: { title: 'tidepool', isFocused: false, bodyColumns: 46, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} } } as const
+const paneAt = (placement: 'dock' | 'inline') => ({ plugin: 'tidepool', surface: 'terminal', component: 'Pane', requestId: 'tidepool-rail',
+  props: { title: 'tidepool', isFocused: false, bodyColumns: 46, placement, scroll: { offset: 0, bodyRows: 40 }, view: {} } }) as const
+const pane = paneAt('dock')
+
+// The rail has drawn docked beside the transcript, which is when tool rows hand over to it.
+const docked = async ($: any, placement: 'dock' | 'inline' = 'dock') => (await $.ui.mount(paneAt(placement))).unmount()
 
 const textOf = async (ui: any) =>
   [...(await ui.findAll({ type: 'Text' })), ...(await ui.findAll({ type: 'Button' }))].map((n: any) => n.text ?? '').join('')
@@ -65,6 +73,7 @@ async function threeCalls($: any, w: World) {
 test('first tool row of a turn draws the anchor; the rest draw nothing', OFF, async ($, on) => {
   const w = world(on)
   await threeCalls($, w)
+  await docked($)
   const first = await textOf(await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' })))
   expect(first).toContain('◇ 3 tools')
   expect(first).toContain('▸ rail')
@@ -76,6 +85,7 @@ test('first tool row of a turn draws the anchor; the rest draw nothing', OFF, as
 test('anchor counts errors in the crit colour', OFF, async ($, on) => {
   const w = world(on)
   await threeCalls($, w)
+  await docked($)
   const ui = await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' }))
   const err = await ui.find({ type: 'Text', text: ' · 1 error' })
   expect(err?.props.color).toBe(CRIT)
@@ -87,6 +97,7 @@ test('anchor names agents and background jobs', OFF, async ($, on) => {
   await call($, w, 'tu1', 'Agent', { description: 'Explore', prompt: 'p', subagent_type: 'Explore' }, 100)
   await $.agent.spawn({ tool_use_id: 'tu1', prompt: 'p', description: 'Explore', subagentType: 'Explore', provider: { plugin: 'engine', tier: 'core' }, parentModel: 'm', background: true, fork: false })
   await call($, w, 'b1', 'Bash', { command: 'npm run dev' }, 100, { result: { backgroundTaskId: 'j1' } })
+  await docked($)
   const text = await textOf(await $.ui.mount(row('tu1', 'Agent', { description: 'Explore' })))
   expect(text).toContain('1 agent')
   expect(text).toContain('1 background')
@@ -96,6 +107,7 @@ test('pressing the anchor pins its turn in the rail', OFF, async ($, on) => {
   const w = world(on)
   await threeCalls($, w)
   await $.turn.complete(complete('t1'))
+  await docked($)
   const ui = await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' }))
   await ui.press({ key: 'anchor' })
   expect(await textOf(await $.ui.mount(pane))).toContain('pinned')
@@ -109,6 +121,7 @@ test('the rail follows the anchor on screen', OFF, async ($, on) => {
   await $.turn.start({ text: 'again', turnId: 't2' })
   await call($, w, 'r9', 'Read', { file_path: '/repo/z.ts' }, 100)
   await $.turn.complete(complete('t2'))
+  await docked($)
   await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' }, { onScreen: { first: 0, last: 2, of: 3 } }))
   await $.ui.mount(row('r9', 'Read', { file_path: '/repo/z.ts' }, { onScreen: null }))
   await w.clock.advance(1000)
@@ -121,7 +134,7 @@ test('with rail off, rows render as before', { options: { ...OFF.options, rail: 
   expect(await textOf(await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' })))).toContain('◇ Read a.ts')
 })
 
-test('when the rail could not be placed, rows render as before', OFF, async ($, on) => {
+test('before the rail has drawn, rows render as before', OFF, async ($, on) => {
   const w = world(on, false)
   await threeCalls($, w)
   expect(await textOf(await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' })))).toContain('◇ Read a.ts')
@@ -138,7 +151,45 @@ test('a folded group unfolds into rows while the rail is on', OFF, async ($, on)
     const { Text } = $e.ui.resolve(e)
     return <Text>{`expanded:${e.props.isExpanded}`}</Text>
   })
+  await docked($)
   const calls = [{ tool: 'Read', input: { file_path: '/a' }, isRunning: false, isErrored: false, isInterrupted: false }]
   const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup', requestId: 'g1', props: { calls, isActive: false, isExpanded: false } } as never)
   expect(await textOf(ui)).toBe('expanded:true')
+})
+
+test('in normal mode the inline rail leaves tool rows in the chat', OFF, async ($, on) => {
+  const w = world(on)
+  await threeCalls($, w)
+  await docked($, 'inline')
+  expect(await textOf(await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' })))).toContain('◇ Read a.ts')
+})
+
+test('a turn whose first call draws no row still gets an anchor', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'plan', turnId: 't1' })
+  await call($, w, 'td1', 'TodoWrite', { todos: [] }, 50)
+  await call($, w, 'r1', 'Read', { file_path: '/repo/a.ts' }, 100)
+  await docked($)
+  expect(await textOf(await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' })))).toContain('◇ 2 tools')
+})
+
+test('tool rows ask the engine nothing on each render', OFF, async ($, on) => {
+  const w = world(on)
+  await threeCalls($, w)
+  await docked($)
+  const before = w.asked.panes
+  await $.ui.mount(row('r1', 'Read', { file_path: '/repo/a.ts' }))
+  await $.ui.mount(row('r2', 'Read', { file_path: '/repo/b.ts' }))
+  expect(w.asked.panes).toBe(before)
+})
+
+test('a failing usage read does not block a prompt', OFF, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  on('session.usage', () => {
+    throw new Error('no usage here')
+  })
+  on('prompt.submit', (_$: unknown, e: { text: string }) => ({ text: e.text }))
+  const done = await $.prompt.submit({ text: 'hello', origin: { kind: 'composer' } } as never)
+  expect(done.text).toBe('hello')
 })

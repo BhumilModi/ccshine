@@ -5,6 +5,15 @@ import type { CallTiming, Job, PlanAgent, RailRow, RailSummary, TurnSpan } from 
 // ponytail: the rail follows a scroll within a second, not on the same frame.
 export const anchorsOnScreen = new Map<string, boolean>()
 
+// Where the surface last seated the rail, recorded by its Pane render (a module value, as above): tool rows
+// hand over to the rail only while it is docked beside the transcript.
+export const railSeat: { placement?: 'dock' | 'inline' } = {}
+
+// Which call carries each turn's anchor: the first of the turn's rows that actually draws. Some tools
+// (TodoWrite, the Task tools) draw no row, so "the turn's first call" alone could leave a turn with none.
+// ponytail: first to draw keeps it; a row scrolled in later from above draws nothing rather than move the anchor.
+export const anchorOf = new Map<string, string>()
+
 // The rail's model: which calls belong to a turn and where each sits on the turn's timeline. No engine calls.
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))

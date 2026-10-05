@@ -3,7 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { TurnSpan } from '../../types'
 import { opts } from '../options'
-import { anchorsOnScreen, railRows, turnOfCall } from '../rail'
+import { anchorOf, anchorsOnScreen, railRows, railSeat, turnOfCall } from '../rail'
 import { palette } from '../theme'
 import { describeCall, editStats, fmtShort, groupSummary, isKnownTool } from '../tools'
 
@@ -17,14 +17,10 @@ const railSel = atom({ plugin: 'tidepool', key: 'railSel' } as const, { pinned: 
 // Ticks once a second while something runs, so a live anchor's counts and time move.
 const railNow = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
 
-// With the rail open and placed, tool calls live there and the chat keeps one anchor line per turn.
-async function railOn($: EngineInterface): Promise<boolean> {
-  if (!opts.rail) return false
-  try {
-    return (await $.ui.panes()).some(pane => pane.id === 'tidepool-rail' && pane.isPlaced)
-  } catch {
-    return false
-  }
+// With the rail docked beside the transcript, tool calls live there and the chat keeps one anchor line per turn.
+// Above the prompt the rail shows only the live turn, so rows stay in the chat.
+function railOn(): boolean {
+  return opts.rail && railSeat.placement === 'dock'
 }
 
 // The main-loop turn a call belongs to; undefined for a subagent's call or one the tracker never saw.
@@ -47,14 +43,15 @@ export function registerTools(on: On) {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (!opts.tools) return next(e)
     const p = e.props
-    const turn = (await railOn($)) ? await turnOf($, p.tool_use_id) : undefined
+    const turn = railOn() ? await turnOf($, p.tool_use_id) : undefined
     if (turn) {
       const { Box, Button, Text } = $.ui.resolve(e)
+      // The turn's first row to draw carries the anchor; the rest of its rows draw nothing.
+      if (!anchorOf.has(turn.turnId)) anchorOf.set(turn.turnId, p.tool_use_id)
+      if (anchorOf.get(turn.turnId) !== p.tool_use_id) return <Box />
       const all = await read($, calls)
       const now = Math.max(await read($, railNow), await $.clock.now())
       const rows = railRows(all, await read($, agents), await read($, jobs), turn, now)
-      // The turn's first call carries the anchor; the rest of its rows draw nothing.
-      if (rows[0]?.id !== p.tool_use_id) return <Box />
       if (p.onScreen !== undefined) anchorsOnScreen.set(turn.turnId, p.onScreen !== null)
       const C = palette()
       const tools = rows.reduce((n, r) => n + 1 + (r.children ?? 0), 0)
@@ -103,14 +100,14 @@ export function registerTools(on: On) {
 
   // With the rail on, a call's result lives in the rail.
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
-    if (!opts.tools || !(await railOn($)) || !(await turnOf($, e.props.tool_use_id))) return next(e)
+    if (!opts.tools || !railOn() || !(await turnOf($, e.props.tool_use_id))) return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box />
   })
 
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     // Unfolded, each call is a ToolUse row with its id, so the anchor rule above sees it.
-    if (opts.tools && (await railOn($))) return next({ ...e, props: { ...e.props, isExpanded: true } })
+    if (opts.tools && railOn()) return next({ ...e, props: { ...e.props, isExpanded: true } })
     // MCP and other unknown tools keep the engine's own wording.
     if (!opts.tools || e.props.isExpanded || !e.props.calls.every(c => isKnownTool(c.tool))) return next(e)
     const { Box, Text } = $.ui.resolve(e)

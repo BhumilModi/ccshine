@@ -147,8 +147,13 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
   on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
   on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  on('session.usage', () => ({ value: { startedAt: 1, context: { window: 200_000 }, rateLimits: [] } }))
+  on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
+  on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
   await $.tool.call({ tool: 'TaskCreate', subject: 'tests', description: '' })
   await $.tool.call({ tool: 'TaskUpdate', taskId: 'tests', status: 'in_progress' })
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.tool.call({ tool: 'Agent', tool_use_id: 'tu1', description: 'Running engine tests', prompt: 'run', subagent_type: 'general-purpose' } as never)
   await $.agent.spawn({
     tool_use_id: 'tu1', prompt: 'run', description: 'Running engine tests', subagentType: 'general-purpose',
     provider: { plugin: 'engine', tier: 'core' }, parentModel: 'claude-opus-5-5', background: true, fork: false,
@@ -164,4 +169,34 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
   expect(docked).not.toContain('general-purpose')
   expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
   expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
+})
+
+test('a docked rail keeps running agents from earlier turns in the band', { options: { dock: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('session.usage', () => ({ value: { startedAt: 1, context: { window: 200_000 }, rateLimits: [] } }))
+  on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: 'ok' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
+  on('agent.spawn', (_$: unknown, e: { tool_use_id: string }) => ({ model: 'm', agentId: e.tool_use_id === 'tu1' ? 'ag1' : 'ag2' }))
+  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  const spawn = async (id: string, description: string) => {
+    await $.tool.call({ tool: 'Agent', tool_use_id: id, description, prompt: 'p', subagent_type: 'general-purpose' } as never)
+    await $.agent.spawn({ tool_use_id: id, prompt: 'p', description, subagentType: 'general-purpose', provider: { plugin: 'engine', tier: 'core' }, parentModel: 'm', background: true, fork: false })
+  }
+  await $.tool.call({ tool: 'TaskCreate', subject: 'tests', description: '' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'tests', status: 'in_progress' })
+  await $.turn.start({ text: 'one', turnId: 't1' })
+  await spawn('tu1', 'Older agent')
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+  await clock.advance(1000)
+  await $.turn.start({ text: 'two', turnId: 't2' })
+  await spawn('tu2', 'Newer agent')
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND, viewport: { columns: 140, rows: 40, isFullscreen: true } })
+  const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  expect(text).toContain('Older agent')
+  expect(text).not.toContain('Newer agent')
 })

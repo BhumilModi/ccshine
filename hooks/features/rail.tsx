@@ -3,7 +3,7 @@ import type { On } from 'claude-code'
 
 import type { RailRow } from '../../types'
 import { opts } from '../options'
-import { pickTurn, railRows, railSummary, showBars, turnWindow } from '../rail'
+import { pickTurn, railRows, railSeat, railSummary, showBars, turnWindow } from '../rail'
 import { bar, palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
@@ -41,6 +41,7 @@ export function registerRail(on: On) {
     const { Box, Button, Text } = $.ui.resolve(e)
     const C = palette()
     const p = e.props
+    railSeat.placement = p.placement
 
     const list = await read($, spans)
     // Reading railNow redraws the rail on each live tick; the clock itself is the truth.
