@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import type { CallTiming } from '../types'
-import { addCall, closeTurn, endCall, totalTokens } from '../hooks/timing'
+import type { CallTiming, TurnSpan } from '../types'
+import { addCall, closeSpan, closeTurn, endCall, openSpan, totalTokens } from '../hooks/timing'
 
 const call = (tool: string, startedAt: number, endedAt?: number, agentId?: string): CallTiming => ({ tool, startedAt, endedAt, agentId })
 
@@ -51,3 +51,30 @@ test('totalTokens adds every kind', async () => {
 // The tracker's hooks are covered where their output shows: the agent band (turn records and tokens),
 // tool-row durations and the spinner. The test kit has no
 // $.state, and the plugin's module instance is not the test's, so neither can be read directly.
+
+test('openSpan then closeSpan records context and cost at both ends', async () => {
+  const opened = openSpan([], { turnId: 't1', at: 100, ctx: 38, cost: 1 })
+  expect(opened).toEqual([{ turnId: 't1', startedAt: 100, ctxStart: 38, costStart: 1 }])
+  const closed = closeSpan(opened, { at: 900, ctx: 52, cost: 1.31 })
+  expect(closed).toEqual([{ turnId: 't1', startedAt: 100, ctxStart: 38, costStart: 1, endedAt: 900, ctxEnd: 52, costEnd: 1.31 }])
+})
+
+test('closeSpan marks an aborted turn and leaves closed spans alone', async () => {
+  const spans = [{ turnId: 'old', startedAt: 0, endedAt: 50 }, { turnId: 't', startedAt: 60 }]
+  const closed = closeSpan(spans, { at: 70, aborted: true })
+  expect(closed[0]).toEqual(spans[0])
+  expect(closed[1]).toEqual({ turnId: 't', startedAt: 60, endedAt: 70, aborted: true })
+  expect(closeSpan(closed, { at: 80 })).toEqual(closed)
+})
+
+test('openSpan keeps the newest 200 spans', async () => {
+  let spans: TurnSpan[] = []
+  for (let i = 0; i < 210; i++) spans = openSpan(spans, { turnId: String(i), at: i })
+  expect(spans.length).toBe(200)
+  expect(spans[0]?.turnId).toBe('10')
+})
+
+test('endCall can mark a call failed', async () => {
+  expect(endCall({ a: call('Bash', 0) }, 'a', 5, true).a).toEqual({ tool: 'Bash', startedAt: 0, endedAt: 5, failed: true })
+  expect(endCall({ a: call('Bash', 0) }, 'a', 5).a?.failed).toBeUndefined()
+})

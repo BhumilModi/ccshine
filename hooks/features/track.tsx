@@ -1,10 +1,12 @@
 import { atom, read, update } from 'claude-code'
-import type { On } from 'claude-code'
+import type { EngineInterface, On } from 'claude-code'
 
 import type { LiveCall, TurnRecord } from '../../types'
 import { activity } from '../activity'
 import { travelled } from '../dock'
-import { addCall, closeTurn, endCall, totalTokens } from '../timing'
+import { addJob, endJob, parseNotifications } from '../jobs'
+import { addCall, closeSpan, closeTurn, endCall, totalTokens } from '../timing'
+import { describeCall, editStats } from '../tools'
 
 export const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
 export const turns = atom({ plugin: 'tidepool', key: 'turns' } as const, [])
@@ -16,6 +18,34 @@ const live = atom({ plugin: 'tidepool', key: 'live' } as const, {})
 const agents = atom({ plugin: 'tidepool', key: 'agents' } as const, [])
 // The prompt dock's turn (features/dock.tsx): each main-loop tool call drops a crate, and the turn's end sends the crab home.
 const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
+// The rail's turns and background shells (features/rail.tsx), and when the current chat began: /clear moves it.
+export const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
+export const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
+const chat = atom({ plugin: 'tidepool', key: 'chat' } as const, 0)
+
+let root: string | undefined
+
+// Context % and session cost right now; either is absent where the host keeps none.
+async function gauges($: EngineInterface): Promise<{ ctx?: number; cost?: number }> {
+  try {
+    const usage = await $.session.usage()
+    const out: { ctx?: number; cost?: number } = {}
+    if (usage.context.percent !== undefined) out.ctx = usage.context.percent
+    if (usage.cost) out.cost = usage.cost.usd
+    return out
+  } catch {
+    return {}
+  }
+}
+
+// A new chat (fresh start or /clear) starts with no turns and no jobs on the rail.
+async function syncChat($: EngineInterface) {
+  const startedAt = (await $.session.usage()).startedAt
+  if ((await read($, chat)) === startedAt) return
+  await update($, chat, () => startedAt)
+  await update($, spans, () => [])
+  await update($, jobs, () => [])
+}
 
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {
@@ -24,7 +54,19 @@ export function registerTrack(on: On) {
     const { tool, tool_use_id: _id, agentId, ...rest } = e as typeof e & { agentId?: string; consent?: string }
     const { consent: _consent, ...input } = rest as Record<string, unknown>
     const startedAt = await $.clock.now()
-    await update($, calls, list => addCall(list, id, agentId === undefined ? { tool, startedAt } : { tool, startedAt, agentId }))
+    // Without a root, paths stay absolute; the call is still tracked.
+    root ??= await $.session.root().catch(() => '')
+    const target = describeCall(tool, input, root)?.target
+    const stats = editStats(tool, input)
+    await update($, calls, list =>
+      addCall(list, id, {
+        tool,
+        startedAt,
+        ...(agentId === undefined ? {} : { agentId }),
+        ...(target === undefined ? {} : { target }),
+        ...(stats ? { added: stats.added, removed: stats.removed } : {}),
+      }),
+    )
     const call: LiveCall = agentId === undefined ? { tool, input } : { tool, input, agentId }
     await update($, live, map => ({ ...map, [id]: call }))
     if (agentId === undefined) {
@@ -37,21 +79,49 @@ export function registerTrack(on: On) {
         return { ...t, phases, calls: [...t.calls, call].slice(-40), crates: (t.crates ?? t.calls.length) + 1 }
       })
     }
+    let failed = true
     try {
-      return await next(e)
+      const ran = await next(e)
+      failed = ran.isError === true
+      const result = ran.result as { backgroundTaskId?: string; task_id?: string } | undefined
+      if (agentId === undefined && result?.backgroundTaskId) {
+        const job = { id: result.backgroundTaskId, callId: id, startedAt, status: 'running' as const }
+        await update($, jobs, list => addJob(list, job))
+      }
+      if (tool === 'TaskStop' && result?.task_id) {
+        const taskId = result.task_id
+        const at = await $.clock.now()
+        await update($, jobs, list => endJob(list, taskId, 'killed', at))
+      }
+      return ran
     } finally {
       await update($, live, map => {
         const { [id]: _done, ...rest } = map
         return rest
       })
       const at = await $.clock.now()
-      await update($, calls, list => endCall(list, id, at))
+      await update($, calls, list => endCall(list, id, at, failed))
       if (agentId === undefined) await update($, dock, t => (t ? { ...t, calls: t.calls.map(c => (c.id === id ? { ...c, done: true } : c)) } : t))
     }
   })
 
+  on('prompt.submit', async ($, e, next) => {
+    if (e.origin.kind === 'composer') await syncChat($)
+    if (e.origin.kind === 'task-notification') {
+      const at = await $.clock.now()
+      for (const { id, status } of parseNotifications(e.text)) await update($, jobs, list => endJob(list, id, status, at))
+    }
+    return next(e)
+  })
+
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
+    if (e.agentId === undefined) {
+      const at = await $.clock.now()
+      const level = await gauges($)
+      const aborted = e.isAborted || e.reason === 'aborted'
+      await update($, spans, list => closeSpan(list, { at, ...level, aborted }))
+    }
     const u = done.usage ?? e.usage
     const usage = u && { input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens, cacheWrite: u.cache_creation_input_tokens }
     const turn: TurnRecord = closeTurn(await read($, calls), {

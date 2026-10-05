@@ -132,6 +132,9 @@ declare module 'claude-code' {
       turns: TurnRecord[]
       live: Record<string, LiveCall>
       dock: DockTurn | null
+      spans: TurnSpan[]
+      jobs: Job[]
+      chat: number
     }
   }
 }

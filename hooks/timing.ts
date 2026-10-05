@@ -1,4 +1,4 @@
-import type { CallTiming, Step, TurnRecord, Usage } from '../types'
+import type { CallTiming, Step, TurnRecord, TurnSpan, Usage } from '../types'
 
 const MAX_CALLS = 500
 
@@ -10,9 +10,30 @@ export function addCall(calls: Record<string, CallTiming>, id: string, timing: C
   return Object.fromEntries(Object.entries(next).filter(([id]) => keep.has(id)))
 }
 
-export function endCall(calls: Record<string, CallTiming>, id: string, at: number): Record<string, CallTiming> {
+export function endCall(calls: Record<string, CallTiming>, id: string, at: number, failed = false): Record<string, CallTiming> {
   const call = calls[id]
-  return call ? { ...calls, [id]: { ...call, endedAt: at } } : calls
+  if (!call) return calls
+  return { ...calls, [id]: failed ? { ...call, endedAt: at, failed: true } : { ...call, endedAt: at } }
+}
+
+const MAX_SPANS = 200
+
+// Main-loop turns for the rail, opened at turn.start and closed at turn.complete.
+export function openSpan(spans: TurnSpan[], turn: { turnId: string; at: number; ctx?: number; cost?: number }): TurnSpan[] {
+  const span: TurnSpan = { turnId: turn.turnId, startedAt: turn.at }
+  if (turn.ctx !== undefined) span.ctxStart = turn.ctx
+  if (turn.cost !== undefined) span.costStart = turn.cost
+  return [...spans, span].slice(-MAX_SPANS)
+}
+
+export function closeSpan(spans: TurnSpan[], end: { at: number; ctx?: number; cost?: number; aborted?: boolean }): TurnSpan[] {
+  const i = spans.findLastIndex(s => s.endedAt === undefined)
+  if (i < 0) return spans
+  const span: TurnSpan = { ...spans[i]!, endedAt: end.at }
+  if (end.ctx !== undefined) span.ctxEnd = end.ctx
+  if (end.cost !== undefined) span.costEnd = end.cost
+  if (end.aborted) span.aborted = true
+  return spans.map((s, j) => (j === i ? span : s))
 }
 
 export function totalTokens(u: Usage): number {

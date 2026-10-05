@@ -5,11 +5,27 @@ import { dockView, encodeCells, sceneCells, site } from '../dock'
 import type { DockMode } from '../dock'
 import { opts } from '../options'
 import { palette } from '../theme'
+import { openSpan } from '../timing'
 
 // The main turn the dock draws; the tracker (features/track.tsx) adds its tool calls and its end.
 const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 // Bumped to redraw the band (features/tasks.tsx): on a change of layout, and once a second for the clock.
 const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
+// The rail's turns (features/track.tsx closes them): this module owns turn.start, so it opens them.
+const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
+
+// Context % and session cost at turn start; the tracker reads the same at turn end.
+async function gauges($: EngineInterface): Promise<{ ctx?: number; cost?: number }> {
+  try {
+    const usage = await $.session.usage()
+    const out: { ctx?: number; cost?: number } = {}
+    if (usage.context.percent !== undefined) out.ctx = usage.context.percent
+    if (usage.cost) out.cost = usage.cost.usd
+    return out
+  } catch {
+    return {}
+  }
+}
 
 const FRAME_MS = 50
 let timer: Timer | undefined
@@ -78,6 +94,9 @@ async function frame($: EngineInterface, own: { t?: Timer }) {
 export function registerDock(on: On) {
   on('turn.start', async ($, e, next) => {
     const started = await next(e)
+    const at = await $.clock.now()
+    const level = await gauges($)
+    await update($, spans, list => openSpan(list, { turnId: e.turnId, at, ...level }))
     if (!opts.dock) return started
     // Subagent runs raise no turn.start, so every one is a main turn: always start fresh.
     const now = await $.clock.now()

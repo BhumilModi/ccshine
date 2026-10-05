@@ -144,6 +144,7 @@ export function registerTasks(on: On) {
       type: e.subagentType,
       taskId: currentTaskId(await read($, tasks)),
       startedAt: await $.clock.now(),
+      callId: e.tool_use_id,
     }
     await update($, agents, list => [...list, agent].slice(-50))
     await syncTicker($)
