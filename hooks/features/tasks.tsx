@@ -6,29 +6,23 @@ import {
   AGENT_LINGER_MS,
   agentRows,
   currentTaskId,
-  estimate,
-  fmt,
   fmtClock,
   fmtTokens,
   finishedAt,
   newlyDone,
   setStatus,
   syncTodos,
-  timeLeft,
   topLevel,
-  visibleAgents,
-  windowLines,
 } from '../plan'
-import type { AgentRow } from '../plan'
+import { planBody, planHeader, planWanted, shellBody } from '../planview'
+import type { PlanData } from '../planview'
 import { fitBand } from '../layout'
 import type { DockSize } from '../layout'
-import { bar, glyphsOn, palette, powerline, runsWidth } from '../theme'
+import { palette } from '../theme'
 import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
-import type { Segment } from '../theme'
 import { activity } from '../activity'
-import { commandKey, lastLine, parseHistory, shellEta, shellRows } from '../shell'
-import type { ShellRow } from '../shell'
+import { lastLine, parseHistory, shellRows } from '../shell'
 import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, score, site } from '../dock'
 
 const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
@@ -48,8 +42,6 @@ const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
 // Every plan row, or only what fits beside the dock; toggled from the Plan header.
 const planAll = atom({ plugin: 'tidepool', key: 'planAll' } as const, false)
-const MAX_TASK_ROWS = 8
-const MAX_AGENT_ROWS = 4
 const MAX_SHELL_ROWS = 4
 
 let ticker: Timer | undefined
@@ -240,41 +232,6 @@ async function onRail($: EngineInterface, agent: PlanAgent): Promise<boolean> {
   return call !== undefined && newest !== undefined && call.startedAt >= newest.startedAt
 }
 
-type Line =
-  | { kind: 'task'; task: PlanTask; n: number }
-  | { kind: 'sub'; task: PlanTask }
-  | { kind: 'agent'; agent: AgentRow; indent: string }
-  | { kind: 'note'; text: string }
-
-// The plan as one row per line: each task, the running task's sub-items and agents (every task's sub-items
-// when showing all), then agents that belong to no task. `focus` is the running task's line, else the first unfinished one.
-function planLines(list: PlanTask[], agentList: AgentRow[], now: number, all: boolean): { lines: Line[]; focus: number } {
-  const lines: Line[] = []
-  let focus = -1
-  let next = -1
-  const agentsOf = (taskId: string | undefined, indent: string): Line[] => {
-    const live = visibleAgents(agentList, taskId, now)
-    const out: Line[] = live.length > MAX_AGENT_ROWS ? [{ kind: 'note', text: `${indent}+${live.length - MAX_AGENT_ROWS} earlier agents` }] : []
-    return [...out, ...live.slice(-MAX_AGENT_ROWS).map(agent => ({ kind: 'agent' as const, agent, indent }))]
-  }
-  topLevel(list).forEach((t, i) => {
-    if (focus < 0 && t.status === 'in_progress') focus = lines.length
-    if (next < 0 && t.status !== 'completed') next = lines.length
-    lines.push({ kind: 'task', task: t, n: i + 1 })
-    const open = t.status === 'in_progress'
-    if (open || all) {
-      for (const sub of list.filter(c => c.parent === t.id)) {
-        lines.push({ kind: 'sub', task: sub })
-        if (sub.status === 'in_progress') lines.push(...agentsOf(sub.id, '        '))
-      }
-    }
-    if (open) lines.push(...agentsOf(t.id, '    '))
-  })
-  const loose = agentsOf(undefined, '    ')
-  if (loose.length > 0) lines.push({ kind: 'note', text: '  agents' }, ...loose)
-  return { lines, focus: Math.max(0, focus >= 0 ? focus : next) }
-}
-
 // The plan, its agents, running shells and the usage rows, fitted with the dock into the band's rows.
 // Null when there is nothing to show; `dock` is the size the dock should draw at.
 async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' | 'live'): Promise<{ el: RenderElement | null; dock: DockSize } | null> {
@@ -290,7 +247,8 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const shells = opts.tasks ? shellRows(await read($, calls), await read($, liveCalls), await read($, jobs), now).slice(-MAX_SHELL_ROWS) : []
   if (!showTasks && !showUsage && shells.length === 0) return null
   const C = palette()
-  const { Box, Button, Text } = $.ui.resolve(e)
+  const ui = $.ui.resolve(e)
+  const { Box, Text } = ui
 
   // Usage: only what the status line does not show — a cold-cache warning, and tokens split by agent.
   const usageRows: RenderElement[] = []
@@ -305,28 +263,40 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     }
   }
 
-  const all = await read($, planAll)
   const docked = await railDocked($, e)
   const listed = []
   for (const agent of await read($, agents)) if (!docked || !(await onRail($, agent))) listed.push(agent)
-  const agentList = agentRows(listed, turnList)
   const finished = doneAt !== undefined
-  const { lines, focus } = showTasks && !finished ? planLines(list, agentList, now, all) : { lines: [], focus: 0 }
-  const others = Math.max(0, lines.length - 1)
-  const tailCount = shells.filter(r => r.status === 'running' && r.outputFile !== undefined).length
+  const tails: Record<string, string> = {}
+  for (const r of shells) {
+    if (r.status !== 'running' || r.outputFile === undefined) continue
+    const line = await tailLine($, r.outputFile, now)
+    if (line) tails[r.outputFile] = line
+  }
+  const d: PlanData = {
+    tasks: showTasks && !finished ? list : [],
+    agents: agentRows(listed, turnList),
+    shells,
+    tails,
+    shellHistory: (await read($, shellHistory)) ?? {},
+    planHistory: await projectHistory($),
+    now,
+    all: await read($, planAll),
+  }
+  const want = planWanted(d)
   const fit = fitBand({
     maxRows: e.props.maxRows,
     dock: dockKind,
     header: showTasks,
-    focus: lines.length > 0,
-    shell: shells.length ? 1 + shells.length : 0,
-    plan: all ? others : Math.min(others, MAX_TASK_ROWS),
-    tails: tailCount,
+    focus: want.focus,
+    shell: want.shell,
+    plan: want.plan,
+    tails: want.tails,
     usage: usageRows.length,
-    expanded: all,
+    expanded: d.all,
   })
   // The newest shells when not all fit; the section's label takes one of its rows.
-  const shell = fit.shell > 1 ? await shellSection($, e, shells.slice(-(fit.shell - 1)), now, fit.tails) : null
+  const shell = fit.shell > 1 ? <Box key="shell" flexDirection="column">{shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails)}</Box> : null
   const usage = fit.usage && usageRows.length ? <Box key="usage" flexDirection="column">{usageRows}</Box> : null
   const band = (rows: (RenderElement | null | undefined)[]) => ({
     dock: fit.dock,
@@ -336,103 +306,16 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
       </Box>
     ),
   })
-  if (!showTasks || !fit.header) return shell || usage ? band([shell?.el, usage]) : { el: null, dock: fit.dock }
+  if (!showTasks || !fit.header) return shell || usage ? band([shell, usage]) : { el: null, dock: fit.dock }
 
-  const past = await projectHistory($)
-  const { done, total } = estimate(top, now, past)
-  const progress = bar(total ? done / total : 0)
-  const header: Segment[] = [
-    { bg: C.accent, parts: [{ text: finished ? ' ✓ Plan ' : ' Plan ', color: C.onAccent, bold: true }] },
-    {
-      bg: C.seg,
-      parts: [
-        { text: ` ${done}/${total} `, color: C.ink },
-        { text: progress.filled, color: finished ? C.accent : C.mid },
-        { text: `${progress.track} `, color: C.track },
-      ],
-    },
-    { bg: C.segAlt, parts: [{ text: ` ${timeLeft(top, now, past)} `, color: finished ? C.mid : C.ink }] },
-  ]
-  const { start, shown, before, after } = fit.focus ? windowLines(lines, focus, fit.plan + 1) : { start: 0, shown: [], before: 0, after: 0 }
-  // The toggle shows whenever rows are hidden: past the window, or sub-items of tasks not running.
-  const hidden = all ? 0 : planLines(list, agentList, now, true).lines.length - shown.length
-  const toggle = all ? ' ▴ fewer' : hidden > 0 ? ` ▾ show all` : ''
-  // Narrow terminal: drop the time-left segment rather than wrap the header.
-  let runs = powerline(header, glyphsOn(e.surface))
-  if (runsWidth(runs) + toggle.length > e.props.bodyColumns - 2) runs = powerline(header.slice(0, 2), glyphsOn(e.surface))
-  const headerRow = (
-    <Box key="header">
-      {runs.map((run, i) => (
-        <Text key={`h${i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
-          {run.text}
-        </Text>
-      ))}
-      {toggle && (
-        <Button key="all" plain dimColor onPress={() => update($, planAll, v => !v)}>
-          {`  ${toggle.trim()}`}
-        </Button>
-      )}
-    </Box>
-  )
-
-  const draw = (line: Line, i: number): RenderElement => {
-    const key = `line-${start + i}`
-    if (line.kind === 'note') return <Text key={key} color={C.faint}>{line.text}</Text>
-    if (line.kind === 'agent') {
-      const a = line.agent
-      const time = fmtClock((a.endedAt ?? now) - a.startedAt)
-      const meta = a.tokens ? `${time} · ${fmtTokens(a.tokens)} tokens` : time
-      const mark = a.status === 'running' ? '◆' : a.status === 'done' ? '✓' : '✕'
-      const isLive = a.status === 'running'
-      return (
-        <Box key={key}>
-          <Text color={isLive ? C.accent : C.track}>{`${line.indent}${mark} `}</Text>
-          <Text color={isLive ? C.soft : C.faint}>{a.type}</Text>
-          <Text color={C.faint} wrap="truncate-end">{`  ${a.description}`}</Text>
-          <Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text>
-        </Box>
-      )
-    }
-    const t = line.task
-    const indent = line.kind === 'sub' ? '    ' : ''
-    const label = line.kind === 'task' ? `${line.n}. ${t.subject}` : t.subject
-    if (t.status === 'completed') {
-      const took = t.startedAt !== undefined && t.doneAt !== undefined ? fmt(t.doneAt - t.startedAt) : ''
-      return (
-        <Box key={key}>
-          <Text color={C.mid}>{`${indent}✓ `}</Text>
-          <Text color={C.faint} wrap="truncate-end">{label}</Text>
-          {took && <Text color={C.track}>{`  ${took}`}</Text>}
-        </Box>
-      )
-    }
-    if (t.status === 'in_progress') {
-      const running = t.startedAt !== undefined ? fmtClock(now - t.startedAt) : ''
-      const isSub = line.kind === 'sub'
-      return (
-        <Box key={key}>
-          <Text color={C.accent} bold={!isSub}>{`${indent}${isSub ? '▸' : '▶'} `}</Text>
-          <Text color={isSub ? C.soft : C.ink} bold={!isSub} wrap="truncate-end">{label}</Text>
-          {running && <Text color={C.mid}>{`  ${running}`}</Text>}
-        </Box>
-      )
-    }
-    return (
-      <Box key={key}>
-        <Text color={C.track}>{`${indent}· `}</Text>
-        <Text color={C.soft} wrap="truncate-end">{label}</Text>
-      </Box>
-    )
-  }
-
-  return band([
-    headerRow,
-    before > 0 ? <Text key="before" color={C.faint}>{`  ${before} earlier`}</Text> : null,
-    ...shown.map(draw),
-    after > 0 ? <Text key="after" color={C.faint}>{`  +${after} more`}</Text> : null,
-    shell?.el,
-    usage,
-  ])
+  const body = planBody(ui, C, d, fit.focus ? fit.plan + 1 : 0)
+  // The header reads the whole list for its count, even once the plan is finished.
+  const header = planHeader(ui, C, { ...d, tasks: list }, {
+    surface: e.surface,
+    columns: e.props.bodyColumns,
+    toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
+  })
+  return band([header, ...body.rows, shell, usage])
 }
 
 const TAIL_EVERY_MS = 2000
@@ -452,34 +335,6 @@ async function tailLine($: EngineInterface, path: string, now: number): Promise<
   }
   tails.set(path, { at: now, ...(line === undefined ? {} : { line }) })
   return line
-}
-
-// Running and just-finished shells: how long each has run, the time left from past runs of the same command,
-// and a background job's latest output line. `lines` is the rows it takes, so the plan can make room.
-async function shellSection($: EngineInterface, e: Band, rows: ShellRow[], now: number, tails: boolean): Promise<{ el: RenderElement; lines: number }> {
-  const { Box, Text } = $.ui.resolve(e)
-  const C = palette()
-  const history = (await read($, shellHistory)) ?? {}
-  const out: RenderElement[] = [<Text key="shell-label" color={C.faint}>  shell</Text>]
-  for (const r of rows) {
-    const isLive = r.status === 'running'
-    let meta = fmtClock((r.endedAt ?? now) - r.startedAt)
-    const eta = isLive && r.command !== undefined ? shellEta(history, commandKey(r.command), now - r.startedAt) : undefined
-    if (eta) meta += 'left' in eta ? ` · ~${fmt(eta.left)} left` : ` · over by ${fmt(eta.over)}`
-    if (r.status === 'killed') meta += ' · stopped'
-    const mark = isLive ? '▶' : r.status === 'done' ? '✓' : '✕'
-    out.push(
-      <Box key={`shell-${r.id}`}>
-        <Text color={isLive ? C.accent : r.status === 'error' ? C.crit : C.track}>{`    ${mark} `}</Text>
-        {r.background && <Text color={C.warn}>{'bg '}</Text>}
-        <Text color={isLive ? C.ink : C.faint} wrap="truncate-end">{r.label}</Text>
-        <Text color={isLive ? C.mid : C.track}>{`  ${meta}`}</Text>
-      </Box>,
-    )
-    const said = tails && isLive && r.outputFile !== undefined ? await tailLine($, r.outputFile, now) : undefined
-    if (said) out.push(<Text key={`shell-out-${r.id}`} color={C.faint} wrap="truncate-end">{`        ${said}`}</Text>)
-  }
-  return { el: <Box key="shell" flexDirection="column">{out}</Box>, lines: out.length }
 }
 
 const SCENE_MAX = 64
