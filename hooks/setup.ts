@@ -106,7 +106,7 @@ export function setupGuide(root: string, outcome: InstallOutcome, name: string =
   return [
     status,
     '',
-    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.2 suggested), then load the ${name} colours. Restart the terminal first so it sees the new font.`,
+    `Pick **${FONT_FAMILY}** as your terminal's font (size 14, line height 1.0 so the block pixels touch), then load the ${name} colours. Restart the terminal first so it sees the new font.`,
     '',
     '| Terminal | Font | Colours |',
     '|---|---|---|',

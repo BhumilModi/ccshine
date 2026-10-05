@@ -147,7 +147,7 @@ Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.t
 
 Tidepool draws its own parts, but the terminal draws everything around them. For the look in the screenshot, every terminal needs the same four things:
 
-1. **Font: Maple Mono NF**, size 14, line height 1.2 where the terminal has that setting. The powerline separators and the dock's pixels need a Nerd Font, and your prompts are drawn in its italic.
+1. **Font: Maple Mono NF**, size 14, **line height 1.0** (the default). The powerline separators and the dock's pixels need a Nerd Font, and your prompts are drawn in its italic. The crab, Claude Code's logo and the rail's bars are built from block characters that must touch the rows above and below; with extra line spacing, many terminals leave a stripe of background between rows.
 2. **Colours: the terminal theme that matches your Tidepool Theme** (Warm Claude for the default `warm`; see [Themes and font](#themes-and-font)). Without it the background, Claude's replies and code blocks keep your old colours, and the rail shows as a panel of a different shade.
 3. **24-bit colour.** Tidepool draws exact hex colours. A terminal that only shows 256 colours rounds them, so the greys band and the rail stops matching the background.
 4. **Room:** a window at least 144 columns wide, with Claude Code in fullscreen (`/tui fullscreen`, install step 5), so the rail docks beside the chat.
@@ -171,7 +171,6 @@ Tidepool already put all five themes in `~/.config/ghostty/themes/`. Add these l
 ```
 font-family = Maple Mono NF
 font-size = 14
-adjust-cell-height = 20%
 theme = Warm Claude
 ```
 
@@ -186,8 +185,10 @@ iTerm2 has 24-bit colour on by default.
 
 ### macOS Terminal
 
-1. Double-click `themes/terminal-app/Warm Claude.terminal` (or `open` it from a shell). Terminal adds a **Warm Claude** profile, with the colours, Maple Mono NF at size 14, line spacing 1.2 and a 160-column window, and opens a window with it.
+1. Double-click `themes/terminal-app/Warm Claude.terminal` (or `open` it from a shell). Terminal adds a **Warm Claude** profile, with the colours, Maple Mono NF at size 14 and a 160-column window, and opens a window with it.
 2. Settings → Profiles, select **Warm Claude**, then click **Default** under the profile list so new windows use it.
+
+To update the profile after a Tidepool update, delete the old one first (Settings → Profiles, `−` under the list). Opening the file while a profile of that name exists adds a second copy, `Warm Claude 1`.
 
 Older versions of Terminal only show 256 colours. If the [colour check](#check-your-setup) shows a striped or wrong-coloured block, use one of the other terminals here for the full look.
 
@@ -198,7 +199,6 @@ This is for running `claude` in the editor's integrated terminal. Open your user
 ```json
 "terminal.integrated.fontFamily": "Maple Mono NF",
 "terminal.integrated.fontSize": 14,
-"terminal.integrated.lineHeight": 1.2,
 "terminal.integrated.minimumContrastRatio": 1
 ```
 
@@ -206,7 +206,7 @@ Then merge the `workbench.colorCustomizations` block from `themes/vscode/warm-cl
 
 ### JetBrains IDEs (IntelliJ, PyCharm, WebStorm and others)
 
-1. Settings → Editor → Color Scheme → Console Font: tick **Use console font instead of the default**, then **Maple Mono NF**, size 14, line height 1.2.
+1. Settings → Editor → Color Scheme → Console Font: tick **Use console font instead of the default**, then **Maple Mono NF**, size 14, line height 1.0.
 2. Settings → Editor → Color Scheme → Console Colors: set the console background and foreground, and each colour under **ANSI Colors**, from the [colour reference](#colour-reference).
 
 ### Windows Terminal
@@ -216,7 +216,7 @@ Then merge the `workbench.colorCustomizations` block from `themes/vscode/warm-cl
 
 ```json
 "colorScheme": "Warm Claude",
-"font": { "face": "Maple Mono NF", "size": 14, "cellHeight": "1.2" }
+"font": { "face": "Maple Mono NF", "size": 14 }
 ```
 
 Restart Windows Terminal so it sees the newly installed font. It has 24-bit colour on by default.
@@ -229,7 +229,6 @@ Copy `themes/kitty/warm-claude.conf` into `~/.config/kitty/`, then add to `~/.co
 include warm-claude.conf
 font_family Maple Mono NF
 font_size 14
-modify_font cell_height 120%
 ```
 
 Reload with ctrl+shift+f5 (cmd+ctrl+, on macOS).
@@ -241,7 +240,6 @@ Copy `themes/wezterm/Warm Claude.toml` into `~/.config/wezterm/colors/`, then in
 ```lua
 config.font = wezterm.font 'Maple Mono NF'
 config.font_size = 14
-config.line_height = 1.2
 config.color_scheme = 'Warm Claude'
 ```
 
@@ -256,12 +254,11 @@ import = ["~/.config/alacritty/warm-claude.toml"]
 [font]
 normal = { family = "Maple Mono NF" }
 size = 14
-offset = { x = 0, y = 4 }
 ```
 
 ### Warp
 
-Copy `themes/warp/warm_claude.yaml` into `~/.warp/themes/`, then Settings → Appearance → Themes and pick **Warm Claude**. Under Settings → Appearance → Text, set the terminal font to **Maple Mono NF**, size 14, line height 1.2.
+Copy `themes/warp/warm_claude.yaml` into `~/.warp/themes/`, then Settings → Appearance → Themes and pick **Warm Claude**. Under Settings → Appearance → Text, set the terminal font to **Maple Mono NF**, size 14, line height 1.0.
 
 ### Orca, and other apps that import Warp themes
 
@@ -344,6 +341,7 @@ Inside Claude Code, the status line should sit under the prompt, the crab above 
 | No status line | The `statusLine` block is not in your settings, or Node 18+ is missing | Install step 2 |
 | No plan in the rail or band | The task tools are off on Claude 5 models | Install step 3 |
 | Your prompts are not in italics | The font has no italic | Pick Maple Mono NF |
+| Stripes or gaps through the crab, Claude Code's logo or the status line | Line height above 1.0: the terminal spaces out the rows of block characters | Set line height (line spacing, cell height) back to 1.0. macOS Terminal: delete the old profile in Settings → Profiles (`−` under the list), then open the latest `.terminal` file |
 
 ## Tide rail
 

@@ -176,7 +176,7 @@ function terminalApp(t) {
     ['CursorColor', data(nsColor(t.cursor))],
     ['Font', data(nsFont('MapleMono-NF-Regular', 14))],
     ['FontAntialias', '<true/>'],
-    ['FontHeightSpacing', '<real>1.2</real>'],
+    ['FontHeightSpacing', '<real>1</real>'],
     ['FontWidthSpacing', '<real>1</real>'],
     ['ProfileCurrentVersion', '<real>2.09</real>'],
     ['SelectionColor', data(nsColor(t.selectionBackground))],
