@@ -11,7 +11,7 @@ export const railSeat: { placement?: 'dock' | 'inline' } = {}
 
 // Body columns the rail asks for when it opens: enough for the timing bars (showBars) beside the targets.
 // A width the person drags the rail to wins.
-export const RAIL_COLUMNS = 48
+export const RAIL_COLUMNS = 44
 
 // Which call carries each turn's anchor: the first of the turn's rows that actually draws. Some tools
 // (TodoWrite, the Task tools) draw no row, so "the turn's first call" alone could leave a turn with none.

@@ -206,7 +206,7 @@ test('session start closes a stale rail then opens a fresh one', OFF, async ($, 
   expect(w.closed).toEqual(['tidepool-rail'])
   expect(w.opened.map(o => [o.id, o.title])).toEqual([['tidepool-rail', 'tidepool']])
   // Wide enough for the timing bars.
-  expect((w.opened[0] as { columns?: number }).columns).toBe(48)
+  expect((w.opened[0] as { columns?: number }).columns).toBe(44)
 })
 
 test('with rail off nothing opens', { options: { ...OFF.options, rail: false } }, async ($, on) => {
@@ -227,7 +227,7 @@ test('/tidepool-rail closes an open rail and opens a closed one', OFF, async ($,
   panes.length = 0
   await $.command.run({ command: 'tidepool-rail', args: '' } as never)
   expect(w.opened.length).toBe(2)
-  expect((w.opened[1] as { columns?: number }).columns).toBe(48)
+  expect((w.opened[1] as { columns?: number }).columns).toBe(44)
 })
 
 test('with the warm theme the rail paints the Warm Claude background', { options: { ...OFF.options, theme: 'warm' } }, async ($, on) => {
