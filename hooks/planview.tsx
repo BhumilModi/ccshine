@@ -1,7 +1,7 @@
 import type { EngineInterface, RenderElement } from 'claude-code'
 
 import type { PlanTask } from '../types'
-import { estimate, fmt, fmtClock, fmtTokens, timeLeft, topLevel, visibleAgents, windowLines } from './plan'
+import { estimate, fmt, fmtClock, fmtTokens, planStats, timeLeft, topLevel, visibleAgents, windowLines } from './plan'
 import type { AgentRow } from './plan'
 import { commandKey, shellEta } from './shell'
 import type { ShellRow } from './shell'
@@ -210,4 +210,27 @@ export function shellBody(ui: PlanUi, C: Palette, d: PlanData, tails: boolean): 
     if (said) out.push(<Text key={`shell-out-${r.id}`} color={C.faint} wrap="truncate-end">{`        ${said}`}</Text>)
   }
   return out
+}
+
+// A finished plan's card: the crab (a Raster the caller draws and animates), "✓ Plan complete", then the count
+// of tasks and sub-items with the total time, and the fastest and longest task.
+export function doneCard(ui: PlanUi, C: Palette, tasks: PlanTask[], crab: RenderElement): RenderElement {
+  const { Box, Text } = ui
+  const s = planStats(tasks)
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+  const count = [plural(s.tasks, 'task'), s.subs ? plural(s.subs, 'sub-item') : '', fmt(s.ms)].filter(Boolean).join(' · ')
+  const pace = s.tasks > 1 && s.fastest !== undefined && s.longest !== undefined ? `fastest ${fmt(s.fastest)} · longest ${fmt(s.longest)}` : ''
+  return (
+    <Box key="done" flexDirection="row">
+      {crab}
+      <Box flexDirection="column" paddingLeft={2}>
+        <Box>
+          <Text color={C.accent} bold>✓ Plan complete</Text>
+          <Text color={C.mid} wrap="truncate-end">{`  ${'▚▞'.repeat(6)}`}</Text>
+        </Box>
+        <Text color={C.ink} wrap="truncate-end">{`★ ${count}`}</Text>
+        {pace ? <Text color={C.faint} wrap="truncate-end">{pace}</Text> : null}
+      </Box>
+    </Box>
+  )
 }

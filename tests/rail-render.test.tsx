@@ -335,13 +335,19 @@ test('a short rail keeps the plan header and the running task', OFF, async ($, o
   expect(text).toContain('▶ |5. task 5')
 })
 
-test('finished plan folds away from the rail after 30s', OFF, async ($, on) => {
+test('a finished plan shows the done card with its crab, then folds away after 30s', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
-  await plan($, w, 1)
-  await call($, w, 'tu-done', 'TaskUpdate', { taskId: 't1', status: 'completed' }, 0, { result: { success: true } })
+  await plan($, w, 2)
+  await w.clock.advance(60_000)
+  await call($, w, 'tu-done1', 'TaskUpdate', { taskId: 't1', status: 'completed' }, 0, { result: { success: true } })
+  await call($, w, 'tu-done2', 'TaskUpdate', { taskId: 't2', status: 'completed' }, 0, { result: { success: true } })
   const ui = await $.ui.mount(pane())
-  expect(await textOf(ui)).toContain('✓ Plan')
+  const text = await textOf(ui)
+  expect(text).toContain('✓ Plan complete')
+  expect(text).toContain('★ 2 tasks · 1m')
+  expect(text).not.toContain('1. task 1')
+  expect((await ui.findAll({ type: 'Raster' })).map((r: any) => [r.props.columns, r.props.rows])).toEqual([[14, 4]])
   await w.clock.advance(31_000)
   await ui.unmount()
   expect(await textOf(await $.ui.mount(pane()))).not.toContain('Plan')

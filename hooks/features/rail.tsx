@@ -5,7 +5,8 @@ import type { RailRow } from '../../types'
 import { fitBand } from '../layout'
 import { opts } from '../options'
 import { AGENT_LINGER_MS, agentRows, finishedAt, historyFor, topLevel } from '../plan'
-import { planBody, planHeader, planWanted, shellBody } from '../planview'
+import { doneCard, planBody, planHeader, planWanted, shellBody } from '../planview'
+import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
 import { lastLine, shellRows } from '../shell'
 import { pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
@@ -104,12 +105,13 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     now: at,
     all: await read($, planAll),
   }
+  const finished = showTasks && doneAt !== undefined
   const want = planWanted(d)
   // The rule above the section stands in for the band's blank row.
   const fit = fitBand({
     maxRows: cap,
     dock: 'none',
-    header: showTasks,
+    header: showTasks && !finished,
     focus: want.focus,
     shell: want.shell,
     plan: want.plan,
@@ -118,7 +120,13 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     expanded: d.all,
   })
   const out: RenderElement[] = []
-  if (fit.margin) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
+  if (fit.margin || finished) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
+  if (finished && doneAt !== undefined) {
+    // The crab's frames are blitted by features/tasks.tsx for DONE_MS after the plan finishes; this draws the frame due now.
+    const { Raster } = ui as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
+    const crab = <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(at - doneAt, C))} />
+    out.push(doneCard(ui, C, list, crab))
+  }
   if (fit.header) {
     const body = planBody(ui, C, d, fit.focus ? fit.plan + 1 : 0)
     out.push(
@@ -131,7 +139,8 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     )
   }
   if (fit.shell > 1) out.push(...shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails))
-  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length }
+  // The done card is one element four rows tall.
+  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (finished ? DONE_ROWS - 1 : 0) }
 }
 
 export function registerRail(on: On) {
