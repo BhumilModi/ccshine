@@ -19,6 +19,14 @@ export function endCall(calls: Record<string, CallTiming>, id: string, at: numbe
 const MAX_SPANS = 200
 
 // Main-loop turns for the rail, opened at turn.start and closed at turn.complete.
+// A turn's prompt as the rail's turn line shows it: a turn started by background work finishing carries
+// `<task-notification>` XML, shown as its summaries ("Agent "x" finished").
+export function promptLabel(text: string): string {
+  if (!text.trimStart().startsWith('<task-notification>')) return text
+  const summaries = [...text.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map(m => (m[1] ?? '').trim()).filter(Boolean)
+  return summaries.length ? summaries.join(' · ') : 'background task finished'
+}
+
 export function openSpan(spans: TurnSpan[], turn: { turnId: string; at: number; ctx?: number; cost?: number; prompt?: string }): TurnSpan[] {
   const span: TurnSpan = { turnId: turn.turnId, startedAt: turn.at }
   const line = turn.prompt?.split('\n')[0]?.trim()

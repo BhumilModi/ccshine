@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, TurnSpan } from '../types'
-import { addCall, closeSpan, closeTurn, endCall, openSpan, totalTokens } from '../hooks/timing'
+import { addCall, closeSpan, closeTurn, endCall, openSpan, promptLabel, totalTokens } from '../hooks/timing'
 
 const call = (tool: string, startedAt: number, endedAt?: number, agentId?: string): CallTiming => ({ tool, startedAt, endedAt, agentId })
 
@@ -84,4 +84,12 @@ test('openSpan keeps the first line of the prompt, shortened', async () => {
   expect(span?.prompt).toBe('fix the login bug')
   const [long] = openSpan([], { turnId: 't', at: 0, prompt: 'x'.repeat(200) })
   expect(long?.prompt?.length).toBe(80)
+})
+
+test('a turn started by a task notification is labelled by its summaries', async () => {
+  const body = (s: string) => `<task-notification>\n<task-id>a1</task-id>\n<status>completed</status>\n<summary>${s}</summary>\n<result>long text</result>\n</task-notification>`
+  expect(promptLabel(body('Agent "Find retry counting" finished'))).toBe('Agent "Find retry counting" finished')
+  expect(promptLabel(`${body('Agent "a" finished')}\n${body('Background command "npm test" completed')}`)).toBe('Agent "a" finished · Background command "npm test" completed')
+  expect(promptLabel('<task-notification><task-id>x</task-id></task-notification>')).toBe('background task finished')
+  expect(promptLabel('fix the <b> tag')).toBe('fix the <b> tag')
 })
