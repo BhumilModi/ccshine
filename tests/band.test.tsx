@@ -172,7 +172,6 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
   expect(docked).not.toContain(' Plan ')
   expect(docked).not.toContain('general-purpose')
   expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
-  expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
 })
 
 test('a docked rail takes every agent, earlier turns included, out of the band', { options: { dock: false } }, async ($, on) => {
@@ -290,7 +289,7 @@ test('sub-items nest under their running task, count apart from the plan, and sh
   await ui.unmount()
 })
 
-function railWorld(on: any) {
+function railWorld(on: any, rail = { placed: true }) {
   mock.clock(on)
   mock.store(on)
   on('session.root', () => ({ value: '/repo/a' }))
@@ -299,7 +298,7 @@ function railWorld(on: any) {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { backgroundTaskId: 'j1' }, text: 'Output is being written to: /t/j1.output' }))
   on('fs.stat', () => ({ value: { kind: 'file', size: 4, mtimeMs: 0, isLink: false } }))
   on('fs.read', () => ({ value: 'ready\n' }))
-  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
+  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: rail.placed }] }))
   on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
     const { Text } = $e.ui.resolve(e)
     return <Text>ENGINE</Text>
@@ -330,10 +329,20 @@ test('band draws no plan while the rail owns it', { options: { dock: false, usag
   expect(text).not.toContain('show all')
 })
 
-test('band takes the plan back when the rail undocks', { options: { dock: false, usage: false } }, async ($, on) => {
+test('a rail the person opened owns the plan at any width', { options: { dock: false, usage: false } }, async ($, on) => {
+  // An asked pane docks below 110 columns too; placed in fullscreen means docked.
   railWorld(on)
   await railPlan($)
-  const text = await bandText($, { columns: 100, rows: 40, isFullscreen: true })
+  expect(await bandText($, { columns: 100, rows: 40, isFullscreen: true })).not.toContain('1. schema')
+})
+
+test('band takes the plan back when the rail is no longer placed', { options: { dock: false, usage: false } }, async ($, on) => {
+  const rail = { placed: true }
+  railWorld(on, rail)
+  await railPlan($)
+  expect(await bandText($, { columns: 140, rows: 40, isFullscreen: true })).not.toContain('1. schema')
+  rail.placed = false
+  const text = await bandText($, { columns: 140, rows: 40, isFullscreen: true })
   expect(text).toContain('1. schema')
   expect(text).toContain('shell')
 })

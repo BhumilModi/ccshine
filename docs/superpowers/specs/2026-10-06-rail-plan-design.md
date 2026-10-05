@@ -17,8 +17,9 @@ room. When the rail is not docked, the band works exactly as it does today.
 
 ### Who draws the plan
 
-- **Rail owns it** when `railDocked()` holds: rail option on, fullscreen, 110+ columns, the
-  `tidepool-rail` pane placed. This is the check the band already uses to hand agents to the rail.
+- **Rail owns it** when `railDocked()` holds: rail option on, fullscreen, the `tidepool-rail` pane
+  placed. No column count: a pane the person opened docks at any width (110 columns is only the
+  threshold for one opened unasked).
 - While the rail owns it, the band draws no plan, task rows or shell section; the dock takes the
   band's rows (`fitBand` with `header: false`). Usage rows keep their own rule.
 - Otherwise nothing changes: the band draws the fitted plan, shells and usage as now, and the

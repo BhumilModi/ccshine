@@ -214,10 +214,10 @@ export function registerTasks(on: On) {
 
 type Band = Frozen<RenderInput<'AbovePrompt'>>
 
-// A rail docked beside the transcript (fullscreen, 110+ columns) already shows the newest turn's agents;
-// agents from earlier turns still running stay in the band, where they would otherwise be out of sight.
+// The rail owns the plan while it is docked beside the chat: fullscreen and placed. A rail the person opened
+// docks at any width, so no column count decides it.
 async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
-  if (!opts.rail || e.viewport?.isFullscreen !== true || e.viewport.columns < 110) return false
+  if (!opts.rail || e.viewport?.isFullscreen !== true) return false
   try {
     return (await $.ui.panes()).some(pane => pane.id === 'tidepool-rail' && pane.isPlaced)
   } catch {
