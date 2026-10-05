@@ -50,12 +50,15 @@ export type DockMode = 'requesting' | 'thinking' | 'tool' | 'responding'
 
 // The prompt dock's main turn (hooks/dock.ts draws it).
 export type DockTurn = {
+  // turn.start's id; turn.complete with the same id ends it.
+  turnId?: string
   startedAt: number
   endedAt?: number
   // When the mode changed; before the first, the turn is waiting on the API.
   phases: { mode: DockMode; at: number }[]
   // Main-loop tool calls: each drops a crate on the course.
-  calls: { id: string; at: number; label: string; done: boolean }[]
+  // `dist` is the course position the crate drops at, stored once when the call starts.
+  calls: { id: string; at: number; label: string; done: boolean; dist?: number }[]
   // Varies the course from turn to turn.
   seed: number
 }

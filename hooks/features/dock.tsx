@@ -16,23 +16,38 @@ let timer: Timer | undefined
 let busy = false
 let lastKind = ''
 let lastSecond = -1
-let refused = 0
 let lastMode: DockMode | undefined
 
 async function notePhase($: EngineInterface, mode: DockMode) {
   if (mode === lastMode) return
   lastMode = mode
-  const at = await $.clock.now()
-  await update($, dock, t => (t && t.endedAt === undefined ? { ...t, phases: [...t.phases, { mode, at }] } : t))
+  // A cosmetic feature never breaks the model's stream.
+  try {
+    const at = await $.clock.now()
+    await update($, dock, t => (t && t.endedAt === undefined ? { ...t, phases: [...t.phases, { mode, at }] } : t))
+  } catch {
+    // The next change records it.
+  }
 }
 
-function stop() {
+// One timer at a time. Started at turn.start, and again from turn.step if a reload dropped it mid-turn.
+function ensureTimer($: EngineInterface) {
+  if (timer) return
+  const own: { t?: Timer } = {}
+  own.t = $.clock.every(FRAME_MS, () => {
+    void frame($, own)
+  })
+  timer = own.t
+}
+
+function stop(own?: { t?: Timer }) {
+  if (own && timer !== own.t) return
   timer?.cancel()
   timer = undefined
 }
 
 // One frame: redraw the band when its layout or clock changes, repaint the scene, stop once the crab is home.
-async function frame($: EngineInterface) {
+async function frame($: EngineInterface, own: { t?: Timer }) {
   if (busy) return
   busy = true
   try {
@@ -46,16 +61,13 @@ async function frame($: EngineInterface) {
       await update($, tick, n => n + 1)
     }
     if (view.kind === 'idle' || !turn) {
-      stop()
-      await update($, dock, () => null)
+      stop(own)
+      // Only this turn: a new prompt may have started one since this frame began.
+      await update($, dock, t => (t && turn && t.startedAt === turn.startedAt ? null : t))
       return
     }
-    if (!site.id || !site.cols) return
-    const result = await $.ui.blit({ requestId: site.id, key: 'dock-scene', cells: encodeCells(sceneCells(view, turn, now, site.cols, palette())) })
-    // A band that is hidden, collapsed or held by a survey refuses repaints; give up after a second of them.
-    if (result && 'deny' in result && result.deny) {
-      if (++refused > 1000 / FRAME_MS) stop()
-    } else refused = 0
+    // A hidden, collapsed or survey-held band refuses the repaint; keep going, it shows again on its own.
+    if (site.id && site.cols) await $.ui.blit({ requestId: site.id, key: 'dock-scene', cells: encodeCells(sceneCells(view, turn, now, site.cols, palette())) })
   } catch {
     // A failed frame is skipped; the next one tries again.
   } finally {
@@ -67,24 +79,22 @@ export function registerDock(on: On) {
   on('turn.start', async ($, e, next) => {
     const started = await next(e)
     if (!opts.dock) return started
+    // Subagent runs raise no turn.start, so every one is a main turn: always start fresh.
     const now = await $.clock.now()
-    // A subagent's turn also starts here, and carries no agent id: keep the main turn already running.
-    const current = await read($, dock)
-    if (current && current.endedAt === undefined) return started
     lastMode = undefined
-    refused = 0
-    await update($, dock, () => ({ startedAt: now, phases: [], calls: [], seed: now % 997 }))
+    await update($, dock, () => ({ turnId: e.turnId, startedAt: now, phases: [], calls: [], seed: now % 997 }))
     stop()
-    timer = $.clock.every(FRAME_MS, () => {
-      void frame($)
-    })
+    ensureTimer($)
     return started
   })
 
   // The stream says what the model is doing: thinking, writing text, or calling a tool.
   on('turn.step', async function* ($, e, next) {
     const main = opts.dock && e.agentId === undefined
-    if (main) await notePhase($, 'requesting')
+    if (main) {
+      ensureTimer($)
+      await notePhase($, 'requesting')
+    }
     const stream = next(e)
     for await (const chunk of stream) {
       if (main) {

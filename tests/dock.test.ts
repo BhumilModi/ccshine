@@ -99,3 +99,16 @@ test('scene and idle cells have the right sizes and fit a narrow band', async ()
   // Blinking turns the eye cells to the body colour.
   expect(idleCells(true, P)).not.toEqual(idleCells(false, P))
 })
+
+test('a long turn stays cheap to draw', async () => {
+  const phases: DockTurn['phases'] = []
+  const calls: DockTurn['calls'] = []
+  for (let i = 0; i < 2400; i++) phases.push({ mode: (['thinking', 'tool', 'requesting', 'responding'] as const)[i % 4]!, at: INTRO_MS + i * 2250 })
+  // The tracker stores each crate's course position when the call starts.
+  for (let i = 0; i < 600; i++) calls.push({ id: `c${i}`, at: INTRO_MS + i * 9000, label: 'Read a.ts', done: true, dist: i * 230 })
+  const t = turn({ phases, calls })
+  const now = INTRO_MS + 90 * 60_000
+  const start = Date.now()
+  for (let f = 0; f < 20; f++) sceneCells({ kind: 'work', k: 0 }, t, now + f * 50, 64, P)
+  expect(Date.now() - start).toBeLessThan(100)
+})

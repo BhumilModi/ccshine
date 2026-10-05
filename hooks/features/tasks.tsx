@@ -143,8 +143,11 @@ export function registerTasks(on: On) {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const plan = e.props.hasSurvey ? null : await planBand($, e)
-    const docked = opts.dock && e.surface === 'terminal' && !e.props.hasSurvey ? await dockBand($, e) : null
+    const docking = opts.dock && e.surface === 'terminal' && !e.props.hasSurvey
+    // The plan gives up the dock's rows: three idle, eight while a turn runs.
+    const reserve = docking ? (dockView((await read($, dock)) ?? undefined, await $.clock.now()).kind === 'idle' ? IDLE_ROWS : SCENE_ROWS + 2) : 0
+    const plan = e.props.hasSurvey ? null : await planBand($, e, reserve)
+    const docked = docking ? await dockBand($, e) : null
     if (!docked) {
       site.id = undefined
       return plan ?? next(e)
@@ -157,7 +160,7 @@ export function registerTasks(on: On) {
 type Band = Frozen<RenderInput<'AbovePrompt'>>
 
 // The plan, its agents and the usage rows; null when there is nothing to show.
-async function planBand($: EngineInterface, e: Band): Promise<RenderElement | null> {
+async function planBand($: EngineInterface, e: Band, reserve: number): Promise<RenderElement | null> {
   {
     const list = await read($, tasks)
     const turnList = await read($, turns)
@@ -253,7 +256,7 @@ async function planBand($: EngineInterface, e: Band): Promise<RenderElement | nu
     if (finished) return withUsage(<Box paddingLeft={1}>{headerRow}</Box>)
 
     // Header takes one row and the band gap one more; keep it short so the prompt stays in view.
-    const room = Math.max(1, Math.min(MAX_TASK_ROWS, e.props.maxRows - 3))
+    const room = Math.max(1, Math.min(MAX_TASK_ROWS, e.props.maxRows - 3 - reserve))
     const { start, shown, after } = window(list, room)
 
     return withUsage(
@@ -304,6 +307,9 @@ async function planBand($: EngineInterface, e: Band): Promise<RenderElement | nu
 }
 
 const SCENE_MAX = 64
+// Below these widths the key hints, then the phase times, drop rather than wrap the row.
+const KEYS_FROM = 72
+const PHASES_FROM = 56
 const KEYS = [['⏎', 'send'], ['/', 'commands'], ['@', 'files'], ['?', 'shortcuts']] as const
 
 // The prompt dock: the crab's corner and the prompt label when idle; the step, the scene and the calls while a turn runs.
@@ -324,13 +330,15 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
         <Box flexDirection="column" flexGrow={1}>
           <Text> </Text>
           <Box>
-            <Text color={C.accent} bold>{'◆ '}</Text>
-            <Text color={C.ink} bold>Ask Claude</Text>
+            <Text color={C.accent} bold wrap="truncate-end">{'◆ '}</Text>
+            <Text color={C.ink} bold wrap="truncate-end">Ask Claude</Text>
             {project && <Text color={C.faint} wrap="truncate-end">{`  ${project}`}</Text>}
             <Box flexGrow={1} />
-            {KEYS.map(([key, word], i) => (
-              <Text key={`k${i}`} color={C.accent}>{`${i ? '   ' : ''}${key}`}<Text color={C.faint}>{` ${word}`}</Text></Text>
-            ))}
+            {e.props.bodyColumns >= KEYS_FROM &&
+              KEYS.flatMap(([key, word], i) => [
+                <Text key={`k${i}`} color={C.accent} wrap="truncate-end">{`${i ? '   ' : ''}${key}`}</Text>,
+                <Text key={`w${i}`} color={C.faint} wrap="truncate-end">{` ${word}`}</Text>,
+              ])}
           </Box>
           <Text> </Text>
         </Box>
@@ -348,27 +356,26 @@ async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
   return (
     <Box key="dock" flexDirection="column" paddingLeft={1}>
       <Box>
-        <Text color={view.kind === 'outro' ? C.accent : color} bold>{'◆ '}</Text>
+        <Text color={view.kind === 'outro' ? C.accent : color} bold wrap="truncate-end">{'◆ '}</Text>
         <Text color={C.ink} bold wrap="truncate-end">{view.kind === 'outro' ? step : `${step}…`}</Text>
         <Box flexGrow={1} />
-        {(['thinking', 'tool', 'responding'] as const).map((m, i) => (
-          <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint}>
-            {`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}
-            <Text color={m === mode ? C.ink : C.faint}>{`${Math.round(spent[m])}s`}</Text>
-          </Text>
-        ))}
-        <Text color={C.mid}>{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>
+        {e.props.bodyColumns >= PHASES_FROM &&
+          (['thinking', 'tool', 'responding'] as const).flatMap((m, i) => [
+            <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint} wrap="truncate-end">{`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}</Text>,
+            <Text key={`s${m}`} color={m === mode ? C.ink : C.faint} wrap="truncate-end">{`${Math.round(spent[m])}s`}</Text>,
+          ])}
+        <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>
       </Box>
       <Raster key="dock-scene" columns={cols} rows={SCENE_ROWS} cells={encodeCells(sceneCells(view, turn, now, cols, C))} />
       <Box>
         {recent.length === 0 ? (
-          <Text color={C.faint}>Waiting for the first tool call</Text>
+          <Text color={C.faint} wrap="truncate-end">Waiting for the first tool call</Text>
         ) : (
           recent.map((c, i) => (
-            <Text key={`c${c.id}`} color={c.done ? C.mid : color} wrap="truncate-end">
-              {`${i ? '    ' : ''}${c.done ? '✓' : '…'} `}
-              <Text color={c.done ? C.faint : C.ink}>{c.label}</Text>
-            </Text>
+            <Box key={`c${c.id}`}>
+              <Text color={c.done ? C.mid : color} wrap="truncate-end">{`${i ? '    ' : ''}${c.done ? '✓' : '…'} `}</Text>
+              <Text color={c.done ? C.faint : C.ink} wrap="truncate-end">{c.label}</Text>
+            </Box>
           ))
         )}
       </Box>

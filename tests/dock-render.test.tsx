@@ -4,12 +4,13 @@ const BAND = { component: 'AbovePrompt', props: { hasSurvey: false, isWorking: f
 const SPINNER = { component: 'Spinner', props: { word: 'Sauteing', message: null, suffix: '…', mode: 'thinking' } } as const
 
 // Hooks beneath the plugins must all be registered before the test first calls $.
-function engine(on: any) {
+function engine(on: any, blit: () => unknown = () => ({ value: {} })) {
   const clock = mock.clock(on, { now: 10_000 })
   mock.store(on)
   on('session.root', () => ({ value: '/Users/a/ccshine' }))
   on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
-  on('ui.blit', () => ({ value: {} }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$: unknown, e: { subject: string }) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('ui.blit', blit)
   for (const component of ['AbovePrompt', 'Spinner']) {
     on('ui.render', { component }, ($e: any, e: any) => {
       const { Text } = $e.ui.resolve(e)
@@ -19,8 +20,8 @@ function engine(on: any) {
   return clock
 }
 
-async function band($: any, surface: 'terminal' | 'desktop' = 'terminal') {
-  const ui = await $.ui.mount({ plugin: 'ccshine', surface, ...BAND })
+async function band($: any, surface: 'terminal' | 'desktop' = 'terminal', props: Record<string, unknown> = {}) {
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface, ...BAND, props: { ...BAND.props, ...props } })
   const rasters = await ui.findAll({ type: 'Raster' })
   const text = (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
   await ui.unmount()
@@ -71,4 +72,52 @@ test('spinner line stays when the dock is off', { options: { dock: false } }, as
   const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...SPINNER })
   expect((await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')).toBe('ENGINE')
   await ui.unmount()
+})
+
+test('refused repaints keep the animation running', async ($, on) => {
+  let blits = 0
+  const clock = engine(on, () => {
+    blits++
+    return { value: { deny: 'not mounted' } }
+  })
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(1000)
+  await band($)
+  blits = 0
+  await clock.advance(3000)
+  expect(blits).toBeGreaterThan(40)
+})
+
+test('a new prompt starts a fresh clock even if the last turn never ended', async ($, on) => {
+  const clock = engine(on)
+  await $.turn.start({ text: 'one', turnId: 't1' })
+  await clock.advance(5000)
+  await $.turn.start({ text: 'two', turnId: 't2' })
+  await clock.advance(1000)
+  const { text } = await band($)
+  expect(text).toContain('   1s')
+  expect(text).not.toContain('   6s')
+})
+
+test('a narrow band drops the key hints and the phase times, and truncates the rest', async ($, on) => {
+  const clock = engine(on)
+  const ui = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 60 } })
+  const idle = await ui.findAll({ type: 'Text' })
+  await ui.unmount()
+  expect(idle.map((t: any) => t.text).join('')).not.toContain('shortcuts')
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(2000)
+  const ui2 = await $.ui.mount({ plugin: 'ccshine', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 44 } })
+  const work = await ui2.findAll({ type: 'Text' })
+  await ui2.unmount()
+  expect(work.map((t: any) => t.text).join('')).not.toContain('think')
+  for (const t of [...idle, ...work]) if (t.text.trim()) expect([t.text, t.props.wrap]).toEqual([t.text, 'truncate-end'])
+})
+
+test('the plan leaves room for the dock', async ($, on) => {
+  engine(on)
+  for (let i = 1; i <= 10; i++) await $.tool.call({ tool: 'TaskCreate', subject: `task ${i}`, description: '' })
+  const { text } = await band($, 'terminal', { maxRows: 12 })
+  const shown = (text.match(/task \d+/g) ?? []).length
+  expect(shown).toBeLessThanOrEqual(12 - 3 - 3)
 })

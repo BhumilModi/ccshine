@@ -96,18 +96,30 @@ export function phaseTimes(turn: DockTurn, now: number): Record<'thinking' | 'to
 
 type Obstacle = { at: number; shape: string[]; crate: boolean }
 
-function course(turn: DockTurn, upTo: number): Obstacle[] {
+const SLOT = 52
+
+// Obstacles between two course positions: one per 52-pixel slot, placed and chosen by the turn's seed, plus the crates.
+// Only the window is built, so a long turn costs the same per frame as a short one.
+export function course(turn: DockTurn, from: number, to: number): Obstacle[] {
   const items: Obstacle[] = []
-  for (let i = 0, d = 70; d < upTo + 80; i++) {
-    items.push({ at: d, shape: OBSTACLES[AMBIENT[Math.floor(rand(turn.seed + i) * AMBIENT.length)]!]!, crate: false })
-    d += 34 + Math.floor(rand(turn.seed + i + 0.5) * 36)
+  for (let i = Math.max(0, Math.floor((from - 70) / SLOT) - 1); i * SLOT + 70 <= to; i++) {
+    const at = 70 + i * SLOT + Math.floor(rand(turn.seed + i + 0.5) * 18)
+    items.push({ at, shape: OBSTACLES[AMBIENT[Math.floor(rand(turn.seed + i) * AMBIENT.length)]!]!, crate: false })
   }
-  for (const c of turn.calls) items.push({ at: travelled(turn, c.at) + 46, shape: OBSTACLES.crate!, crate: true })
+  for (const c of turn.calls) {
+    const at = (c.dist ?? travelled(turn, c.at)) + 46
+    if (at >= from - 10 && at <= to) items.push({ at, shape: OBSTACLES.crate!, crate: true })
+  }
   return items
 }
 
 // Where the crab is, in scene pixels, and which frame it shows.
-export function crabBox(view: DockView, turn: DockTurn, now: number): { left: number; top: number; bottom: number; frame: string[] } {
+export function crabBox(
+  view: DockView,
+  turn: DockTurn,
+  now: number,
+  obstacles?: Obstacle[],
+): { left: number; top: number; bottom: number; frame: string[] } {
   const rest = GROUND_Y - CRAB_H
   const box = (x: number, top: number, frame: string[]) => ({ left: Math.round(x), top: Math.round(top), bottom: Math.round(top) + frame.length - 1, frame })
   if (view.kind === 'intro') {
@@ -123,7 +135,7 @@ export function crabBox(view: DockView, turn: DockTurn, now: number): { left: nu
   const dist = travelled(turn, now)
   const mid = RUN_X + CRAB_W / 2
   let lift = 0
-  for (const o of course(turn, dist + 80)) {
+  for (const o of obstacles ?? course(turn, dist - 20, dist + 80)) {
     const w = o.shape[0]!.length
     const x = o.at - dist + RUN_X
     const d = Math.abs(mid - (x + w / 2))
@@ -178,15 +190,16 @@ export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: nu
     px.put(x, GROUND_Y, hex(p.track))
     if (rand(Math.floor(x + dist)) > 0.82) px.put(x, GROUND_Y + 1, hex(p.segAlt))
   }
+  const obstacles = view.kind === 'work' ? course(turn, dist - 20, dist + cols + 10) : []
   if (view.kind === 'work') {
-    for (const o of course(turn, dist + cols)) {
+    for (const o of obstacles) {
       const x = Math.round(o.at - dist + RUN_X)
       if (x > cols || x + o.shape[0]!.length < 0) continue
       const c = hex(o.crate ? p.info : p.warn)
       o.shape.forEach((row, y) => [...row].forEach((ch, dx) => ch === '#' && px.put(x + dx, GROUND_Y - o.shape.length + y, c)))
     }
   }
-  const crab = crabBox(view, turn, now)
+  const crab = crabBox(view, turn, now, obstacles)
   px.sprite(crab.frame, crab.left, crab.top, hex(p.accent), hex(p.onAccent))
   return px.cells()
 }
