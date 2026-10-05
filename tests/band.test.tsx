@@ -139,14 +139,13 @@ test('tasks off: band hook returns next(e)', { options: { dock: false, tasks: fa
   expect((await ui.findAll({ type: 'Text' })).map(t => t.text)).toEqual(['ENGINE'])
 })
 
-test('band leaves agent rows to a docked rail and keeps them otherwise', { options: { dock: false } }, async ($, on) => {
+test('band leaves agent rows to the fullscreen timeline and keeps them otherwise', { options: { dock: false } }, async ($, on) => {
   mock.clock(on)
   mock.store(on)
   on('session.root', () => ({ value: '/repo/a' }))
   on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
   on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'ag1' }))
-  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
   on('session.usage', () => ({ value: { startedAt: 1, context: { window: 200_000 }, rateLimits: [] } }))
   on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
   on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
@@ -168,10 +167,10 @@ test('band leaves agent rows to a docked rail and keeps them otherwise', { optio
   expect(docked).toContain('tests')
   expect(docked).not.toContain('general-purpose')
   expect(await text({ columns: 140, rows: 40, isFullscreen: false })).toContain('general-purpose')
-  expect(await text({ columns: 100, rows: 40, isFullscreen: true })).toContain('general-purpose')
+  expect(await text({ columns: 100, rows: 40, isFullscreen: true })).not.toContain('general-purpose')
 })
 
-test('a docked rail keeps running agents from earlier turns in the band', { options: { dock: false } }, async ($, on) => {
+test('the timeline keeps running agents from earlier turns in the band', { options: { dock: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   on('session.root', () => ({ value: '/repo/a' }))
@@ -182,7 +181,6 @@ test('a docked rail keeps running agents from earlier turns in the band', { opti
   on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
   on('tool.call', { tool: 'Agent' }, () => ({ result: {} }))
   on('agent.spawn', (_$: unknown, e: { tool_use_id: string }) => ({ model: 'm', agentId: e.tool_use_id === 'tu1' ? 'ag1' : 'ag2' }))
-  on('ui.panes', () => ({ value: [{ id: 'tidepool-rail', title: 'tidepool', isShown: true, isFocused: false, isPlaced: true }] }))
   const spawn = async (id: string, description: string) => {
     await $.tool.call({ tool: 'Agent', tool_use_id: id, description, prompt: 'p', subagent_type: 'general-purpose' } as never)
     await $.agent.spawn({ tool_use_id: id, prompt: 'p', description, subagentType: 'general-purpose', provider: { plugin: 'engine', tier: 'core' }, parentModel: 'm', background: true, fork: false })

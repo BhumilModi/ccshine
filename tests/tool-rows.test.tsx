@@ -108,7 +108,8 @@ test('group names how many calls failed', async ($, on) => {
     plugin: 'tidepool', surface: 'terminal', component: 'ToolGroup',
     props: { calls: [bash(false), bash(true), bash(false)], isActive: false, isExpanded: false },
   })
-  const text = await textOf(ui)
+  // The line is one Text; its own text holds the coloured pieces nested in it.
+  const text = (await ui.find({ type: 'Text' }))?.text
   expect(text).toBe('❯ Bash ×3  · 1 failed')
   expect(text).not.toContain('✕')
 })

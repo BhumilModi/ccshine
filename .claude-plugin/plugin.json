@@ -42,7 +42,7 @@
     "rail": {
       "type": "boolean",
       "title": "Tide rail",
-      "description": "Tool calls, agents and background jobs on a timeline beside the chat",
+      "description": "In fullscreen, each turn's tool calls, agents and background jobs fold into one line in the chat that opens into a timeline",
       "default": true
     },
     "tasks": {

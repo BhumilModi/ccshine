@@ -1,30 +1,34 @@
 # Tidepool
 
-**Low tide for Claude Code: see every tool, agent and job beside your chat.**
+**Low tide for Claude Code: see every tool, agent and job in your chat.**
 
-Claude Code tracks a lot it never shows you: when each tool ran and for how long, which calls ran side by side, what each subagent and background shell is doing, what a turn cost and how much context it used. Tidepool moves all of that out of the chat into the **Tide rail**, a timeline beside the conversation, so the chat holds only what you and Claude said. It also restyles the rest of the terminal to match: your prompts, Claude's replies, the tasks band, the spinner and the status line.
-
-![Tidepool with the Warm Claude theme and Maple Mono NF: the chat on the left, the Tide rail with a turn's timeline on the right, and the status line](docs/screenshot.png)
+Claude Code tracks a lot it never shows you: when each tool ran and for how long, which calls ran side by side, what each subagent and background shell is doing, what a turn cost and how much context it used. Tidepool folds each turn's tool calls into one line, the **Tide rail**, that opens into a timeline of the turn right where it happened, so the chat holds only what you and Claude said. It also restyles the rest of the terminal to match: your prompts, Claude's replies, the tasks band, the spinner and the status line.
 
 ```
-▌ you  fix the login bug                    │ ≈ tidepool  turn 4 · 52s
-                                            │ Read  auth.ts         ╸─────────── 0.4s
-  ◇ 14 tools · 1 agent · 52s · 1 error ▸ rail│ ✕ Bash npm test     ─━━━━━━━╸─── 41s
-                                            │ Agent Explore auth    ──━━━━━━━─── 30s  9 tools ▸
-◆ claude                                    │ Bash  npm run dev     ─━━━━━━━━━━━⇢ running · 1m 5s
-  Found it: the token check compared expiry │ Edit  auth.ts         ─────────╺── 0.1s  +12 −3
-  with < instead of <=.                     │                       0s        52s
-                                            │ ctx  ━━━━━━╸───── 38% → 52%  $0.31
-                                            │ files auth.ts +12 −3
-                                            │ ✕ Bash npm test ×2
+▌ you  fix the login bug
+
+ ◇ 14 tools · 1 agent · 52s  · 1 error  ▾ timeline
+   Read   auth.ts              ╸───────────  0.4s
+   ✕ Bash npm test             ─━━━━━━━╸───  41s
+   Agent  Explore auth         ──━━━━━━━───  30s  9 tools ▸
+   Bash   npm run dev          ─━━━━━━━━━━━⇢ running · 1m 5s
+   Edit   auth.ts              ─────────╺──  0.1s  +12 −3
+                               0s       52s
+
+   ctx    ━━━━━━╸─────  38% → 52%
+   cost   $0.31  14 tools · 1 agent
+   files  auth.ts  +12 −3
+   fail   Bash npm test ×2
+
+◆ claude
+  Found it: the token check compared expiry with < instead of <=.
 ```
 
 ## What you get
 
 | Where | Before | With Tidepool |
 |---|---|---|
-| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: context before and after, what the turn cost, files changed and calls that failed more than once. The rail follows your scroll. |
-| In the chat | Every tool call and its output | **One anchor line per turn:** `◇ 14 tools · 1 agent · 52s · 1 error  ▸ rail`. Press it to pin that turn in the rail. |
+| In the chat | Every tool call and its output, stacked between your prompt and the answer | **The Tide rail: one line per turn** (`◇ 14 tools · 1 agent · 52s · 1 error  ▸ timeline`) **that opens into the turn's timeline.** One row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: context before and after, what the turn cost, files changed and calls that failed more than once. |
 | Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Subagents appear under the task they work on, with a live timer and their tokens once done. |
 | Above the prompt | Nothing | **Usage line, only when it matters:** a warning when a turn re-sent your context at full price because the prompt cache had gone cold, and tokens split by agent when subagents ran. Tokens, cache rate and the cache countdown live in the status line. |
 | Your prompts and replies | `> fix the queue test`, `●` before each reply | **A styled transcript:** `▌ you` before your prompts and `◆ claude` above each reply, in the theme's accent colour. Replies still go through Claude Code's own markdown renderer, so code blocks and links look the same. Slash command output (`/cost` and others) gets a title line. |
@@ -113,12 +117,12 @@ Maple Mono is distributed under the SIL Open Font License 1.1; see [`fonts/OFL.t
 
 ## Tide rail
 
-The rail opens by itself when a session starts.
-
-- **Fullscreen, 110 columns or wider:** it docks beside the chat and shows the turn you are reading. Scroll the chat and it follows; press an anchor line to pin a turn until you scroll again.
-- **Anything else** (the main screen, a narrow window): Claude Code places it above the prompt. There it shows the turn that is running, six rows at most, and between turns shrinks to one line: `≈ tidepool  turn 4 · 52s · 14 tools`.
-- `/tidepool-rail` hides or shows it for the session. Switch it off for good with the Tide rail setting; tool rows then go back to one line each in the chat.
-- While the rail is docked, the tasks band leaves subagents to the rail and keeps the plan.
+- **The running turn** is open while it runs, showing its newest eight rows, and folds to its one line when it ends.
+- **Any finished turn:** press its `▸ timeline` to open it, `▾ timeline` to fold it again.
+- **Fullscreen only.** The main screen writes the chat once and cannot fold it again, so there tool calls stay one line each.
+- Every line keeps to the width of the chat: a long path or command is cut short with `…` rather than wrapping onto a second line.
+- While the timeline is on, the tasks band leaves the running turn's subagents to it and keeps the plan.
+- Switch it off with the Tide rail setting; tool rows then go back to one line each in the chat.
 
 ## Settings
 
@@ -128,9 +132,9 @@ Open `/config` and find the Tidepool rows. Every switched-off feature leaves Cla
 |---|---|---|
 | Theme | `claude` | Colours for everything Tidepool draws, including the status line: `claude`, `warm` (matches the Warm Claude terminal theme), `nord`, `dracula`, `mono` |
 | Powerline glyphs | off | Arrow and rounded-cap separators in headers and the status line. Needs a [Nerd Font](https://www.nerdfonts.com/) in your terminal, such as the bundled Maple Mono NF; otherwise you see empty boxes |
-| Tide rail | on | Tool calls, agents and background jobs on a timeline beside the chat, with one anchor line per turn in the chat |
+| Tide rail | on | In fullscreen, each turn's tool calls, agents and background jobs fold into one line in the chat that opens into a timeline |
 | Tasks band | on | Tasks, time left and agents above the prompt |
-| Tool rows | on | Tidepool's tool rows: the anchor line and rail, or one-line calls with the rail off. Off leaves Claude Code's own rows |
+| Tool rows | on | Tidepool's tool rows: the Tide rail, or one-line calls with the rail off. Off leaves Claude Code's own rows |
 | Spinner activity | on | Spinner says what is running |
 | Transcript style | on | `▌ you` and `◆ claude` markers, titled command output |
 | Prompt chrome | on | Mode chips, notices and the background hint; hides the `Baked for` line between turns |

@@ -1,13 +1,11 @@
 import type { CallTiming, Job, PlanAgent, RailRow, RailSummary, TurnSpan } from '../types'
+import { opts } from './options'
 
-// Anchor rows on screen, by turn id. Render hooks may not write plugin state, so the anchor row records here
-// and the rail's one-second timer (features/startup.tsx) copies changes into the anchorsSeen atom.
-// ponytail: the rail follows a scroll within a second, not on the same frame.
-export const anchorsOnScreen = new Map<string, boolean>()
-
-// Where the surface last seated the rail, recorded by its Pane render (a module value, as above): tool rows
-// hand over to the rail only while it is docked beside the transcript.
-export const railSeat: { placement?: 'dock' | 'inline' } = {}
+// The fold-out timeline replaces tool rows only in fullscreen, where the engine redraws transcript rows;
+// in normal mode the chat is written once, so a timeline could never fold, and rows stay as they are.
+export function timelineOn(viewport: { isFullscreen?: boolean } | undefined): boolean {
+  return opts.rail && opts.tools && viewport?.isFullscreen === true
+}
 
 // Which call carries each turn's anchor: the first of the turn's rows that actually draws. Some tools
 // (TodoWrite, the Task tools) draw no row, so "the turn's first call" alone could leave a turn with none.
@@ -99,23 +97,6 @@ export function railSummary(rows: RailRow[], turn: TurnSpan, now: number): RailS
   if (turn.ctxStart !== undefined) summary.ctx = [turn.ctxStart, turn.ctxEnd ?? turn.ctxStart]
   if (turn.costStart !== undefined && turn.costEnd !== undefined) summary.cost = turn.costEnd - turn.costStart
   return summary
-}
-
-// Which turn the rail shows: a pinned one; else the live turn while its anchor is on screen or not drawn yet;
-// else the first turn whose anchor is on screen; else the newest.
-// ponytail: with no anchor on screen (mid long reply) it falls back to the newest turn, not the one scrolled past.
-export function pickTurn(
-  spans: TurnSpan[],
-  sel: { turnId?: string; pinned: boolean },
-  seen: Record<string, boolean>,
-): TurnSpan | undefined {
-  if (sel.pinned) {
-    const pinned = spans.find(s => s.turnId === sel.turnId)
-    if (pinned) return pinned
-  }
-  const live = spans.findLast(s => s.endedAt === undefined)
-  if (live && seen[live.turnId] !== false) return live
-  return spans.find(s => seen[s.turnId] === true) ?? spans.at(-1)
 }
 
 const MAX_DETAIL = 200
