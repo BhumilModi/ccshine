@@ -1,6 +1,7 @@
 import type { EngineInterface, On } from 'claude-code'
 
 import { encodeCells, idleCells, site } from '../dock'
+import { oldStore } from '../migrate'
 import { opts } from '../options'
 import { palette } from '../theme'
 import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
@@ -83,9 +84,25 @@ async function installAssets($: EngineInterface): Promise<InstallOutcome> {
   }
 }
 
+// Plan-time history is kept per plugin name, so the rename would start it over; copy it across once.
+async function migrateHistory($: EngineInterface): Promise<void> {
+  try {
+    if ((await $.store.get('history-by-project')) !== undefined) return
+    const home = await $.env.get('HOME')
+    const dir = `${(await $.env.get('CLAUDE_CONFIG_DIR')) || `${home}/.claude`}/plugins/store`
+    const name = oldStore(await $.fs.list(dir))
+    if (!name) return
+    const history = (JSON.parse(String(await $.fs.read(`${dir}/${name}`))) as Record<string, unknown>)['history-by-project']
+    if (history !== undefined) await $.store.set('history-by-project', history)
+  } catch {
+    // Nothing to carry over: estimates relearn.
+  }
+}
+
 // The one session.start hook: a module may register it only once.
 export function registerStartup(on: On) {
   on('session.start', async ($, e, next) => {
+    await migrateHistory($)
     await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the Tidepool status line' })
     await $.command.register({ name: SETUP, description: 'Install the Maple Mono NF font and Warm Claude theme, and show how to use them in your terminal' })
     // A marketplace update installs into a new versioned folder; a statusLine still pointing at the old one breaks.
