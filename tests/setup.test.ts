@@ -94,3 +94,10 @@ test('powershell scripts are encoded as base64 UTF-16LE', async () => {
   expect(encodePowerShell('dir')).toBe('ZABpAHIA')
   expect(encodePowerShell("'é'")).toBe('JwDpACcA')
 })
+
+test('setup guide covers Warp and apps that import Warp themes', async () => {
+  const guide = setupGuide('/Users/a/ccshine', { copied: [], failed: false, remote: false })
+  expect(guide).toContain('| Warp')
+  expect(guide).toContain('/Users/a/ccshine/themes/warp/warm_claude.yaml')
+  expect(guide).toContain('Import from YAML')
+})

@@ -73,7 +73,7 @@ claude --plugin-dir ./ccshine
 ccshine comes with a terminal colour theme and a font, so the whole terminal matches what ccshine draws.
 
 - **Font: [Maple Mono NF](https://github.com/subframe7536/maple-font)** (v7.9, with Nerd Font glyphs for the powerline separators). Rounded shapes and cursive italics; your prompts are drawn in italic.
-- **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm and Alacritty under [`themes/`](themes). Set ccshine's Theme to `warm` to match it.
+- **Theme: Warm Claude.** A warm near-black background (`#1A1817`), warm off-white text and Claude's clay accent, shipped for Ghostty, iTerm2, Windows Terminal, kitty, WezTerm, Alacritty and Warp under [`themes/`](themes). Set ccshine's Theme to `warm` to match it.
 
 **What installs by itself.** When a session starts, ccshine copies whatever of these is missing (it never overwrites a file); the first session after you install ccshine does the work and shows one toast:
 
@@ -95,6 +95,7 @@ Under WSL or over SSH your terminal runs on another machine, so ccshine installs
 | kitty | `font_family Maple Mono NF` | Copy `themes/kitty/warm-claude.conf` into your kitty config folder, then `include warm-claude.conf` |
 | WezTerm | `font = wezterm.font 'Maple Mono NF'` | Copy `themes/wezterm/Warm Claude.toml` into your `colors` folder, then `color_scheme = 'Warm Claude'` |
 | Alacritty | `font.normal.family = "Maple Mono NF"` | Copy `themes/alacritty/warm-claude.toml` into your Alacritty config folder, then add `[general]` with `import = ['<that copy>']` |
+| Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import `themes/warp/warm_claude.yaml`, or copy it into your Warp themes folder |
 | Others | Pick Maple Mono NF | The colours are in `themes/warm-claude.json` |
 
 `/ccshine-setup` prints this table with the full paths to your install. Copy theme files into your terminal's own config folder rather than pointing at the install: its folder changes with each ccshine version.

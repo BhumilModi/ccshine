@@ -1,0 +1,25 @@
+name: Warm Claude
+accent: '#D97757'
+cursor: '#D97757'
+background: '#1A1817'
+foreground: '#E8E2D9'
+details: darker
+terminal_colors:
+  normal:
+    black: '#2A2624'
+    red: '#E06C5F'
+    green: '#8FB573'
+    yellow: '#E2B266'
+    blue: '#7FA3D1'
+    magenta: '#C49BD6'
+    cyan: '#7DBFB5'
+    white: '#C9C2B8'
+  bright:
+    black: '#7A746C'
+    red: '#EC8A7F'
+    green: '#A8C98F'
+    yellow: '#EDC889'
+    blue: '#9DBBE0'
+    magenta: '#D5B5E3'
+    cyan: '#9DD2C9'
+    white: '#F4EFE8'

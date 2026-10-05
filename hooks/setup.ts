@@ -107,6 +107,7 @@ export function setupGuide(root: string, outcome: InstallOutcome): string {
     `| kitty | \`font_family ${FONT_FAMILY}\` | Copy ${theme('kitty', 'warm-claude.conf')} into your kitty config folder, then \`include warm-claude.conf\` |`,
     `| WezTerm | \`font = wezterm.font '${FONT_FAMILY}'\` | Copy ${theme('wezterm', 'Warm Claude.toml')} into your \`colors\` folder, then \`color_scheme = '${GHOSTTY_THEME}'\` |`,
     `| Alacritty | \`font.normal.family = "${FONT_FAMILY}"\` | Copy ${theme('alacritty', 'warm-claude.toml')} into your Alacritty config folder, then add \`[general]\` with \`import = ['<that copy's full path>']\` |`,
+    `| Warp, and apps that import Warp themes (Orca: Terminal Themes → Import from YAML) | Settings → Appearance → Text | Import ${theme('warp', 'warm_claude.yaml')}, or copy it into your Warp themes folder |`,
     `| Others | Pick ${FONT_FAMILY} | The colours are in ${theme('warm-claude.json')} |`,
     '',
     'Copies in your own config folders keep working after ccshine updates; the install folder above changes with each version.',

@@ -40,3 +40,14 @@ test('windows terminal scheme is valid JSON with named colours', async () => {
   expect(scheme.purple).toBe(warmClaude.palette[5])
   expect(scheme.brightWhite).toBe(warmClaude.palette[15])
 })
+
+test('warp theme is YAML with named normal and bright colours', async () => {
+  const path = Object.keys(FORMATS).find(p => p.startsWith('themes/warp/'))!
+  const out = FORMATS[path]!(warmClaude)
+  expect(out).toContain('name: Warm Claude')
+  expect(out).toContain(`background: '${warmClaude.background}'`)
+  expect(out).toContain(`accent: '${warmClaude.cursor}'`)
+  expect(out).toContain('terminal_colors:\n  normal:\n    black:')
+  expect(out).toContain(`  bright:\n    black: '${warmClaude.palette[8]}'`)
+  expect(out).toContain(`    magenta: '${warmClaude.palette[5]}'`)
+})

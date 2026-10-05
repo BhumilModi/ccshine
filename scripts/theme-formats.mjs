@@ -120,6 +120,23 @@ function alacritty(t) {
   ].join('\n')
 }
 
+// Warp's theme format; Orca and other apps that import Warp themes read it too.
+function warp(t) {
+  const block = (title, offset) => [`  ${title}:`, ...NAMES.map((name, i) => `    ${name}: '${t.palette[i + offset]}'`)]
+  return [
+    `name: ${t.name}`,
+    `accent: '${t.cursor}'`,
+    `cursor: '${t.cursor}'`,
+    `background: '${t.background}'`,
+    `foreground: '${t.foreground}'`,
+    'details: darker',
+    'terminal_colors:',
+    ...block('normal', 0),
+    ...block('bright', 8),
+    '',
+  ].join('\n')
+}
+
 function json(t) {
   return JSON.stringify(t, null, 2) + '\n'
 }
@@ -133,4 +150,5 @@ export const FORMATS = {
   'themes/kitty/warm-claude.conf': kitty,
   'themes/wezterm/Warm Claude.toml': wezterm,
   'themes/alacritty/warm-claude.toml': alacritty,
+  'themes/warp/warm_claude.yaml': warp,
 }
