@@ -28,7 +28,7 @@ const textOf = async ($: any) => {
   return text
 }
 
-test('usage line hidden after a warm turn with one source', async ($, on) => {
+test('usage line hidden after a warm turn with one source', { options: { dock: false } }, async ($, on) => {
   const clock = engine(on)
   await clock.advance(1000)
   await complete($, 't1', 91_000, 8000)
@@ -55,7 +55,7 @@ test('usage shows the agent split when subagents ran', async ($, on) => {
   expect(text).not.toContain('Usage')
 })
 
-test('cold warning appears only after a cold turn', async ($, on) => {
+test('cold warning appears only after a cold turn', { options: { dock: false } }, async ($, on) => {
   const clock = engine(on)
   await clock.advance(1000)
   await complete($, 't1', 50_000, 1000)
@@ -65,7 +65,7 @@ test('cold warning appears only after a cold turn', async ($, on) => {
   expect(await textOf($)).toContain('⚠ cache was cold · this turn re-sent 41.0k at full price')
 })
 
-test('usage off and no plan returns next(e)', { options: { usage: false } }, async ($, on) => {
+test('usage off and no plan returns next(e)', { options: { dock: false, usage: false } }, async ($, on) => {
   const clock = engine(on)
   on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
     const { Text } = $e.ui.resolve(e)

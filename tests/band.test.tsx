@@ -128,7 +128,7 @@ test('band header drops the time-left segment at 40 columns', async ($, on) => {
   expect(text).not.toContain('ETA')
 })
 
-test('tasks off: band hook returns next(e)', { options: { tasks: false, usage: false } }, async ($, on) => {
+test('tasks off: band hook returns next(e)', { options: { dock: false, tasks: false, usage: false } }, async ($, on) => {
   engine(on)
   on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
     const { Text } = $e.ui.resolve(e)

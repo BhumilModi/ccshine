@@ -3,18 +3,9 @@
 
 import type { Palette } from './palettes.mjs'
 
-export type DockMode = 'requesting' | 'thinking' | 'tool' | 'responding'
+import type { DockMode, DockTurn } from '../types'
 
-export type DockTurn = {
-  startedAt: number
-  endedAt?: number
-  // When the mode changed; before the first, the turn is waiting on the API.
-  phases: { mode: DockMode; at: number }[]
-  // Main-loop tool calls: each drops a crate on the course.
-  calls: { id: string; at: number; label: string; done: boolean }[]
-  // Varies the course from turn to turn.
-  seed: number
-}
+export type { DockMode, DockTurn }
 
 export type DockView = { kind: 'idle' | 'intro' | 'work' | 'outro'; k: number }
 
@@ -90,6 +81,17 @@ export function travelled(turn: DockTurn, now: number): number {
     if (b > a) d += ((b - a) / 1000) * SPEED[mode]
   }
   return Math.round(d * 1000) / 1000
+}
+
+// Seconds spent in each phase so far, for the header.
+export function phaseTimes(turn: DockTurn, now: number): Record<'thinking' | 'tool' | 'responding', number> {
+  const out = { thinking: 0, tool: 0, responding: 0 }
+  const until = Math.min(now, turn.endedAt ?? now)
+  turn.phases.forEach((p, i) => {
+    const end = Math.min(until, turn.phases[i + 1]?.at ?? until)
+    if (p.mode !== 'requesting' && end > p.at) out[p.mode] += (end - p.at) / 1000
+  })
+  return out
 }
 
 type Obstacle = { at: number; shape: string[]; crate: boolean }
@@ -211,4 +213,4 @@ export function encodeCells(words: Uint32Array): string {
 }
 
 // The band's requestId, recorded when the band draws, so the timer can repaint its Raster.
-export const site: { id: string | undefined } = { id: undefined }
+export const site: { id: string | undefined; cols: number | undefined } = { id: undefined, cols: undefined }

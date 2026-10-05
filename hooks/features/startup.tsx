@@ -1,6 +1,8 @@
 import type { EngineInterface, On } from 'claude-code'
 
+import { encodeCells, idleCells, site } from '../dock'
 import { opts } from '../options'
+import { palette } from '../theme'
 import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
 import type { InstallOutcome } from '../setup'
 
@@ -100,6 +102,17 @@ export function registerStartup(on: On) {
       } catch {
         // No config to read: nothing to suggest.
       }
+    }
+    // Prompt dock: the idle crab blinks every few seconds, while the band shows its corner (site.cols unset).
+    if (opts.dock && e.surface === 'terminal') {
+      const paint = (blink: boolean) =>
+        site.id && site.cols === undefined
+          ? $.ui.blit({ requestId: site.id, key: 'dock-idle', cells: encodeCells(idleCells(blink, palette())) }).catch(() => undefined)
+          : undefined
+      $.clock.every(3800, () => {
+        void paint(true)
+        $.clock.after(140, () => void paint(false))
+      })
     }
     if (opts.installAssets) {
       const outcome = await installAssets($)

@@ -9,7 +9,7 @@ function engineSpinner(on: any) {
   })
 }
 
-test('spinner message reads Editing queue.ts while an Edit runs', async ($, on) => {
+test('spinner message reads Editing queue.ts while an Edit runs', { options: { dock: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   engineSpinner(on)
@@ -26,7 +26,7 @@ test('spinner message reads Editing queue.ts while an Edit runs', async ($, on) 
   await pending
 })
 
-test('spinner off returns next(e)', { options: { spinner: false } }, async ($, on) => {
+test('spinner off returns next(e)', { options: { dock: false, spinner: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   engineSpinner(on)
@@ -42,7 +42,7 @@ test('spinner off returns next(e)', { options: { spinner: false } }, async ($, o
   await pending
 })
 
-test('spinner follows the next call in the same message', async ($, on) => {
+test('spinner follows the next call in the same message', { options: { dock: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   engineSpinner(on)
@@ -63,7 +63,7 @@ test('spinner follows the next call in the same message', async ($, on) => {
   await second
 })
 
-test('subagent calls do not count as main-loop calls', async ($, on) => {
+test('subagent calls do not count as main-loop calls', { options: { dock: false } }, async ($, on) => {
   const clock = mock.clock(on)
   mock.store(on)
   engineSpinner(on)

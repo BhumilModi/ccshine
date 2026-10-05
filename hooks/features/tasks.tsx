@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, On, RenderElement, Timer } from 'claude-code'
+import type { EngineInterface, Frozen, On, RenderElement, RenderInput, Timer } from 'claude-code'
 
 import type { PlanAgent, PlanTask } from '../../types'
 import {
@@ -21,6 +21,8 @@ import { bar, glyphsOn, palette, powerline, runsWidth } from '../theme'
 import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
 import type { Segment } from '../theme'
+import { activity } from '../activity'
+import { IDLE_COLS, IDLE_ROWS, SCENE_ROWS, dockView, encodeCells, idleCells, modeAt, phaseTimes, sceneCells, site } from '../dock'
 
 const tasks = atom({ plugin: 'ccshine', key: 'tasks' } as const, [])
 const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
@@ -28,6 +30,9 @@ const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
 const turns = atom({ plugin: 'ccshine', key: 'turns' } as const, [])
 // Bumped every second while something runs, so live timers redraw.
 const tick = atom({ plugin: 'ccshine', key: 'tick' } as const, 0)
+// The prompt dock's turn (features/dock.tsx) and the calls in flight (features/track.tsx).
+const dock = atom({ plugin: 'ccshine', key: 'dock' } as const, null)
+const liveCalls = atom({ plugin: 'ccshine', key: 'live' } as const, {})
 const MAX_TASK_ROWS = 8
 const MAX_AGENT_ROWS = 4
 
@@ -138,12 +143,28 @@ export function registerTasks(on: On) {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const plan = e.props.hasSurvey ? null : await planBand($, e)
+    const docked = opts.dock && e.surface === 'terminal' && !e.props.hasSurvey ? await dockBand($, e) : null
+    if (!docked) {
+      site.id = undefined
+      return plan ?? next(e)
+    }
+    const { Box } = $.ui.resolve(e)
+    return plan ? <Box flexDirection="column">{plan}{docked}</Box> : docked
+  })
+}
+
+type Band = Frozen<RenderInput<'AbovePrompt'>>
+
+// The plan, its agents and the usage rows; null when there is nothing to show.
+async function planBand($: EngineInterface, e: Band): Promise<RenderElement | null> {
+  {
     const list = await read($, tasks)
     const turnList = await read($, turns)
     const last = lastTurn(turnList)
     const showTasks = opts.tasks && list.length > 0
     const showUsage = opts.usage && last !== undefined
-    if (e.props.hasSurvey || (!showTasks && !showUsage)) return next(e)
+    if (!showTasks && !showUsage) return null
     const C = palette()
 
     const { Box, Text } = $.ui.resolve(e)
@@ -177,7 +198,7 @@ export function registerTasks(on: On) {
           <Box paddingLeft={1}>{usage}</Box>
         </Box>
       )
-    if (!showTasks) return usage === null ? next(e) : withUsage(null)
+    if (!showTasks) return usage === null ? null : withUsage(null)
     const past = await projectHistory($)
 
     const agentLines = (taskId: string | undefined, indent: string) => {
@@ -279,5 +300,82 @@ export function registerTasks(on: On) {
         {agentLines(undefined, '    ')}
       </Box>
     )
-  })
+  }
 }
+
+const SCENE_MAX = 64
+const KEYS = [['⏎', 'send'], ['/', 'commands'], ['@', 'files'], ['?', 'shortcuts']] as const
+
+// The prompt dock: the crab's corner and the prompt label when idle; the step, the scene and the calls while a turn runs.
+async function dockBand($: EngineInterface, e: Band): Promise<RenderElement> {
+  const { Box, Text, Raster } = $.ui.resolve(e) as ReturnType<EngineInterface['ui']['resolve']> & { Raster: (props: Record<string, unknown>) => RenderElement }
+  const C = palette()
+  await read($, tick)
+  const turn = await read($, dock)
+  const now = await $.clock.now()
+  const view = dockView(turn ?? undefined, now)
+  site.id = e.requestId
+  if (view.kind === 'idle' || !turn) {
+    site.cols = undefined
+    const project = (await $.session.root()).split(/[\\/]/).filter(Boolean).pop() ?? ''
+    return (
+      <Box key="dock" paddingLeft={1}>
+        <Raster key="dock-idle" columns={IDLE_COLS} rows={IDLE_ROWS} cells={encodeCells(idleCells(false, C))} />
+        <Box flexDirection="column" flexGrow={1}>
+          <Text> </Text>
+          <Box>
+            <Text color={C.accent} bold>{'◆ '}</Text>
+            <Text color={C.ink} bold>Ask Claude</Text>
+            {project && <Text color={C.faint} wrap="truncate-end">{`  ${project}`}</Text>}
+            <Box flexGrow={1} />
+            {KEYS.map(([key, word], i) => (
+              <Text key={`k${i}`} color={C.accent}>{`${i ? '   ' : ''}${key}`}<Text color={C.faint}>{` ${word}`}</Text></Text>
+            ))}
+          </Box>
+          <Text> </Text>
+        </Box>
+      </Box>
+    )
+  }
+  const cols = Math.max(20, Math.min(SCENE_MAX, e.props.bodyColumns - 2))
+  site.cols = cols
+  const mode = modeAt(turn, now)
+  const live = Object.values(await read($, liveCalls)).filter(c => c.agentId === undefined)
+  const step = view.kind === 'outro' ? 'Done' : (activity(live) ?? STEP[mode])
+  const spent = phaseTimes(turn, now)
+  const color = MODE_COLOR(C)[mode]
+  const recent = turn.calls.slice(-3)
+  return (
+    <Box key="dock" flexDirection="column" paddingLeft={1}>
+      <Box>
+        <Text color={view.kind === 'outro' ? C.accent : color} bold>{'◆ '}</Text>
+        <Text color={C.ink} bold wrap="truncate-end">{view.kind === 'outro' ? step : `${step}…`}</Text>
+        <Box flexGrow={1} />
+        {(['thinking', 'tool', 'responding'] as const).map((m, i) => (
+          <Text key={`p${m}`} color={m === mode ? MODE_COLOR(C)[m] : C.faint}>
+            {`${i ? ' · ' : ''}${PHASE_LABEL[m]} `}
+            <Text color={m === mode ? C.ink : C.faint}>{`${Math.round(spent[m])}s`}</Text>
+          </Text>
+        ))}
+        <Text color={C.mid}>{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>
+      </Box>
+      <Raster key="dock-scene" columns={cols} rows={SCENE_ROWS} cells={encodeCells(sceneCells(view, turn, now, cols, C))} />
+      <Box>
+        {recent.length === 0 ? (
+          <Text color={C.faint}>Waiting for the first tool call</Text>
+        ) : (
+          recent.map((c, i) => (
+            <Text key={`c${c.id}`} color={c.done ? C.mid : color} wrap="truncate-end">
+              {`${i ? '    ' : ''}${c.done ? '✓' : '…'} `}
+              <Text color={c.done ? C.faint : C.ink}>{c.label}</Text>
+            </Text>
+          ))
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+const STEP = { requesting: 'Working', thinking: 'Thinking', tool: 'Running a tool', responding: 'Writing the reply' } as const
+const PHASE_LABEL = { thinking: 'think', tool: 'tools', responding: 'reply' } as const
+const MODE_COLOR = (C: ReturnType<typeof palette>) => ({ requesting: C.faint, thinking: C.accent, tool: C.info, responding: C.ink })

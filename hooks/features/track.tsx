@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { On } from 'claude-code'
 
 import type { LiveCall, TurnRecord } from '../../types'
+import { activity } from '../activity'
 import { addCall, closeTurn, endCall, totalTokens } from '../timing'
 
 export const calls = atom({ plugin: 'ccshine', key: 'calls' } as const, {})
@@ -12,6 +13,8 @@ const MAX_TURNS = 200
 const live = atom({ plugin: 'ccshine', key: 'live' } as const, {})
 // Agent rows (features/tasks.tsx); the tracker records when each agent's turn completes.
 const agents = atom({ plugin: 'ccshine', key: 'agents' } as const, [])
+// The prompt dock's turn (features/dock.tsx): each main-loop tool call drops a crate, and the turn's end sends the crab home.
+const dock = atom({ plugin: 'ccshine', key: 'dock' } as const, null)
 
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {
@@ -23,6 +26,14 @@ export function registerTrack(on: On) {
     await update($, calls, list => addCall(list, id, agentId === undefined ? { tool, startedAt } : { tool, startedAt, agentId }))
     const call: LiveCall = agentId === undefined ? { tool, input } : { tool, input, agentId }
     await update($, live, map => ({ ...map, [id]: call }))
+    if (agentId === undefined) {
+      const label = activity([call]) ?? tool
+      await update($, dock, t => {
+        if (!t || t.endedAt !== undefined) return t
+        const phases = t.phases.at(-1)?.mode === 'tool' ? t.phases : [...t.phases, { mode: 'tool' as const, at: startedAt }]
+        return { ...t, phases, calls: [...t.calls, { id, at: startedAt, label, done: false }] }
+      })
+    }
     try {
       return await next(e)
     } finally {
@@ -32,6 +43,7 @@ export function registerTrack(on: On) {
       })
       const at = await $.clock.now()
       await update($, calls, list => endCall(list, id, at))
+      if (agentId === undefined) await update($, dock, t => (t ? { ...t, calls: t.calls.map(c => (c.id === id ? { ...c, done: true } : c)) } : t))
     }
   })
 
@@ -48,6 +60,10 @@ export function registerTrack(on: On) {
     })
     if (e.isAborted) turn.aborted = true
     await update($, turns, list => [...list, turn].slice(-MAX_TURNS))
+    if (e.agentId === undefined) {
+      const endedAt = await $.clock.now()
+      await update($, dock, t => (t && t.endedAt === undefined ? { ...t, endedAt } : t))
+    }
     if (e.agentId !== undefined) {
       const id = e.agentId
       const endedAt = turn.startedAt + turn.durationMs

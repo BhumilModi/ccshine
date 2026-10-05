@@ -10,6 +10,7 @@ export type Options = {
   transcript: boolean
   chrome: boolean
   installAssets: boolean
+  dock: boolean
 }
 
 export const DEFAULTS: Options = {
@@ -24,6 +25,7 @@ export const DEFAULTS: Options = {
   transcript: true,
   chrome: true,
   installAssets: true,
+  dock: true,
 }
 
 // The engine fills defaults from plugin.json; DEFAULTS covers anything it leaves out.

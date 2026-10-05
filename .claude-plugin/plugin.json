@@ -91,6 +91,12 @@
       "title": "Install font and theme",
       "description": "Copy the bundled Maple Mono NF font and Warm Claude theme into your font and theme folders",
       "default": true
+    },
+    "dock": {
+      "type": "boolean",
+      "title": "Prompt dock",
+      "description": "The clay crab runs above the prompt while Claude works",
+      "default": true
     }
   }
 }

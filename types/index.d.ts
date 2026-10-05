@@ -46,6 +46,20 @@ export type TurnRecord = {
   aborted?: true
 }
 
+export type DockMode = 'requesting' | 'thinking' | 'tool' | 'responding'
+
+// The prompt dock's main turn (hooks/dock.ts draws it).
+export type DockTurn = {
+  startedAt: number
+  endedAt?: number
+  // When the mode changed; before the first, the turn is waiting on the API.
+  phases: { mode: DockMode; at: number }[]
+  // Main-loop tool calls: each drops a crate on the course.
+  calls: { id: string; at: number; label: string; done: boolean }[]
+  // Varies the course from turn to turn.
+  seed: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'ccshine': {
@@ -55,6 +69,7 @@ declare module 'claude-code' {
       calls: Record<string, CallTiming>
       turns: TurnRecord[]
       live: Record<string, LiveCall>
+      dock: DockTurn | null
     }
   }
 }

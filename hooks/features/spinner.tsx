@@ -12,6 +12,11 @@ const liveCalls = atom({ plugin: 'ccshine', key: 'live' } as const, {})
 export function registerSpinner(on: On) {
   // Rewrites only the message: the engine keeps drawing elapsed time and tokens after it.
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+    // The prompt dock shows the turn on the terminal, so the line would say it twice.
+    if (opts.dock && e.surface === 'terminal') {
+      const { Box } = $.ui.resolve(e)
+      return <Box />
+    }
     if (!opts.spinner || e.props.message !== null) return next(e)
     // Main-loop calls only: a running subagent's own calls belong to its Agent call.
     const live = Object.values(await read($, liveCalls)).filter(c => c.agentId === undefined)
