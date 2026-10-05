@@ -20,6 +20,8 @@ export type PlanAgent = {
   endedAt?: number
   tokens?: number
   stopped?: boolean
+  // The Agent call that spawned it: the rail row it shows on.
+  callId?: string
 }
 
 // A tool call in flight, as the spinner reads it.
@@ -30,6 +32,11 @@ export type CallTiming = {
   startedAt: number
   endedAt?: number
   agentId?: string
+  // Filled by the tracker for the rail: what the call worked on, its edit size, whether it failed.
+  target?: string
+  added?: number
+  removed?: number
+  failed?: true
 }
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
@@ -65,6 +72,54 @@ export type DockTurn = {
   aborted?: boolean
   // Every main-loop tool call this turn (calls keeps only the last 40).
   crates?: number
+}
+
+// One main-loop turn, for the rail: when it ran and what context and cost stood at either end.
+export type TurnSpan = {
+  turnId: string
+  startedAt: number
+  endedAt?: number
+  aborted?: true
+  ctxStart?: number
+  ctxEnd?: number
+  costStart?: number
+  costEnd?: number
+}
+
+// A background shell started by a Bash call; it can outlive its turn.
+export type Job = {
+  id: string
+  callId: string
+  startedAt: number
+  endedAt?: number
+  status: 'running' | 'done' | 'error' | 'killed'
+}
+
+// One rail row. from/to are fractions of the turn's window.
+export type RailRow = {
+  id: string
+  tool: string
+  target: string
+  from: number
+  to: number
+  over: boolean
+  running: boolean
+  failed: boolean
+  kind: 'tool' | 'agent' | 'job'
+  ms: number
+  added?: number
+  removed?: number
+  children?: number
+}
+
+export type RailSummary = {
+  ms: number
+  tools: number
+  agents: number
+  ctx?: [number, number]
+  cost?: number
+  files: { path: string; added: number; removed: number }[]
+  failures: { label: string; times: number }[]
 }
 
 declare module 'claude-code' {

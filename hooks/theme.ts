@@ -43,6 +43,22 @@ export function bar(fraction: number, width = 12): { filled: string; track: stri
   return { filled: '━'.repeat(full) + (half ? '╸' : ''), track: '─'.repeat(width - full - half) }
 }
 
+// The same look for a stretch of time inside a window: track, heavy line from `from` to `to`, track.
+// Ends round outward to half cells, so even a 0 ms call shows as one half cell.
+export function span(from: number, to: number, width: number): { before: string; filled: string; after: string } {
+  const a = Math.min(width * 2 - 1, Math.max(0, Math.floor(from * width * 2)))
+  const b = Math.min(width * 2, Math.max(a + 1, Math.ceil(to * width * 2)))
+  const first = a >> 1
+  const last = (b - 1) >> 1
+  let filled = ''
+  for (let cell = first; cell <= last; cell++) {
+    const left = cell * 2 >= a && cell * 2 < b
+    const right = cell * 2 + 1 >= a && cell * 2 + 1 < b
+    filled += left && right ? '━' : left ? '╸' : '╺'
+  }
+  return { before: '─'.repeat(first), filled, after: '─'.repeat(width - last - 1) }
+}
+
 export function runsWidth(runs: Run[]): number {
   return runs.reduce((n, r) => n + [...r.text].length, 0)
 }
