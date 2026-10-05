@@ -19,6 +19,7 @@ import {
 import { planBody, planHeader, planWanted, shellBody } from '../planview'
 import type { PlanData } from '../planview'
 import { fitBand } from '../layout'
+import { railSeat } from '../rail'
 import type { BandFit } from '../layout'
 import { palette } from '../theme'
 import { opts } from '../options'
@@ -224,10 +225,11 @@ export function registerTasks(on: On) {
 
 type Band = Frozen<RenderInput<'AbovePrompt'>>
 
-// The rail owns the plan while it is docked beside the chat: fullscreen and placed. A rail the person opened
-// docks at any width, so no column count decides it.
+// The rail owns the plan while it is docked beside the chat: fullscreen, placed, and not seated inline (an asked
+// rail under 110 columns sits above the prompt and draws no plan). The engine decides the floor, so no column
+// count here; a rail not drawn yet counts as docked.
 async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
-  if (!opts.rail || e.viewport?.isFullscreen !== true) return false
+  if (!opts.rail || e.viewport?.isFullscreen !== true || railSeat.placement === 'inline') return false
   try {
     return (await $.ui.panes()).some(pane => pane.id === 'tidepool-rail' && pane.isPlaced)
   } catch {

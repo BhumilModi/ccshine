@@ -9,7 +9,7 @@ import { doneCard, planBody, planHeader, planWanted, shellBody } from '../planvi
 import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
 import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
-import { pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
+import { RAIL_COLUMNS, pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
 import { palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
@@ -317,7 +317,7 @@ export function registerRail(on: On) {
   on('command.run', { command: RAIL_ID }, async $ => {
     const isOpen = (await $.ui.panes()).some(pane => pane.id === RAIL_ID)
     if (isOpen) await $.ui.close({ id: RAIL_ID })
-    else if (opts.rail) await $.ui.open({ id: RAIL_ID, title: 'tidepool' })
+    else if (opts.rail) await $.ui.open({ id: RAIL_ID, title: 'tidepool', columns: RAIL_COLUMNS })
     return { text: isOpen ? 'Tide rail closed.' : 'Tide rail open.' }
   })
 }

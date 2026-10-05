@@ -9,6 +9,10 @@ export const anchorsOnScreen = new Map<string, boolean>()
 // hand over to the rail only while it is docked beside the transcript.
 export const railSeat: { placement?: 'dock' | 'inline' } = {}
 
+// Body columns the rail asks for when it opens: enough for the timing bars (showBars) beside the targets.
+// A width the person drags the rail to wins.
+export const RAIL_COLUMNS = 48
+
 // Which call carries each turn's anchor: the first of the turn's rows that actually draws. Some tools
 // (TodoWrite, the Task tools) draw no row, so "the turn's first call" alone could leave a turn with none.
 // ponytail: first to draw keeps it; a row scrolled in later from above draws nothing rather than move the anchor.

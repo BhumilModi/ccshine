@@ -3,7 +3,7 @@ import type { EngineInterface, On } from 'claude-code'
 
 import { encodeCells, idleCells, site } from '../dock'
 import { oldStore } from '../migrate'
-import { anchorsOnScreen } from '../rail'
+import { RAIL_COLUMNS, anchorsOnScreen } from '../rail'
 import { opts } from '../options'
 import { palette } from '../theme'
 import { encodePowerShell, FONT_FILES, GHOSTTY_THEME, isWindowsRoot, setupGuide, unixTargets, windowsInstallScript } from '../setup'
@@ -132,7 +132,7 @@ export function registerStartup(on: On) {
     // A hot reload keeps the old rail open with nothing left to draw it; start from a fresh one.
     for (const pane of await $.ui.panes().catch(() => [])) if (pane.id === RAIL_ID) await $.ui.close({ id: RAIL_ID })
     await $.command.register({ name: RAIL_ID, description: 'Show or hide the Tide rail: tool calls, agents and background jobs beside the chat' })
-    if (opts.rail && opts.tools) await $.ui.open({ id: RAIL_ID, title: 'tidepool' }).catch(() => undefined)
+    if (opts.rail && opts.tools) await $.ui.open({ id: RAIL_ID, title: 'tidepool', columns: RAIL_COLUMNS }).catch(() => undefined)
     $.clock.every(1000, () => void tickRail($))
     await $.command.register({ name: STATUSLINE, description: 'Show the settings.json line that turns on the Tidepool status line' })
     await $.command.register({ name: SETUP, description: 'Install the Maple Mono NF font and Warm Claude theme, and show how to use them in your terminal' })

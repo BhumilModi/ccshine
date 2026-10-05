@@ -424,3 +424,20 @@ test('a plan finished while the rail is docked never shows ✓ Plan in the band,
   rail.placed = false
   expect(await bandText($, view)).not.toContain('Plan')
 })
+
+test('a rail seated inline above the prompt leaves the plan to the band', { options: { dock: false, usage: false } }, async ($, on) => {
+  railWorld(on)
+  await railPlan($)
+  const seat = async (placement: 'dock' | 'inline') => {
+    const pane = await $.ui.mount({
+      plugin: 'tidepool', surface: 'terminal', component: 'Pane', requestId: 'tidepool-rail',
+      props: { title: 'tidepool', isFocused: false, bodyColumns: 46, placement, scroll: { offset: 0, bodyRows: 20 }, view: {} },
+    } as never)
+    await pane.unmount()
+  }
+  const view = { columns: 100, rows: 40, isFullscreen: true }
+  await seat('inline')
+  expect(await bandText($, view)).toContain('1. schema')
+  await seat('dock')
+  expect(await bandText($, view)).not.toContain('1. schema')
+})
