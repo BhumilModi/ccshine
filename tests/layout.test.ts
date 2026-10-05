@@ -1,16 +1,16 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { PlanTask } from '../types'
-import { DOCK_ROWS, fitBand } from '../hooks/layout'
+import { dockRows, fitBand } from '../hooks/layout'
 import type { BandAsk, BandFit } from '../hooks/layout'
 import { finishedAt, topLevel, windowLines } from '../hooks/plan'
 
 const ask: BandAsk = { maxRows: 30, dock: 'live', header: true, focus: true, shell: 0, plan: 6, tails: 0, usage: 0, expanded: false }
 const rows = (a: BandAsk, f: BandFit) =>
-  DOCK_ROWS[f.dock] + (f.margin ? 1 : 0) + (f.header ? 1 : 0) + (f.focus ? 1 : 0) + f.shell + f.plan + (f.tails ? a.tails : 0) + (f.usage ? a.usage : 0)
+  dockRows(f) + (f.margin ? 1 : 0) + (f.header ? 1 : 0) + (f.focus ? 1 : 0) + f.shell + f.plan + (f.tails ? a.tails : 0) + (f.usage ? a.usage : 0)
 
 test('a roomy band keeps the full dock and every plan row', async () => {
-  expect(fitBand(ask)).toEqual({ dock: 'full', margin: true, header: true, focus: true, shell: 0, plan: 6, tails: false, usage: false })
+  expect(fitBand(ask)).toEqual({ dock: 'full', scene: 6, margin: true, header: true, focus: true, shell: 0, plan: 6, tails: false, usage: false })
 })
 
 test('a tight band drops the dock picture before the plan, and the plan rows before the dock line', async () => {
@@ -69,4 +69,13 @@ test('finishedAt is the last finish of a fully done plan, else undefined', async
   expect(finishedAt([task('a', 'completed', undefined, 5), task('b', 'completed', undefined, 9)])).toBe(9)
   expect(finishedAt([task('a', 'completed', undefined, 5), task('b', 'pending')])).toBeUndefined()
   expect(finishedAt([])).toBeUndefined()
+})
+
+test('a squeezed dock shrinks its scene to four rows before dropping it, so the crab still runs', async () => {
+  const none = { ...ask, header: false, focus: false, plan: 0 }
+  // Claude Code's task list left seven rows: status line, a four-row scene, calls line.
+  expect(fitBand({ ...none, maxRows: 7 })).toMatchObject({ dock: 'full', scene: 4 })
+  expect(fitBand({ ...none, maxRows: 9 })).toMatchObject({ dock: 'full', scene: 6 })
+  expect(fitBand({ ...none, maxRows: 6 })).toMatchObject({ dock: 'compact', scene: 0 })
+  for (let maxRows = 2; maxRows <= 12; maxRows++) expect(rows({ ...none, maxRows }, fitBand({ ...none, maxRows }))).toBeLessThanOrEqual(maxRows)
 })

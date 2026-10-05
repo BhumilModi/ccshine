@@ -17,8 +17,8 @@ export const IDLE_COLS = 14
 export const IDLE_ROWS = 3
 export const DEFAULT = 0x01000000
 
-const H = SCENE_ROWS * 2
-const GROUND_Y = H - 2
+// A scene `rows` cells tall: pixels from the top, the ground two pixels above the bottom.
+const groundOf = (rows: number) => rows * 2 - 2
 const RUN_X = 8
 const IDLE_X = 2
 const SPEED: Record<DockMode, number> = { requesting: 8, thinking: 18, tool: 34, responding: 28 } // pixels a second
@@ -148,8 +148,9 @@ export function crabBox(
   turn: DockTurn,
   now: number,
   obstacles?: Obstacle[],
+  rows = SCENE_ROWS,
 ): { left: number; top: number; bottom: number; frame: string[] } {
-  const rest = GROUND_Y - CRAB_H
+  const rest = groundOf(rows) - CRAB_H
   const box = (x: number, top: number, frame: string[]) => ({ left: Math.round(x), top: Math.round(top), bottom: Math.round(top) + frame.length - 1, frame })
   if (view.kind === 'intro') {
     // It leaves the top of the scene and arcs down onto the ground, squashing as it lands.
@@ -160,7 +161,8 @@ export function crabBox(
   if (view.kind === 'finish') {
     // Sprint through the flag, then two victory hops on the spot.
     if (view.k < RUN_IN) return box(RUN_X, rest, CRAB[Math.floor(finishScroll(view.k) / 3) % 2]!)
-    const lift = Math.round(3 * Math.abs(Math.sin(2 * Math.PI * ((view.k - RUN_IN) / (1 - RUN_IN)))))
+    // A short scene has less sky: the hops shrink to fit it.
+    const lift = Math.min(rest, Math.round(3 * Math.abs(Math.sin(2 * Math.PI * ((view.k - RUN_IN) / (1 - RUN_IN))))))
     return box(RUN_X, rest - lift, lift > 0 ? CRAB[2]! : CRAB[0]!)
   }
   if (view.kind === 'outro') {
@@ -212,8 +214,9 @@ class Pixels {
   }
 }
 
-export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: number, p: Palette): Uint32Array {
-  const px = new Pixels(cols, H)
+export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: number, p: Palette, rows = SCENE_ROWS): Uint32Array {
+  const GROUND_Y = groundOf(rows)
+  const px = new Pixels(cols, rows * 2)
   const endDist = travelled(turn, turn.endedAt ?? now)
   const dist =
     view.kind === 'work' ? travelled(turn, now)
@@ -244,7 +247,7 @@ export function sceneCells(view: DockView, turn: DockTurn, now: number, cols: nu
     const colors: Record<string, number> = { p: hex(p.mid), k: hex(p.ink), w: hex(p.segAlt) }
     FLAG.forEach((row, y) => [...row].forEach((c, x) => c !== '.' && px.put(fx + x, GROUND_Y - FLAG.length + y, colors[c]!)))
   }
-  const crab = crabBox(view, turn, now, obstacles)
+  const crab = crabBox(view, turn, now, obstacles, rows)
   if (view.kind === 'finish' && view.k >= RUN_IN) {
     const beat = Math.floor((view.k * FINISH_MS) / 150)
     SPARKS.forEach(([dx, dy], i) => (beat + i) % 2 === 0 && px.put(crab.left + dx, crab.top + dy, hex(i % 2 ? p.warn : p.accent)))
@@ -275,4 +278,4 @@ export function encodeCells(words: Uint32Array): string {
 }
 
 // The band's requestId, recorded when the band draws, so the timer can repaint its Raster.
-export const site: { id: string | undefined; cols: number | undefined } = { id: undefined, cols: undefined }
+export const site: { id: string | undefined; cols: number | undefined; rows?: number } = { id: undefined, cols: undefined }

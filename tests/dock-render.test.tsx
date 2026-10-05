@@ -199,3 +199,12 @@ test("with Claude Code's own task list leaving five rows, the idle dock label an
   expect(text).toContain('▶ 3. c')
   expect(text).not.toContain('1. a')
 })
+
+test('a band squeezed to seven rows still draws the crab, in a four-row scene', async ($, on) => {
+  const clock = engine(on)
+  await $.turn.start({ text: 'fix it', turnId: 't1' })
+  await clock.advance(2000)
+  const { rasters, text } = await band($, 'terminal', { maxRows: 7 })
+  expect(rasters.map((r: any) => r.rows)).toEqual([4])
+  expect(text).toContain('Working')
+})

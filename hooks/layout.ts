@@ -32,6 +32,8 @@ export type BandAsk = {
 
 export type BandFit = {
   dock: DockSize
+  // The running dock's scene rows: SCENE_ROWS, fewer when squeezed (at least MIN_SCENE), 0 without one.
+  scene: number
   // The blank row between the chat and the band.
   margin: boolean
   header: boolean
@@ -44,6 +46,13 @@ export type BandFit = {
 
 // The plan keeps this many of its other rows before the dock's scene, usage or output tails.
 const MIN_PLAN = 2
+// The shortest scene that still holds the crab on its ground.
+export const MIN_SCENE = 4
+
+// Rows a fitted dock takes, its blank row included.
+export function dockRows(f: BandFit): number {
+  return DOCK_ROWS[f.dock] - (f.dock === 'full' ? SCENE_ROWS - f.scene : 0)
+}
 
 // Hands out the band's rows by priority, so the tree never passes maxRows and the dock's status line
 // is never scrolled away: the dock's line, the plan header and its task, the shells, the dock's calls,
@@ -57,7 +66,7 @@ export function fitBand(a: BandAsk): BandFit {
     return true
   }
   const live = a.dock === 'live'
-  const fit: BandFit = { dock: 'none', margin: false, header: false, focus: false, shell: 0, plan: 0, tails: false, usage: false }
+  const fit: BandFit = { dock: 'none', scene: 0, margin: false, header: false, focus: false, shell: 0, plan: 0, tails: false, usage: false }
   if (a.dock !== 'none' && take(2)) fit.dock = live ? 'tiny' : 'idle-compact'
   fit.header = a.header && take(1)
   fit.focus = fit.header && a.focus && take(1)
@@ -71,7 +80,14 @@ export function fitBand(a: BandAsk): BandFit {
     fit.plan = a.expanded ? a.plan : Math.min(a.plan, MIN_PLAN, left)
     left = Math.max(0, left - fit.plan)
   }
-  if (fit.dock === 'compact' && take(SCENE_ROWS)) fit.dock = 'full'
+  // The scene shrinks before it goes: a squeezed band keeps a shorter crab run.
+  if (fit.dock === 'compact') {
+    const scene = Math.min(SCENE_ROWS, left)
+    if (scene >= MIN_SCENE && take(scene)) {
+      fit.dock = 'full'
+      fit.scene = scene
+    }
+  }
   if (fit.dock === 'idle-compact' && take(IDLE_ROWS - 1)) fit.dock = 'idle'
   fit.usage = a.usage > 0 && fit.margin && take(a.usage)
   fit.tails = a.tails > 0 && fit.shell > 0 && take(a.tails)

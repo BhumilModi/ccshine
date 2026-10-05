@@ -83,7 +83,7 @@ async function frame($: EngineInterface, own: { t?: Timer }) {
       return
     }
     // A hidden, collapsed or survey-held band refuses the repaint; keep going, it shows again on its own.
-    if (site.id && site.cols) await $.ui.blit({ requestId: site.id, key: 'dock-scene', cells: encodeCells(sceneCells(view, turn, now, site.cols, palette())) })
+    if (site.id && site.cols) await $.ui.blit({ requestId: site.id, key: 'dock-scene', cells: encodeCells(sceneCells(view, turn, now, site.cols, palette(), site.rows)) })
   } catch {
     // A failed frame is skipped; the next one tries again.
   } finally {

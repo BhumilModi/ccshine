@@ -142,3 +142,13 @@ test('score counts what the crab cleared, the crates and the time', async () => 
   expect(s.jumped).toBeGreaterThanOrEqual(5 + 2)
   expect(s.jumped).toBeLessThanOrEqual(6 + 2)
 })
+
+test('a four-row scene keeps the crab inside it, running and through the finish', async () => {
+  const t = turn({})
+  for (const view of [{ kind: 'work' as const, k: 0 }, { kind: 'finish' as const, k: 0.3 }, { kind: 'finish' as const, k: 0.9 }]) {
+    const box = crabBox(view, t, INTRO_MS + 500, undefined, 4)
+    expect(box.top).toBeGreaterThanOrEqual(0)
+    expect(box.bottom).toBeLessThanOrEqual(4 * 2 - 3)
+  }
+  expect(sceneCells({ kind: 'work', k: 0 }, t, INTRO_MS + 30, 40, P, 4).length).toBe(40 * 4 * 3)
+})

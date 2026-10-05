@@ -17,7 +17,7 @@ import {
 import { planBody, planHeader, planWanted, shellBody } from '../planview'
 import type { PlanData } from '../planview'
 import { fitBand } from '../layout'
-import type { DockSize } from '../layout'
+import type { BandFit } from '../layout'
 import { palette } from '../theme'
 import { opts } from '../options'
 import { bySource, lastTurn, wasCold } from '../usage'
@@ -202,7 +202,7 @@ export function registerTasks(on: On) {
     // The plan and the dock share the band's rows (layout.ts), so the dock is never scrolled out of sight.
     const band = e.props.hasSurvey ? null : await planBand($, e, kind)
     const alone = { maxRows: e.props.maxRows, dock: kind, header: false, focus: false, shell: 0, plan: 0, tails: 0, usage: 0, expanded: false } as const
-    const docked = docking ? await dockBand($, e, band?.dock ?? fitBand(alone).dock) : null
+    const docked = docking ? await dockBand($, e, band?.fit ?? fitBand(alone)) : null
     if (!docked) {
       site.id = undefined
       return band?.el ?? next(e)
@@ -228,7 +228,7 @@ async function railDocked($: EngineInterface, e: Band): Promise<boolean> {
 
 // The plan, its agents, running shells and the usage rows, fitted with the dock into the band's rows.
 // Null when there is nothing to show; `dock` is the size the dock should draw at.
-async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' | 'live'): Promise<{ el: RenderElement | null; dock: DockSize } | null> {
+async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' | 'live'): Promise<{ el: RenderElement | null; fit: BandFit } | null> {
   const list = await read($, tasks)
   const turnList = await read($, turns)
   const last = lastTurn(turnList)
@@ -292,14 +292,14 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
   const shell = fit.shell > 1 ? <Box key="shell" flexDirection="column">{shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails)}</Box> : null
   const usage = fit.usage && usageRows.length ? <Box key="usage" flexDirection="column">{usageRows}</Box> : null
   const band = (rows: (RenderElement | null | undefined)[]) => ({
-    dock: fit.dock,
+    fit,
     el: (
       <Box flexDirection="column" marginTop={fit.margin ? 1 : 0} paddingLeft={1}>
         {rows}
       </Box>
     ),
   })
-  if (!showTasks || !fit.header) return shell || usage ? band([shell, usage]) : { el: null, dock: fit.dock }
+  if (!showTasks || !fit.header) return shell || usage ? band([shell, usage]) : { el: null, fit }
 
   const body = planBody(ui, C, d, fit.focus ? fit.plan + 1 : 0)
   // The header reads the whole list for its count, even once the plan is finished.
@@ -338,7 +338,8 @@ const KEYS = [['⏎', 'send'], ['/', 'commands'], ['@', 'files'], ['?', 'shortcu
 
 // The prompt dock: the crab's corner and the prompt label when idle; the step, the scene and the calls while a turn runs.
 // A compact size (layout.ts, when the plan needs the rows) keeps the label, or the step and calls, without the picture.
-async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<RenderElement> {
+async function dockBand($: EngineInterface, e: Band, fit: BandFit): Promise<RenderElement> {
+  const size = fit.dock
   const { Box, Text, Raster } = $.ui.resolve(e) as ReturnType<EngineInterface['ui']['resolve']> & { Raster: (props: Record<string, unknown>) => RenderElement }
   const C = palette()
   await read($, tick)
@@ -382,7 +383,10 @@ async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<Re
   }
   const compact = size === 'compact' || size === 'tiny'
   const cols = Math.max(20, Math.min(SCENE_MAX, e.props.bodyColumns - 2))
+  // A squeezed band draws a shorter scene (layout.ts); the dock's frame loop paints at the same height.
+  const rows = fit.scene || SCENE_ROWS
   site.cols = compact ? undefined : cols
+  site.rows = rows
   const mode = modeAt(turn, now)
   const live = Object.values(await read($, liveCalls)).filter(c => c.agentId === undefined)
   const ending = view.kind === 'finish' || view.kind === 'outro'
@@ -406,7 +410,7 @@ async function dockBand($: EngineInterface, e: Band, size: DockSize): Promise<Re
           ])}
         {!result && <Text color={C.mid} wrap="truncate-end">{`   ${fmtClock((turn.endedAt ?? now) - turn.startedAt)}`}</Text>}
       </Box>
-      {!compact && <Raster key="dock-scene" columns={cols} rows={SCENE_ROWS} cells={encodeCells(sceneCells(view, turn, now, cols, C))} />}
+      {!compact && <Raster key="dock-scene" columns={cols} rows={rows} cells={encodeCells(sceneCells(view, turn, now, cols, C, rows))} />}
       {size !== 'tiny' && <Box>
         {recent.length === 0 ? (
           <Text color={C.faint} wrap="truncate-end">Waiting for the first tool call</Text>
