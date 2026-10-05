@@ -1,8 +1,13 @@
 import { atom, read, update } from 'claude-code'
-import type { On, RenderChildren } from 'claude-code'
+import type { EngineInterface, Frozen, On, RenderChildren, RenderElement, RenderInput } from 'claude-code'
 
 import type { RailRow } from '../../types'
+import { fitBand } from '../layout'
 import { opts } from '../options'
+import { AGENT_LINGER_MS, agentRows, finishedAt, historyFor, topLevel } from '../plan'
+import { planBody, planHeader, planWanted, shellBody } from '../planview'
+import type { PlanData } from '../planview'
+import { lastLine, shellRows } from '../shell'
 import { pickTurn, railRows, railSeat, railSummary, showBars, turnWindow } from '../rail'
 import { gauge, palette, span } from '../theme'
 import { fmtShort } from '../tools'
@@ -20,6 +25,14 @@ const open = atom({ plugin: 'tidepool', key: 'railOpen' } as const, [])
 const now = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
 // Anchor rows on screen, by turn (features/tools.tsx writes it).
 const seen = atom({ plugin: 'tidepool', key: 'anchorsSeen' } as const, {})
+// The plan the docked rail owns (features/tasks.tsx writes these; its 1s tick redraws live timers).
+const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
+const turns = atom({ plugin: 'tidepool', key: 'turns' } as const, [])
+const live = atom({ plugin: 'tidepool', key: 'live' } as const, {})
+const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
+const planAll = atom({ plugin: 'tidepool', key: 'planAll' } as const, false)
+const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
+const MAX_SHELL_ROWS = 4
 
 const TOOL = 6
 const META = 13
@@ -39,6 +52,86 @@ function columns(width: number, bars: boolean): { target: number; bar: number } 
 function timing(r: RailRow): string {
   if (r.kind === 'job' && r.running) return `running · ${fmtShort(r.ms)}`
   return r.running ? `${fmtShort(r.ms)} …` : fmtShort(r.ms)
+}
+
+const TAIL_EVERY_MS = 2000
+const MAX_TAIL_BYTES = 4 * 1024 * 1024
+const tails = new Map<string, { at: number; line?: string }>()
+
+// A background job's newest output line, re-read at most every 2s (the band keeps its own copy: `$` stays in-file).
+async function tailLine($: EngineInterface, path: string, at: number): Promise<string | undefined> {
+  const known = tails.get(path)
+  if (known && at - known.at < TAIL_EVERY_MS) return known.line
+  let line: string | undefined
+  try {
+    const { size } = await $.fs.stat(path)
+    if (size <= MAX_TAIL_BYTES) line = lastLine(String(await $.fs.read(path)))
+  } catch {
+    line = undefined
+  }
+  tails.set(path, { at, ...(line === undefined ? {} : { line }) })
+  return line
+}
+
+type PaneInput = Frozen<RenderInput<'Pane'>>
+
+// The plan section pinned to the docked rail's bottom: a rule, the Plan header, the plan's lines around the
+// running task, then the shells. At most half the rail's rows unless showing all. Null when there is nothing.
+async function planSection($: EngineInterface, e: PaneInput, width: number): Promise<{ el: RenderElement; rows: number } | null> {
+  await read($, tick)
+  const at = await $.clock.now()
+  const list = await read($, tasks)
+  const doneAt = finishedAt(topLevel(list))
+  const showTasks = opts.tasks && topLevel(list).length > 0 && (doneAt === undefined || at - doneAt < AGENT_LINGER_MS)
+  const shells = opts.tasks ? shellRows(await read($, calls), await read($, live), await read($, jobs), at).slice(-MAX_SHELL_ROWS) : []
+  if (!showTasks && shells.length === 0) return null
+  const ui = $.ui.resolve(e)
+  const { Box, Text } = ui
+  const C = palette()
+  const said: Record<string, string> = {}
+  for (const r of shells) {
+    if (r.status !== 'running' || r.outputFile === undefined) continue
+    const line = await tailLine($, r.outputFile, at)
+    if (line) said[r.outputFile] = line
+  }
+  const d: PlanData = {
+    tasks: showTasks && doneAt === undefined ? list : [],
+    agents: agentRows(await read($, agents), await read($, turns)),
+    shells,
+    tails: said,
+    shellHistory: (await read($, shellHistory)) ?? {},
+    planHistory: historyFor(await $.store.get('history-by-project'), await $.session.root()),
+    now: at,
+    all: await read($, planAll),
+  }
+  const want = planWanted(d)
+  // The rule above the section stands in for the band's blank row.
+  const fit = fitBand({
+    maxRows: d.all ? Number.MAX_SAFE_INTEGER : Math.floor(e.props.scroll.bodyRows / 2),
+    dock: 'none',
+    header: showTasks,
+    focus: want.focus,
+    shell: want.shell,
+    plan: want.plan,
+    tails: want.tails,
+    usage: 0,
+    expanded: d.all,
+  })
+  const out: RenderElement[] = []
+  if (fit.margin) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
+  if (fit.header) {
+    const body = planBody(ui, C, d, fit.focus ? fit.plan + 1 : 0)
+    out.push(
+      planHeader(ui, C, { ...d, tasks: list }, {
+        surface: e.surface,
+        columns: width + 2,
+        toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
+      }),
+      ...body.rows,
+    )
+  }
+  if (fit.shell > 1) out.push(...shellBody(ui, C, { ...d, shells: shells.slice(-(fit.shell - 1)) }, fit.tails))
+  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length }
 }
 
 export function registerRail(on: On) {
@@ -88,12 +181,18 @@ export function registerRail(on: On) {
         <Text color={C.faint}>{follow}</Text>
       </Box>
     )
-    if (!turn) return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>])
+    const section = isInline ? null : await planSection($, e, width)
+    const bottom = section ? [<Box key="gap" flexGrow={1} />, section.el] : []
+    if (!turn) return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>, ...bottom])
 
     const { start, end } = turnWindow(turn, turn.endedAt ?? clock)
     const allCalls = await read($, calls)
     const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
-    const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : 0
+    const sum = railSummary(all, turn, clock)
+    // Docked, the tool rows take what the brand, title, footer and plan section leave; the "earlier" marker takes one.
+    const footRows = (showBars(p.bodyColumns) && all.length > 0 ? 1 : 0) + 3 + (sum.ctx ? 1 : 0) + sum.files.length + sum.failures.length
+    const budget = p.scroll.bodyRows - 4 - footRows - (section?.rows ?? 0)
+    const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : all.length > budget ? all.length - Math.max(0, budget - 1) : 0
     const rows = all.slice(hidden)
     const opened = await read($, open)
     const bars = showBars(p.bodyColumns)
@@ -114,7 +213,7 @@ export function registerRail(on: On) {
     )
 
     const body = []
-    if (rows.length === 0) body.push(<Text key="empty" color={C.faint}>no tools this turn</Text>)
+    if (all.length === 0) body.push(<Text key="empty" color={C.faint}>no tools this turn</Text>)
     if (hidden) body.push(<Text key="earlier" color={C.faint}>{`${' '.repeat(TOOL + 1)}${hidden} earlier`}</Text>)
     for (const r of rows) {
       const color = r.failed ? C.crit : r.kind === 'job' ? C.warn : r.kind === 'agent' ? C.info : r.running ? C.mid : C.soft
@@ -165,7 +264,6 @@ export function registerRail(on: On) {
       foot.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
     }
     if (!isInline) {
-      const sum = railSummary(all, turn, clock)
       const label = (text: string, color = C.faint) => <Box flexShrink={0}><Text color={color}>{text.padEnd(TOOL)}</Text></Box>
       foot.push(<Text key="rule" color={C.track}>{'╌'.repeat(width)}</Text>)
       if (sum.ctx) {
@@ -216,6 +314,7 @@ export function registerRail(on: On) {
       title,
       <Box key="rows" flexDirection="column" marginTop={1}>{body}</Box>,
       <Box key="foot" flexDirection="column" marginTop={1}>{foot}</Box>,
+      ...bottom,
     ])
   })
 

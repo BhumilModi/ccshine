@@ -48,9 +48,9 @@ const complete = (turnId: string, extra: Record<string, unknown> = {}) => ({
   answer: 'ok', durationMs: 1, isAborted: false, turnId, reason: 'answer' as const, ...extra,
 })
 
-const pane = (placement: 'dock' | 'inline' = 'dock', bodyColumns = 46) => ({
+const pane = (placement: 'dock' | 'inline' = 'dock', bodyColumns = 46, bodyRows = 40) => ({
   plugin: 'tidepool', surface: 'terminal', component: 'Pane', requestId: 'tidepool-rail',
-  props: { title: 'tidepool', isFocused: false, bodyColumns, placement, scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  props: { title: 'tidepool', isFocused: false, bodyColumns, placement, scroll: { offset: 0, bodyRows }, view: {} },
 }) as const
 
 const textOf = async (ui: any) =>
@@ -246,4 +246,82 @@ test('fixed-width pieces never shrink, so a narrow rail truncates instead of wra
   const fixed = (await ui.findAll({ type: 'Box' })).filter((b: any) => b.props.flexShrink === 0)
   // The turn line, each tool row, and the summary labels.
   expect(fixed.length).toBeGreaterThan(4)
+})
+
+// A plan of `n` tasks named "task 1".., with task `running` in progress.
+async function plan($: any, w: World, n: number, running = 1) {
+  for (let i = 1; i <= n; i++) {
+    await call($, w, `tc${i}`, 'TaskCreate', { subject: `task ${i}`, description: '' }, 0, { result: { task: { id: `t${i}`, subject: `task ${i}` } } })
+  }
+  await call($, w, 'tu-run', 'TaskUpdate', { taskId: `t${running}`, status: 'in_progress' }, 0, { result: { success: true } })
+}
+
+async function bashes($: any, w: World, n: number) {
+  for (let i = 0; i < n; i++) await call($, w, `sh${i}`, 'Bash', { command: `echo ${i}`, description: `step ${i}` }, 10)
+}
+
+test('rail draws the plan below its footer', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 3, 2)
+  const text = await textOf(await $.ui.mount(pane()))
+  expect(text).toContain(' Plan ')
+  expect(text).toContain('▶ |2. task 2')
+  expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('cost'))
+})
+
+test('rail plan stays within half its height', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 20)
+  const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
+  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(10)
+  expect(text).toContain('more')
+})
+
+test('tool rows trim to make room for the plan', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'build', turnId: 't1' })
+  await bashes($, w, 30)
+  await plan($, w, 6)
+  const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
+  expect(text).toContain(' earlier')
+  expect(text).toContain(' Plan ')
+})
+
+test('inline rail draws no plan', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'build', turnId: 't1' })
+  await plan($, w, 3)
+  expect(await textOf(await $.ui.mount(pane('inline')))).not.toContain(' Plan ')
+})
+
+test('show all draws every plan line in the rail', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 20)
+  const ui = await $.ui.mount(pane('dock', 46, 24))
+  expect(await textOf(ui)).not.toContain('20. task 20')
+  await ui.press({ key: 'all' })
+  expect(await textOf(ui)).toContain('20. task 20')
+})
+
+test('a docked rail with only a shell shows the shell section', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'serve', turnId: 't1' })
+  await call($, w, 'bg1', 'Bash', { command: 'pnpm dev', description: 'Dev server', run_in_background: true }, 0, { result: { backgroundTaskId: 'j1' } })
+  const text = await textOf(await $.ui.mount(pane()))
+  expect(text).toContain('shell')
+  expect(text).toContain('Dev server')
+  expect(text).not.toContain(' Plan ')
+})
+
+test('a short rail keeps the plan header and the running task', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'build', turnId: 't1' })
+  await bashes($, w, 20)
+  await plan($, w, 10, 5)
+  const text = await textOf(await $.ui.mount(pane('dock', 46, 8)))
+  expect(text).toContain(' Plan ')
+  expect(text).toContain('▶ |5. task 5')
 })

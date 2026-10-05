@@ -180,3 +180,12 @@ export function windowLines<T>(lines: T[], focus: number, room: number): { start
   const start = Math.min(Math.max(1, body > 1 ? focus - 1 : focus), len - body - 1)
   return { start, shown: lines.slice(start, start + body), before: start, after: len - start - body }
 }
+
+// Past plans' task durations for a project root, from the store's `history-by-project`;
+// a project with none borrows every project's.
+export function historyFor(saved: unknown, root: string): number[] {
+  if (!saved || typeof saved !== 'object') return []
+  const by = saved as Record<string, unknown>
+  const nums = (v: unknown) => (Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : [])
+  return by[root] !== undefined ? nums(by[root]) : Object.values(by).flatMap(nums)
+}
