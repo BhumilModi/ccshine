@@ -114,10 +114,16 @@ function playDone($: EngineInterface, doneAt: number) {
   })
 }
 
+// Applies `change` to the latest list inside the update: task calls sent together run side by side, and a
+// read-then-write would let one overwrite the other.
 async function apply($: EngineInterface, change: (list: PlanTask[]) => PlanTask[]) {
-  const before = await read($, tasks)
-  const after = change(before)
-  await update($, tasks, () => after)
+  let before: PlanTask[] = []
+  let after: PlanTask[] = []
+  await update($, tasks, list => {
+    before = list
+    after = change(list)
+    return after
+  })
   const doneAt = finishedAt(topLevel(after))
   if (opts.rail && finishedAt(topLevel(before)) === undefined && doneAt !== undefined) playDone($, doneAt)
   const finished = newlyDone(topLevel(before), topLevel(after))

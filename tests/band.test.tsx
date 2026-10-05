@@ -346,3 +346,53 @@ test('band takes the plan back when the rail is no longer placed', { options: { 
   expect(text).toContain('1. schema')
   expect(text).toContain('shell')
 })
+
+test('two task updates sent together both land', { options: { dock: false, usage: false } }, async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }))
+  on('tool.call', { tool: 'TaskUpdate' }, (_$, e) => ({ result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }))
+  await Promise.all([
+    $.tool.call({ tool: 'TaskCreate', subject: 'one', description: '' }),
+    $.tool.call({ tool: 'TaskCreate', subject: 'two', description: '' }),
+    $.tool.call({ tool: 'TaskCreate', subject: 'three', description: '' }),
+  ])
+  await $.tool.call({ tool: 'TaskUpdate', taskId: 'one', status: 'in_progress' })
+  await Promise.all([
+    $.tool.call({ tool: 'TaskUpdate', taskId: 'one', status: 'completed' }),
+    $.tool.call({ tool: 'TaskUpdate', taskId: 'two', status: 'completed' }),
+  ])
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
+  const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  await ui.unmount()
+  expect(text).toContain(' 2/3 ')
+  expect(text).toContain('3. three')
+})
+
+test('two shells finishing together both teach the ETA', { options: { dock: false, usage: false } }, async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000_000 })
+  mock.store(on)
+  on('session.root', () => ({ value: '/repo/a' }))
+  on('ui.render', { component: 'AbovePrompt' }, ($e: any, e: any) => {
+    const { Text } = $e.ui.resolve(e)
+    return <Text>ENGINE</Text>
+  })
+  on('tool.call', { tool: 'Bash' }, async () => {
+    await clock.sleep(20_000)
+    return { result: {} }
+  })
+  const run = (id: string, command: string) => $.tool.call({ tool: 'Bash', tool_use_id: id, command, description: command })
+  const first = [run('a1', 'npm test'), run('b1', 'npm run lint')]
+  await clock.advance(20_000)
+  await Promise.all(first)
+  await clock.advance(40_000)
+  const again = [run('a2', 'npm test'), run('b2', 'npm run lint')]
+  await clock.advance(5_000)
+  const ui = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', ...BAND })
+  const text = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  await ui.unmount()
+  expect(text.match(/~15s left/g)?.length).toBe(2)
+  await clock.advance(20_000)
+  await Promise.all(again)
+})
