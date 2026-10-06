@@ -83,16 +83,23 @@ The pull request badge needs the [GitHub CLI](https://cli.github.com/) (`gh`), l
 
 When Tidepool updates, its install folder changes. If your status line still points at the old one, Tidepool shows a reminder at startup: run `/tidepool-statusline` again and paste the new block.
 
-**3. Let Claude keep a task list (needed on current models).** The plan comes from Claude's task tools (`TaskCreate`, `TaskUpdate`, `TodoWrite`). Claude Code 2.1.289 only turns them on by default for older models, so on Claude 5 models there is no task list and the plan never shows. Add this to `~/.claude/settings.json` and start a new session:
+**3. Let Claude keep a task list (needed on current models).** The plan comes from Claude's task tools (`TaskCreate`, `TaskUpdate`, `TodoWrite`). Claude Code 2.1.289 only turns them on by default for older models, so on Claude 5 models there is no task list and the plan never shows. Add this to `~/.claude/settings.json`, merging it into your existing `env` rather than replacing it:
 
 ```json
 {
-  "env": { "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" },
+  "env": { "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1" }
+}
+```
+
+Then hide Claude Code's own task panel, which otherwise opens above the prompt on every task change, duplicates the plan and leaves the prompt dock too little room. Setting `todoFeatureEnabled` in `settings.json` does not hide it. Set it in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), which is where `/config` saves it:
+
+```json
+{
   "todoFeatureEnabled": false
 }
 ```
 
-The first line turns the task tools on. The second hides Claude Code's own task panel, which otherwise opens above the prompt on every task change, duplicates the plan and leaves the prompt dock too little room. Merge both into your existing `env` and settings rather than replacing them. The task tools keep working with the panel hidden.
+Add the key to the existing file rather than replacing it, then start a new session. The task tools keep working with the panel hidden.
 
 **4. Set up your terminal.** The first session after install copies the Maple Mono NF font and the terminal colour themes onto your machine, but no terminal lets a plugin switch to them. Follow [Set up your terminal](#set-up-your-terminal) for yours: Ghostty, iTerm2, macOS Terminal, VS Code or Cursor, JetBrains, Windows Terminal, kitty, WezTerm, Alacritty, Warp and Orca each have their own steps there. Then run the [checks](#check-your-setup).
 
@@ -378,7 +385,7 @@ Open `/config` and find the Tidepool rows. Every switched-off feature leaves Cla
 
 - **Tasks band empty?** It only shows while Claude has a task list. Ask for a plan, or anything with several steps. On Claude 5 models it also needs `CLAUDE_CODE_ENABLE_TODO_TOOLS` (install step 3); without it Claude has no task tools.
 - **Sub-items** are tasks Claude creates with `metadata: { parent: "<task id>" }`. They nest under their task and do not count toward the plan's progress or time left. Tell Claude to use them (for example in your `CLAUDE.md`) if you want steps inside a task.
-- **The crab looks squeezed?** Claude Code's own task panel shares the space above the prompt. Hide it with `"todoFeatureEnabled": false` (install step 3). When space is short the scene shrinks to four rows before it drops, and the dock's status line always stays.
+- **The crab looks squeezed?** Claude Code's own task panel shares the space above the prompt. Hide it with `"todoFeatureEnabled": false` in `~/.claude.json`, not `settings.json` (install step 3). When space is short the scene shrinks to four rows before it drops, and the dock's status line always stays.
 - **The prompt dock** is drawn in half-block pixels, so it looks best with a Nerd Font such as the bundled Maple Mono NF. Collapse it with ctrl+x ctrl+a, or switch it off in `/config` to get Claude Code's spinner back.
 - **Token counts look large.** A turn's tokens add up every request in that turn, and each request re-reads the cached context. That is how Claude Code bills usage, which is why the cache state matters.
 - **No chime?** Sounds play through `afplay` on macOS. Linux and Windows get the toast only.
