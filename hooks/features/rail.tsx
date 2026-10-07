@@ -11,7 +11,8 @@ import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
 import { RAIL_COLUMNS, pickTurn, railRows, railSeat, railSummary, sections, showBars, turnOfCall, turnWindow } from '../rail'
 import type { SectionName } from '../rail'
 import { diffEdits, fileRows, relPath } from '../files'
-import { palette, span } from '../theme'
+import { glyphsOn, palette, powerline, runsWidth, span } from '../theme'
+import type { Segment } from '../theme'
 import { fmtShort } from '../tools'
 
 export const RAIL_ID = 'tidepool-rail'
@@ -269,6 +270,32 @@ export function registerRail(on: On) {
       await update($, railCollapsed, () => flipped)
       await $.store.set('rail-collapsed', flipped)
     }
+    // A folded or empty section's name sits in the muted segment colours instead of the accent.
+    const muted = { ...C, accent: C.segAlt, onAccent: C.faint }
+    // A section header: its fold mark (the Button; a Button takes no colours), then the powerline pill the Plan
+    // header and the status line use, dropping segments from the right rather than wrapping.
+    const header = (name: SectionName, label: string, open: boolean, empty: boolean, rest: Segment[], after?: RenderElement | null) => {
+      const P = open && !empty ? C : muted
+      let segs: Segment[] = [{ bg: P.accent, parts: [{ text: ` ${label} `, color: P.onAccent, bold: true }] }, ...rest]
+      const glyphs = glyphsOn(e.surface)
+      while (segs.length > 1 && runsWidth(powerline(segs, glyphs)) > width - 2) segs = segs.slice(0, -1)
+      const runs = powerline(segs, glyphs)
+      const nameAt = glyphs ? 1 : 0
+      return (
+        <Box key={`sec-${name}`} flexDirection="row" height={1}>
+          <Box flexShrink={0}>
+            <Button key={`sec:${name}`} plain onPress={() => flip(name, empty)}>{open && !empty ? '▾' : '▸'}</Button>
+            <Text> </Text>
+            {runs.map((run, i) => (
+              <Text key={`pill-${name}-${i === nameAt ? 'name' : i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
+                {run.text}
+              </Text>
+            ))}
+          </Box>
+          {after}
+        </Box>
+      )
+    }
     const plan = await planData($, new Set(all.filter(r => r.kind === 'agent').map(r => r.id)))
     const root = await $.session.root().catch(() => '')
     const turnIds = new Set(all.map(r => r.id))
@@ -282,12 +309,18 @@ export function registerRail(on: On) {
 
     const out: RenderElement[] = [brand]
     // Timeline.
-    out.push(
-      <Box key="sec-timeline" flexDirection="row" height={1}>
-        <Button key="sec:timeline" plain onPress={() => flip('timeline', !turn)}>{`${rows.timeline ? '▾ ' : '▸ '}timeline`}</Button>
-        {turnLine(' · ')}
-      </Box>,
-    )
+    const timelineSegs: Segment[] = !turn
+      ? [{ bg: C.seg, parts: [{ text: ' no turns yet ', color: C.faint }] }]
+      : [
+          { bg: C.seg, parts: [{ text: ` turn ${list.indexOf(turn) + 1} `, color: C.ink }] },
+          ...(state === 'live' ? [{ bg: C.seg, parts: [{ text: '● live ', color: C.accent }] }] : []),
+          ...(state === 'stopped' ? [{ bg: C.seg, parts: [{ text: 'stopped ', color: C.warn }] }] : []),
+          { bg: C.segAlt, parts: [{ text: ` ${fmtShort(end - start)} `, color: C.ink }] },
+        ]
+    const prompt = turn?.prompt ? <Text key="prompt" color={C.faint} wrap="truncate-end">{`  ${turn.prompt}`}</Text> : null
+    const timelineHeader = header('timeline', 'Timeline', rows.timeline > 0, !turn, timelineSegs, prompt)
+    // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
+    out.push(turn ? <Box key="sec-timeline-hover" hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>{timelineHeader}</Box> : timelineHeader)
     if (rows.timeline) out.push(<Box key="timeline" flexDirection="column">{await toolRows(rows.timeline)}</Box>)
 
     // Plan.
@@ -320,9 +353,12 @@ export function registerRail(on: On) {
     const added = files.reduce((n, f) => n + f.added, 0)
     const removed = files.reduce((n, f) => n + f.removed, 0)
     out.push(
-      <Button key="sec:files" plain onPress={() => flip('files', files.length === 0)}>
-        {files.length === 0 ? '▸ files · none this turn' : `${rows.files ? '▾ ' : '▸ '}files · ${files.length} changed · +${added} −${removed}`}
-      </Button>,
+      header('files', 'Files', rows.files > 0, files.length === 0, files.length === 0
+        ? [{ bg: C.seg, parts: [{ text: ' none this turn ', color: C.faint }] }]
+        : [
+            { bg: C.seg, parts: [{ text: ` ${files.length} changed `, color: C.ink }] },
+            { bg: C.segAlt, parts: [{ text: ` +${added}`, color: C.info }, { text: ` −${removed} `, color: C.crit }] },
+          ]),
     )
     if (rows.files) {
       const shown = files.length <= rows.files ? files : files.slice(0, Math.max(0, rows.files - 1))

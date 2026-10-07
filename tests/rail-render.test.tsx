@@ -352,7 +352,9 @@ test('a finished plan shows the done card with its crab, then folds away after 3
   await call($, w, 'tu-done2', 'TaskUpdate', { taskId: 't2', status: 'completed' }, 0, { result: { success: true } })
   const ui = await $.ui.mount(pane())
   const text = await textOf(ui)
-  expect(text).toContain('✓ Plan complete')
+  // The header pill says the plan is done; the card under it no longer repeats it.
+  expect(text).toContain(' ✓ Plan ')
+  expect(text).not.toContain('Plan complete')
   expect(text).toContain('★ 2 tasks · 1m')
   expect(text).not.toContain('1. task 1')
   expect((await ui.findAll({ type: 'Raster' })).map((r: any) => [r.props.columns, r.props.rows])).toEqual([[14, 4]])
@@ -421,6 +423,15 @@ async function editTurn($: any, w: World, file = '/repo/src/a.ts') {
   await call($, w, 'e1', 'Edit', { file_path: file, old_string: 'x', new_string: 'y\nz' }, 100, { result: { filePath: file, structuredPatch: patch } })
 }
 
+// A section header: its fold Button's mark and the pill's text beside it.
+const header = async (ui: any, name: string) => {
+  const mark = (await ui.find({ type: 'Button', key: `sec:${name}` }))?.text
+  const box = await ui.find({ type: 'Box', key: `sec-${name}` })
+  const texts = (node: any): string[] => (node?.children ?? []).flatMap((c: any) => (typeof c === 'string' ? [c] : c.type === 'Button' ? [] : texts(c)))
+  // Powerline caps and arrows are private-use glyphs; the test reads the words.
+  return `${mark}${texts(box).join('')}`.replace(/[\uE000-\uF8FF]/g, '')
+}
+
 const sectionKeys = async (ui: any) => (await ui.findAll({ type: 'Button' })).map((b: any) => b.key).filter((k: unknown) => typeof k === 'string' && k.startsWith('sec:'))
 
 test('docked rail draws timeline, plan and files headers in order', OFF, async ($, on) => {
@@ -429,11 +440,10 @@ test('docked rail draws timeline, plan and files headers in order', OFF, async (
   await plan($, w, 3, 2)
   const ui = await $.ui.mount(pane())
   expect(await sectionKeys(ui)).toEqual(['sec:timeline', 'sec:plan', 'sec:files'])
-  const text = await textOf(ui)
-  expect(text).toContain('▾ timeline')
-  expect(text).toContain(' Plan ')
-  expect(text).toContain('▾ files · 1 changed · +2 −1')
-  expect(text).toContain('src/a.ts')
+  expect(await header(ui, 'timeline')).toContain('▾  Timeline  turn 1 ')
+  expect(await header(ui, 'plan')).toContain(' Plan ')
+  expect(await header(ui, 'files')).toContain('▾  Files  1 changed  +2 −1 ')
+  expect(await textOf(ui)).toContain('src/a.ts')
 })
 
 test('pressing a header collapses its section and the others take its rows', OFF, async ($, on) => {
@@ -448,12 +458,12 @@ test('pressing a header collapses its section and the others take its rows', OFF
   const ui = await $.ui.mount(pane())
   await ui.press({ key: 'sec:timeline' })
   let text = await textOf(ui)
-  expect(text).toContain('▸ timeline')
+  expect(await header(ui, 'timeline')).toContain('▸  Timeline ')
   expect(text).not.toContain('Read ')
   expect(written.railCollapsed).toEqual(['timeline'])
   await ui.press({ key: 'sec:timeline' })
   text = await textOf(ui)
-  expect(text).toContain('▾ timeline')
+  expect(await header(ui, 'timeline')).toContain('▾  Timeline ')
   expect(text).toContain('Read ')
 })
 
@@ -463,15 +473,14 @@ test('a collapsed section stays collapsed in the next session', OFF, async ($, o
   await start($)
   await editTurn($, w)
   const ui = await $.ui.mount(pane())
-  expect(await textOf(ui)).toContain('▸ files · 1 changed')
+  expect(await header(ui, 'files')).toContain('▸  Files  1 changed ')
   expect(await ui.find({ type: 'Button', key: 'file:/repo/src/a.ts' })).toBeUndefined()
 })
 
 test('an empty files section folds', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
-  const text = await textOf(await $.ui.mount(pane()))
-  expect(text).toContain('▸ files · none this turn')
+  expect(await header(await $.ui.mount(pane()), 'files')).toContain('▸  Files  none this turn ')
 })
 
 test('a long path keeps its counts whole', OFF, async ($, on) => {
@@ -561,7 +570,7 @@ test('a file edited in two turns lists and diffs only the rail\'s turn', OFF, as
   await anchor.press({ key: 'anchor' })
   const ui = await $.ui.mount(pane())
   expect(await textOf(ui)).toContain('pinned')
-  expect(await textOf(ui)).toContain('▾ files · 1 changed · +2 −1')
+  expect(await header(ui, 'files')).toContain('▾  Files  1 changed  +2 −1 ')
   await ui.press({ key: 'file:/repo/src/a.ts' })
   const diff = await $.ui.mount(diffPane)
   expect(await textOf(diff)).toContain('edit 1 of 1')
@@ -579,5 +588,14 @@ test('pressing an empty section\'s header does not collapse it', OFF, async ($, 
   const ui = await $.ui.mount(pane())
   await ui.press({ key: 'sec:files' })
   expect(written.railCollapsed).toBeUndefined()
-  expect(await textOf(ui)).toContain('▸ files · none this turn')
+  expect(await header(ui, 'files')).toContain('▸  Files  none this turn ')
+})
+
+test('a folded section\'s name is muted, an open one is in the accent colour', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  const ui = await $.ui.mount(pane())
+  const name = async (label: string) => (await ui.findAll({ type: 'Text' })).find((t: any) => t.text === ` ${label} `)?.props.backgroundColor
+  expect(await name('Timeline')).toBeDefined()
+  expect(await name('Timeline')).not.toBe(await name('Files'))
 })

@@ -111,7 +111,7 @@ export function planHeader(
   ui: PlanUi,
   C: Palette,
   d: PlanData,
-  o: { surface: string; columns: number; toggle?: { hidden: number; onPress: () => void } },
+  o: { surface: string; columns: number; toggle?: { hidden: number; onPress: () => void }; keys?: string },
 ): RenderElement {
   const { Box, Text, Button } = ui
   const top = topLevel(d.tasks)
@@ -137,7 +137,7 @@ export function planHeader(
   return (
     <Box key="header">
       {runs.map((run, i) => (
-        <Text key={`h${i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
+        <Text key={`${o.keys ?? 'h'}${i}`} color={run.color} backgroundColor={run.backgroundColor} bold={run.bold}>
           {run.text}
         </Text>
       ))}
@@ -239,8 +239,8 @@ function drawShell(ui: PlanUi, C: Palette, d: PlanData, r: ShellRow, indent: str
   )
 }
 
-// A finished plan's card: the crab (a Raster the caller draws and animates), "✓ Plan complete", then the count
-// of tasks and sub-items with the total time, and the fastest and longest task.
+// A finished plan's card under its `✓ Plan` header: the crab (a Raster the caller draws and animates), then the
+// count of tasks and sub-items with the total time, and the fastest and longest task.
 export function doneCard(ui: PlanUi, C: Palette, tasks: PlanTask[], crab: RenderElement): RenderElement {
   const { Box, Text } = ui
   const s = planStats(tasks)
@@ -251,10 +251,6 @@ export function doneCard(ui: PlanUi, C: Palette, tasks: PlanTask[], crab: Render
     <Box key="done" flexDirection="row">
       {crab}
       <Box flexDirection="column" paddingLeft={2}>
-        <Box>
-          <Text color={C.accent} bold>✓ Plan complete</Text>
-          <Text color={C.mid} wrap="truncate-end">{`  ${'▚▞'.repeat(6)}`}</Text>
-        </Box>
         <Text color={C.ink} wrap="truncate-end">{`★ ${count}`}</Text>
         {pace ? <Text color={C.faint} wrap="truncate-end">{pace}</Text> : null}
       </Box>
