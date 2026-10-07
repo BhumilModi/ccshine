@@ -4,7 +4,7 @@
 
 Claude Code tracks a lot it never shows you: when each tool ran and for how long, which calls ran side by side, what each subagent and background shell is doing, what a turn cost and how much context it used. Tidepool moves all of that out of the chat into the **Tide rail**, a timeline beside the conversation, so the chat holds only what you and Claude said. It also restyles the rest of the terminal to match: your prompts, Claude's replies, the tasks band, the spinner and the status line.
 
-![Tidepool with the Warm Claude theme and Maple Mono NF: the chat on the left with the crab's dock above the prompt, the Tide rail on the right with the turn's timeline, the plan at 2/3 with its time left and a running shell, and the status line](docs/screenshot.png)
+![Tidepool with the Warm Claude theme and Maple Mono NF: the chat on the left with the crab's dock above the prompt, and the Tide rail on the right in three sections: the turn's timeline, the plan at 2/3 with a background dev server and the running test suite nested under their tasks, and the one file the turn changed; the status line below](docs/screenshot.png)
 
 ```
 ▌ you  fix the login bug                    │ ≈ tidepool                following scroll
