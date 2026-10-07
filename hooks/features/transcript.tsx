@@ -1,8 +1,11 @@
-import type { EngineInterface, On } from 'claude-code'
+import { atom, read, update } from 'claude-code'
+import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import { opts } from '../options'
 import { palette } from '../theme'
 import { imageNumbers, imagePaths } from '../images'
+import { fromBase64, parseBmp, thumbCells, thumbSize } from '../thumb'
+import { encodeCells } from '../dock'
 
 // Attached images' paths by session and number (numbers start over after /clear, which starts a new session).
 // A row reads the conversation for numbers it has not seen, so a prompt queued
@@ -29,6 +32,48 @@ async function pathsFor($: EngineInterface, numbers: number[]): Promise<{ n: num
     for (const n of unknown) if (!imageCache.has(key(n))) missedAt.set(key(n), now)
   }
   return numbers.flatMap(n => (imageCache.has(key(n)) ? [{ n, path: imageCache.get(key(n))! }] : []))
+}
+
+// Images whose thumbnail the person made larger, by image number.
+const imageBig = atom({ plugin: 'tidepool', key: 'imageBig' } as const, [])
+// A thumbnail's box: small under the prompt, or the chat's width when made larger.
+const SMALL = { cols: 40, rows: 10 }
+const BIG_ROWS = 30
+const THUMB_DIR = '/tmp/tidepool-thumbs'
+// Thumbnails made, by file and box; null when the image could not be shrunk (no sips: not macOS, or not an image).
+const thumbs = new Map<string, { cols: number; rows: number; cells: string } | null>()
+
+const hash = (s: string) => {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  return h.toString(16)
+}
+
+// A thumbnail of the image at `path` inside maxCols×maxRows cells: macOS `sips` reads its size and writes a BMP
+// of exactly the cells' pixels (the mod cannot inflate a PNG itself), which hooks/thumb.ts turns into cells.
+async function thumbFor($: EngineInterface, path: string, maxCols: number, maxRows: number) {
+  const key = `${path}|${maxCols}x${maxRows}`
+  if (thumbs.has(key)) return thumbs.get(key)!
+  let made: { cols: number; rows: number; cells: string } | null = null
+  try {
+    const dims = await $.process.run(['sips', '-g', 'pixelWidth', '-g', 'pixelHeight', path])
+    const w = Number(/pixelWidth: (\d+)/.exec(dims.stdout)?.[1])
+    const h = Number(/pixelHeight: (\d+)/.exec(dims.stdout)?.[1])
+    if (dims.exitCode === 0 && w > 0 && h > 0) {
+      const { cols, rows } = thumbSize(w, h, maxCols, maxRows)
+      const file = `${THUMB_DIR}/${hash(key)}.bmp`
+      await $.process.run(['mkdir', '-p', THUMB_DIR])
+      const shrunk = await $.process.run(['sips', '-s', 'format', 'bmp', '--resampleHeightWidth', String(rows * 2), String(cols), path, '--out', file])
+      if (shrunk.exitCode === 0) {
+        const picture = parseBmp(fromBase64((await $.fs.read(file, { as: 'bytes' })).base64))
+        if (picture) made = { cols, rows, cells: encodeCells(thumbCells(picture, cols, rows)) }
+      }
+    }
+  } catch {
+    // No sips, or not an image it reads: the line keeps open ↗ and draws no thumbnail.
+  }
+  thumbs.set(key, made)
+  return made
 }
 
 // A file path as a file: URL, each segment encoded (spaces, a screenshot name's narrow no-break space, #, ?).
@@ -63,6 +108,14 @@ export function registerTranscript(on: On) {
     const { Box, Button, Text } = $.ui.resolve(e)
     const C = palette()
     const attached = await pathsFor($, imageNumbers(p.text))
+    const big = attached.length ? await read($, imageBig) : []
+    const { Raster } = $.ui.resolve(e) as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
+    const bigCols = Math.max(SMALL.cols, (e.viewport?.columns ?? 100) - GUTTER - 11)
+    const shown = await Promise.all(attached.map(async a => ({
+      ...a,
+      isBig: big.includes(a.n),
+      thumb: await thumbFor($, a.path, big.includes(a.n) ? bigCols : SMALL.cols, big.includes(a.n) ? BIG_ROWS : SMALL.rows),
+    })))
     // marginTop keeps the blank line the engine puts between messages.
     return (
       <Box flexDirection="column" marginTop={1} paddingRight={GUTTER}>
@@ -72,13 +125,21 @@ export function registerTranscript(on: On) {
           </Box>
           <Text color={C.ink} italic wrap="wrap">{p.text}</Text>
         </Box>
-        {attached.map(({ n, path }) => (
-          <Box key={`img-${n}`} flexDirection="row" paddingLeft={7}>
-            <Box flexShrink={0}><Text color={C.faint}>{`▣ #${n} `}</Text></Box>
-            <Text color={C.soft} wrap="truncate-start">{path.split('/').pop() ?? path}</Text>
-            <Box flexShrink={0}>
-              <Button key={`img:${n}`} plain onPress={() => openFile($, path)}>{'  open ↗'}</Button>
+        {shown.map(({ n, path, isBig, thumb }) => (
+          <Box key={`img-${n}`} flexDirection="column" paddingLeft={7}>
+            <Box flexDirection="row">
+              <Box flexShrink={0}><Text color={C.faint}>{`▣ #${n} `}</Text></Box>
+              <Text color={C.soft} wrap="truncate-start">{path.split('/').pop() ?? path}</Text>
+              <Box flexShrink={0}>
+                {thumb && (
+                  <Button key={`thumb:${n}`} plain onPress={() => update($, imageBig, list => (list.includes(n) ? list.filter(one => one !== n) : [...list, n]))}>
+                    {isBig ? '  ▴ smaller' : '  ▾ larger'}
+                  </Button>
+                )}
+                <Button key={`img:${n}`} plain onPress={() => openFile($, path)}>{'  open ↗'}</Button>
+              </Box>
             </Box>
+            {thumb && <Box paddingLeft={2}><Raster key={`thumb-${n}`} columns={thumb.cols} rows={thumb.rows} cells={thumb.cells} /></Box>}
           </Box>
         ))}
       </Box>
