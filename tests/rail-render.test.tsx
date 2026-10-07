@@ -641,3 +641,28 @@ test('a folded plan header turns muted like the other folded headers', OFF, asyn
   expect(await header(ui, 'plan')).toContain('▸')
   expect(await planBg()).not.toBe(open)
 })
+
+test('the rail\'s own close button closes the rail', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  const ui = await $.ui.mount(pane())
+  const close = await ui.find({ type: 'Button', key: 'rail:close' })
+  expect(close?.text).toContain('✕')
+  expect(close?.props.hotkey).toBe('x')
+  await ui.press({ key: 'rail:close' })
+  expect(w.closed).toContain('tidepool-rail')
+})
+
+test('the diff pane names its file and closes itself alone, back to the rail', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  const rail = await $.ui.mount(pane())
+  await rail.press({ key: 'file:/repo/src/a.ts' })
+  const diff = await $.ui.mount(diffPane)
+  const close = await diff.find({ type: 'Button', key: 'diff:close' })
+  expect(close?.text).toContain('✕ close')
+  expect(close?.props.hotkey).toBe('x')
+  expect((await diff.findAll({ type: 'Text' })).some((t: any) => t.text.includes('src/a.ts'))).toBe(true)
+  await diff.press({ key: 'diff:close' })
+  expect(w.closed).toEqual(['tidepool-diff'])
+})

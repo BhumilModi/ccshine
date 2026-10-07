@@ -104,23 +104,44 @@ async function openDiff($: EngineInterface, turnId: string, path: string, title:
 
 // The diff pane: each of the turn's edits to the file, a dim label then its hunks as a diff.
 async function drawDiff($: EngineInterface, e: PaneInput) {
-  const { Box, Code, Text } = $.ui.resolve(e)
+  const { Box, Button, Code, Text } = $.ui.resolve(e)
   const C = palette()
   const shown = await read($, diffFile)
-  if (!shown) return <Text color={C.faint}>no file chosen: press a file in the rail</Text>
+  if (!shown) {
+    return (
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={C.faint}>no file chosen: press a file in the rail</Text>
+        <Button key="diff:close" plain dimColor hotkey="x" onPress={() => $.ui.close({ id: DIFF_ID })}>{'  ✕ close'}</Button>
+      </Box>
+    )
+  }
   const turnList = await read($, spans)
   const turn = turnList.find(t => t.turnId === shown.turnId)
   const turnCalls = Object.entries(await read($, calls))
     .filter(([, c]) => turnOfCall(turnList, c.startedAt)?.turnId === shown.turnId)
     .sort(([, x], [, y]) => x.startedAt - y.startedAt)
   const edits = diffEdits(turnCalls, shown.path, turn?.startedAt ?? 0)
-  const out: RenderElement[] = []
+  const root = await $.session.root().catch(() => '')
+  const width = Math.max(10, e.props.bodyColumns - 2)
+  // The pane's own close: it closes the diff alone, and the rail comes back in front.
+  const close = async () => {
+    await update($, diffFile, () => null)
+    await $.ui.close({ id: DIFF_ID })
+  }
+  const out: RenderElement[] = [
+    <Box key="head" flexDirection="row" height={1} justifyContent="space-between" marginBottom={1}>
+      <Text color={C.ink} bold wrap="truncate-start">{relPath(shown.path, root, width - 10)}</Text>
+      <Box flexShrink={0}>
+        <Button key="diff:close" plain dimColor hotkey="x" onPress={close}>{'  ✕ close'}</Button>
+      </Box>
+    </Box>,
+  ]
   for (const [i, d] of edits.entries()) {
     out.push(<Text key={`l${i}`} color={C.faint}>{d.label}</Text>)
     out.push(d.source ? <Code key={`c${i}`} format="diff" source={d.source} /> : <Text key={`n${i}`} color={C.faint}>no diff recorded</Text>)
     if (d.cut) out.push(<Text key={`m${i}`} color={C.faint}>{`… ${d.cut} more lines`}</Text>)
   }
-  if (out.length === 0) out.push(<Text key="none" color={C.faint}>no edits to this file in that turn</Text>)
+  if (edits.length === 0) out.push(<Text key="none" color={C.faint}>no edits to this file in that turn</Text>)
   return <Box flexDirection="column">{out}</Box>
 }
 
@@ -166,10 +187,14 @@ export function registerRail(on: On) {
     const pinned = (await read($, sel)).pinned
     const turn = isInline ? live : pickTurn(list, await read($, sel), await read($, seen))
     const follow = isInline ? '' : pinned ? 'pinned · scroll to follow' : 'following scroll'
+    // The rail's own close: the dock's ✕ closes every pane in it, this one only the rail.
     const brand = (
       <Box key="brand" flexDirection="row" height={1} justifyContent="space-between">
         <Text color={C.accent} bold>≈ tidepool</Text>
-        <Text color={C.faint}>{follow}</Text>
+        <Box flexShrink={0}>
+          <Text color={C.faint}>{follow}</Text>
+          <Button key="rail:close" plain dimColor hotkey="x" onPress={() => $.ui.close({ id: RAIL_ID })}>{'  ✕'}</Button>
+        </Box>
       </Box>
     )
     if (isInline && !turn) return surface('empty', [brand, <Text key="none" color={C.faint}>no turn running</Text>])
