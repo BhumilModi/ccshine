@@ -163,3 +163,38 @@ export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; 
   // The marker takes a row; the axis draws only under shown rows.
   return { ...fits, shown: Math.max(0, left - 1 - (a.bars ? 1 : 0)) }
 }
+
+export type SectionName = 'timeline' | 'plan' | 'files'
+// Who gets the odd row and the rows another section leaves.
+const SECTION_ORDER: SectionName[] = ['plan', 'timeline', 'files']
+
+// Body rows for each docked-rail section, headers excluded: the rows past the brand line and three headers,
+// split in thirds among the open sections that ask for any, the odd rows to the first in plan, timeline, files
+// order. A section takes no more than it asks; what it leaves goes to the others in that order. A collapsed or
+// empty section gets 0. With `all`, the plan gets its whole ask and the others split as if it took its third.
+export function sections(a: {
+  bodyRows: number
+  asks: Record<SectionName, number>
+  open: Record<SectionName, boolean>
+  all: boolean
+}): Record<SectionName, number> {
+  const out: Record<SectionName, number> = { timeline: 0, plan: 0, files: 0 }
+  const avail = Math.max(0, a.bodyRows - 4)
+  const live = SECTION_ORDER.filter(s => a.open[s] && a.asks[s] > 0)
+  if (live.length === 0) return out
+  const share = Math.floor(avail / live.length)
+  const odd = avail - share * live.length
+  const shared = a.all ? live.filter(s => s !== 'plan') : live
+  if (a.all && live.includes('plan')) out.plan = a.asks.plan
+  let left = a.all && live.includes('plan') ? avail - share : avail
+  for (const s of shared) {
+    out[s] = Math.min(a.asks[s], share + (s === live[0] ? odd : 0))
+    left -= out[s]
+  }
+  for (const s of shared) {
+    const more = Math.min(a.asks[s] - out[s], left)
+    out[s] += more
+    left -= more
+  }
+  return out
+}

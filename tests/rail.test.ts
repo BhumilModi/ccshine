@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, Job, PlanAgent, TurnSpan } from '../types'
-import { callDetail, pickTurn, railBudget, railRows, railSummary, sectionCap, showBars, turnOfCall } from '../hooks/rail'
+import { callDetail, pickTurn, railBudget, railRows, railSummary, sectionCap, sections, showBars, turnOfCall } from '../hooks/rail'
 import { gauge, span } from '../hooks/theme'
 
 const SPAN: TurnSpan = { turnId: 't1', startedAt: 1000, endedAt: 11000, ctxStart: 38, ctxEnd: 52, costStart: 1, costEnd: 1.31 }
@@ -179,4 +179,36 @@ test('a short rail drops its two margins rather than overflow', async () => {
   expect(b.margins).toBe(false)
   expect(drawn(a, b)).toBeLessThanOrEqual(6)
   expect(railBudget({ ...a, bodyRows: 30, section: sectionCap(30, 4, false) }).margins).toBe(true)
+})
+
+const asks = (timeline: number, plan: number, files: number) => ({ timeline, plan, files })
+const allOpen = { timeline: true, plan: true, files: true }
+
+test('sections splits 40 rows in thirds, remainder to plan', async () => {
+  expect(sections({ bodyRows: 40, asks: asks(99, 99, 99), open: allOpen, all: false })).toEqual(asks(12, 12, 12))
+  expect(sections({ bodyRows: 41, asks: asks(99, 99, 99), open: allOpen, all: false })).toEqual(asks(12, 13, 12))
+})
+
+test('a small ask gives its rows away, plan first', async () => {
+  expect(sections({ bodyRows: 40, asks: asks(3, 99, 2), open: allOpen, all: false })).toEqual(asks(3, 31, 2))
+  expect(sections({ bodyRows: 40, asks: asks(99, 4, 2), open: allOpen, all: false })).toEqual(asks(30, 4, 2))
+})
+
+test('folded and collapsed sections give their rows away', async () => {
+  expect(sections({ bodyRows: 40, asks: asks(99, 99, 0), open: allOpen, all: false })).toEqual(asks(18, 18, 0))
+  expect(sections({ bodyRows: 40, asks: asks(99, 99, 99), open: { ...allOpen, plan: false }, all: false })).toEqual(asks(18, 0, 18))
+})
+
+test('show all gives the plan its whole tree', async () => {
+  expect(sections({ bodyRows: 40, asks: asks(99, 60, 99), open: allOpen, all: true })).toEqual(asks(12, 60, 12))
+})
+
+test('a rail too short for three headers draws no bodies, and no split passes the rail', async () => {
+  expect(sections({ bodyRows: 4, asks: asks(9, 9, 9), open: allOpen, all: false })).toEqual(asks(0, 0, 0))
+  for (let bodyRows = 1; bodyRows <= 60; bodyRows++) {
+    for (const a of [asks(1, 99, 0), asks(40, 3, 7), asks(99, 99, 99), asks(0, 0, 0)]) {
+      const s = sections({ bodyRows, asks: a, open: allOpen, all: false })
+      expect(Math.max(0, bodyRows - 4)).toBeGreaterThanOrEqual(s.timeline + s.plan + s.files)
+    }
+  }
 })
