@@ -26,30 +26,50 @@ test('imageNumbers reads a prompt row\'s placeholders in order', async () => {
 
 const row = { plugin: 'tidepool', surface: 'terminal', component: 'UserMessage', props: { text: 'what happened? [Image #10]', origin: { kind: 'composer' }, isExpanded: false }, viewport: { columns: 100, rows: 40 } } as const
 
-test('a prompt with an image draws an open line that opens the file', async ($, on) => {
+// A screenshot name as macOS writes it: a narrow no-break space before AM.
+const SHOT = '/tmp/shots/Screenshot 2026-10-08 at 2.18.38\u202fAM.png'
+
+function world(on: any, terminal?: string) {
   mock.clock(on, { now: 0 })
   mock.store(on)
-  on('session.root', () => ({ value: '/repo' }))
-  on('session.usage', () => ({ value: { startedAt: 1, context: { window: 1, percent: 1 }, rateLimits: [], cost: { usd: 0 } } }))
-  on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
-  on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }, { role: 'user', content: [text('[Image: source: /tmp/shots/Screenshot 1.png]')] }] }))
+  on('env.get', (_$: unknown, e: { name: string }) => ({ value: e.name === 'TERM_PROGRAM' ? terminal : undefined }))
+  // A queued prompt: no turn starts for it, the row finds its image in the conversation by itself.
+  on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }, { role: 'user', content: [text(`[Image: source: ${SHOT}]`)] }] }))
   const ran: string[][] = []
   on('process.run', (_$: unknown, e: { argv: readonly string[] }) => {
     ran.push([...e.argv])
     return { value: { exitCode: 0, stdout: '', stderr: '' } as never }
   })
-  await $.turn.start({ text: 'what happened? [Image #10]', turnId: 't1' })
+  return ran
+}
+
+test('a prompt with an image draws an open line, even for a prompt queued into a running turn', async ($, on) => {
+  world(on)
   const ui = await $.ui.mount(row)
   const texts = (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
-  expect(texts).toContain('Screenshot 1.png')
-  const open = await ui.find({ type: 'Button', key: 'img:10' })
-  expect(open?.text).toContain('open ↗')
+  expect(texts).toContain('Screenshot 2026-10-08')
+  expect((await ui.find({ type: 'Button', key: 'img:10' }))?.text).toContain('open ↗')
+})
+
+test('outside Orca, open hands the file to the system viewer', async ($, on) => {
+  const ran = world(on, 'iTerm.app')
+  const ui = await $.ui.mount(row)
   await ui.press({ key: 'img:10' })
-  expect(ran).toContainEqual(['open', '/tmp/shots/Screenshot 1.png'])
+  expect(ran).toContainEqual(['open', SHOT])
+})
+
+test('in Orca, open shows the image in an Orca browser tab beside the terminal', async ($, on) => {
+  const ran = world(on, 'Orca')
+  const ui = await $.ui.mount(row)
+  await ui.press({ key: 'img:10' })
+  expect(ran).toContainEqual(['orca', 'tab', 'create', '--url', 'file:///tmp/shots/Screenshot%202026-10-08%20at%202.18.38%E2%80%AFAM.png'])
+  expect(ran.some(argv => argv[0] === 'open')).toBe(false)
 })
 
 test('a prompt whose image has no known path draws no open line', async ($, on) => {
+  mock.clock(on, { now: 0 })
   mock.store(on)
+  on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }] }))
   const ui = await $.ui.mount(row)
   expect(await ui.find({ type: 'Button', key: 'img:10' })).toBeUndefined()
 })
