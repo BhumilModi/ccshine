@@ -89,13 +89,13 @@ The rail above the prompt (inline placement) and the tasks band are unchanged.
 - `+a −r` per file comes from the existing `added`/`removed` on each call.
 - No file is read from disk and no `git` runs: the diff is what the tools reported.
 
-## Open item, settled first in the plan
+## Diff pane placement (settled 2026-10-08)
 
-Whether a second Pane opened beside a docked rail seats beside it, or stacks with it, is untested.
-The first plan task is a throwaway probe mod that opens a pane from a Button press while the rail is
-docked, and reads `$.ui.panes()` placement. If it cannot seat beside the rail, the diff pane falls
-back to replacing the rail's body until closed (a `◂ back` header line returns to the sections); that
-fallback is decided before any other task starts.
+A probe mod opened a second Pane from a typed command while the Tide rail was docked (Claude Code
+2.1.293, Orca terminal). The dock does not split: it shows one pane at a time under a tab row
+(`tidepool   probe b   ✕`), the new pane in front, `placement` `dock`, `isPlaced: true`. So the diff
+pane opens as a second tab in the rail's dock: in front while open, the `tidepool` tab one press
+back, its `✕` closing it. No `◂ back` line is drawn; the tab row is the way back.
 
 ## Out of scope
 
