@@ -17,6 +17,7 @@ const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const railNow = atom({ plugin: 'tidepool', key: 'railNow' } as const, 0)
 const anchorsSeen = atom({ plugin: 'tidepool', key: 'anchorsSeen' } as const, {})
 const railSel = atom({ plugin: 'tidepool', key: 'railSel' } as const, { pinned: false })
+const railCollapsed = atom({ plugin: 'tidepool', key: 'railCollapsed' } as const, [])
 
 // The rail's live rows grow once a second, only while a turn or a background job runs.
 // The same tick carries the anchors on screen into state; a change means a scroll, which ends a pin.
@@ -130,6 +131,12 @@ async function migrateHistory($: EngineInterface): Promise<void> {
 export function registerStartup(on: On) {
   on('session.start', async ($, e, next) => {
     await migrateHistory($)
+    // Rail sections the person collapsed stay collapsed across sessions.
+    const collapsed = await $.store.get('rail-collapsed').catch(() => undefined)
+    if (Array.isArray(collapsed)) {
+      const names = collapsed.filter((n): n is 'timeline' | 'plan' | 'files' => n === 'timeline' || n === 'plan' || n === 'files')
+      await update($, railCollapsed, () => names)
+    }
     // A hot reload keeps the old rail open with nothing left to draw it; start from a fresh one.
     for (const pane of await $.ui.panes().catch(() => [])) if (pane.id === RAIL_ID) await $.ui.close({ id: RAIL_ID })
     await $.command.register({ name: RAIL_ID, description: 'Show or hide the Tide rail: tool calls, agents and background jobs beside the chat' })

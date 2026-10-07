@@ -139,31 +139,6 @@ export function callDetail(tool: string, input: unknown, ran: { result?: unknown
   return lines
 }
 
-// The docked rail gives the plan section up to 60% of its rows; the turn's tool rows take the rest.
-const PLAN_SHARE = 0.6
-
-// The plan section's rows: its share of the rail (all of it when showing all), never less than its header and
-// running task, and never more than the `fixed` rows above it leave.
-export function sectionCap(bodyRows: number, fixed: number, all: boolean): number {
-  if (all) return Number.MAX_SAFE_INTEGER
-  return Math.min(Math.floor(bodyRows * PLAN_SHARE), Math.max(2, bodyRows - fixed - 1))
-}
-
-// Shares the docked rail's rows once the plan section is laid out. Fixed: brand and title; the two margins only
-// while they leave a row for the timeline. The tool rows take what is left, the axis and an "earlier" marker
-// included. `shown` below `tools` means the marker draws.
-// ponytail: a rail under 6 rows still passes bodyRows by a row or two; nothing seats a rail that short today.
-export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; section: number }) {
-  const room = a.bodyRows - 2 - a.section
-  const margins = room >= 3
-  const left = margins ? room - 2 : room
-  const fits = { section: a.section, margins }
-  if (a.tools === 0) return { ...fits, shown: 0 }
-  if (a.tools + (a.bars ? 1 : 0) <= left) return { ...fits, shown: a.tools }
-  // The marker takes a row; the axis draws only under shown rows.
-  return { ...fits, shown: Math.max(0, left - 1 - (a.bars ? 1 : 0)) }
-}
-
 export type SectionName = 'timeline' | 'plan' | 'files'
 // Who gets the odd row and the rows another section leaves.
 const SECTION_ORDER: SectionName[] = ['plan', 'timeline', 'files']

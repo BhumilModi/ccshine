@@ -2,14 +2,15 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Frozen, On, RenderChildren, RenderElement, RenderInput } from 'claude-code'
 
 import type { RailRow } from '../../types'
-import { fitBand } from '../layout'
 import { opts } from '../options'
 import { agentRows, finishedAt, historyFor, planShows, topLevel } from '../plan'
-import { doneCard, planBody, planHeader, planWanted } from '../planview'
+import { doneCard, planBody, planHeader, planLines } from '../planview'
 import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
 import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
-import { RAIL_COLUMNS, pickTurn, railBudget, railRows, railSeat, railSummary, sectionCap, showBars, turnWindow } from '../rail'
+import { RAIL_COLUMNS, pickTurn, railRows, railSeat, railSummary, sections, showBars, turnWindow } from '../rail'
+import type { SectionName } from '../rail'
+import { fileRows, relPath } from '../files'
 import { palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
@@ -33,6 +34,10 @@ const live = atom({ plugin: 'tidepool', key: 'live' } as const, {})
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
 const planAll = atom({ plugin: 'tidepool', key: 'planAll' } as const, false)
 const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
+// Sections the person collapsed (loaded from the store at session start, features/startup.tsx), and the file
+// the diff pane shows.
+const railCollapsed = atom({ plugin: 'tidepool', key: 'railCollapsed' } as const, [])
+const diffFile = atom({ plugin: 'tidepool', key: 'diffFile' } as const, null)
 
 const TOOL = 6
 const META = 13
@@ -60,10 +65,9 @@ const readTail = ($: EngineInterface) => async (path: string) =>
 
 type PaneInput = Frozen<RenderInput<'Pane'>>
 
-// The plan section, pinned to the docked rail's foot: a rule, the Plan header and the plan's tree around the
-// running task (or, with no plan, the running shells and agents), in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
-// Agents whose Agent call is in `shown`, the tool rows of the turn on screen, are left to those rows.
-async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number, shown: ReadonlySet<string> = new Set()): Promise<{ el: RenderElement; rows: number } | null> {
+// The plan section's data: the plan, its agents (less those in `shown`, the tool rows of the turn on screen) and
+// the shells, with what its body asks for. Null when there is neither a plan nor a shell.
+async function planData($: EngineInterface, shown: ReadonlySet<string>) {
   await read($, tick)
   const at = await $.clock.now()
   const list = await read($, tasks)
@@ -71,11 +75,9 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
   const showTasks = opts.tasks && planShows(list, at)
   const shells = opts.tasks ? shellRows(await read($, calls), await read($, live), await read($, jobs), at) : []
   if (!showTasks && shells.length === 0) return null
-  const ui = $.ui.resolve(e)
-  const { Box, Text } = ui
-  const C = palette()
+  const finished = showTasks && doneAt !== undefined
   const d: PlanData = {
-    tasks: showTasks && doneAt === undefined ? list : [],
+    tasks: showTasks && !finished ? list : [],
     agents: agentRows(await read($, agents), await read($, turns)).filter(a => a.callId === undefined || !shown.has(a.callId)),
     shells,
     // Output lines are rows of the plan's tree, so they are read before it is fitted (cached for 2s per file).
@@ -85,52 +87,15 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     now: at,
     all: await read($, planAll),
   }
-  const finished = showTasks && doneAt !== undefined
-  const want = planWanted(d)
-  // The rule above the section stands in for the band's blank row.
-  const fit = fitBand({
-    maxRows: cap,
-    dock: 'none',
-    header: showTasks && !finished,
-    focus: want.focus,
-    shell: want.shell,
-    plan: want.plan,
-    tails: want.tails,
-    usage: 0,
-    expanded: d.all,
-  })
-  const out: RenderElement[] = []
-  // The done card, its rule included, draws only when it fits the cap.
-  const card = finished && doneAt !== undefined && DONE_ROWS + 1 <= cap
-  if (fit.margin || card) out.push(<Text key="plan-rule" color={C.track}>{'╌'.repeat(width)}</Text>)
-  if (card) {
-    // The crab's frames are blitted by features/tasks.tsx for DONE_MS after the plan finishes; this draws the frame due now.
-    const { Raster } = ui as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
-    const crab = <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(at - doneAt, C))} />
-    out.push(doneCard(ui, C, list, crab))
-  }
-  if (fit.header) {
-    const body = planBody(ui, C, d, fit.focus ? fit.plan + 1 : 0)
-    out.push(
-      planHeader(ui, C, { ...d, tasks: list }, {
-        surface: e.surface,
-        columns: width + 2,
-        toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
-      }),
-      ...body.rows,
-    )
-  }
-  // With no plan, running shells and agents draw alone, their label included.
-  if (!fit.header && fit.shell > 1) out.push(...planBody(ui, C, d, fit.shell).rows)
-  // The done card is one element four rows tall.
-  if (out.length === 0) return null
-  return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (card ? DONE_ROWS - 1 : 0) }
+  const ask = finished ? DONE_ROWS : planLines(d).lines.length
+  return { d, list, at, doneAt: finished ? doneAt : undefined, showTasks, ask }
 }
 
 export function registerRail(on: On) {
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== RAIL_ID) return next(e)
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Button, Text } = ui
     const C = palette()
     const p = e.props
     railSeat.placement = p.placement
@@ -173,104 +138,176 @@ export function registerRail(on: On) {
         <Text color={C.faint}>{follow}</Text>
       </Box>
     )
-    const showAll = await read($, planAll)
-    const pin = (section: { el: RenderElement } | null) => (section ? [<Box key="gap" flexGrow={1} />, section.el] : [])
-    if (!turn) {
-      // Brand and the "no turns" line sit above the section.
-      const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 2, showAll))
-      return surface('empty', [brand, <Text key="none" color={C.faint}>{isInline ? 'no turn running' : 'no turns yet'}</Text>, ...pin(section)])
-    }
+    if (isInline && !turn) return surface('empty', [brand, <Text key="none" color={C.faint}>no turn running</Text>])
 
-    const { start, end } = turnWindow(turn, turn.endedAt ?? clock)
+    const { start, end } = turn ? turnWindow(turn, turn.endedAt ?? clock) : { start: clock, end: clock }
     const allCalls = await read($, calls)
-    const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
-    // Docked, the plan section takes its share (hooks/rail.ts); the tool rows take the rest.
-    // Fixed rows above it: brand, title and two margins.
-    const agentCalls = new Set(all.filter(r => r.kind === 'agent').map(r => r.id))
-    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 4, showAll), agentCalls)
-    const fits = railBudget({
-      bodyRows: p.scroll.bodyRows,
-      tools: all.length,
-      bars: showBars(p.bodyColumns),
-      section: section?.rows ?? 0,
-    })
-    const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : all.length - fits.shown
-    const rows = all.slice(hidden)
+    const all = turn ? railRows(allCalls, await read($, agents), await read($, jobs), turn, clock) : []
     const opened = await read($, open)
     const bars = showBars(p.bodyColumns)
     const col = columns(width, bars)
-    const state = turn.endedAt === undefined ? 'live' : turn.aborted ? 'stopped' : ''
+    const state = !turn ? '' : turn.endedAt === undefined ? 'live' : turn.aborted ? 'stopped' : ''
     const toggle = (id: string) => update($, open, ids => (ids.includes(id) ? ids.filter(one => one !== id) : [...ids, id]))
 
-    // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
-    const title = (
-      <Box key="title" flexDirection="row" height={1} hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>
-        <Box flexShrink={0}>
-          <Text color={C.ink} bold>{`turn ${list.indexOf(turn) + 1}`}</Text>
-          {state && <Text color={state === 'live' ? C.accent : C.warn}>{` · ${state}`}</Text>}
-          <Text color={C.ink}>{` · ${fmtShort(end - start)}`}</Text>
-        </Box>
-        {turn.prompt && <Text color={C.faint} wrap="truncate-end">{`  ${turn.prompt}`}</Text>}
-      </Box>
-    )
-
-    const body = []
-    if (all.length === 0) body.push(<Text key="empty" color={C.faint}>no tools this turn</Text>)
-    if (hidden) body.push(<Text key="earlier" color={C.faint}>{`${' '.repeat(TOOL + 1)}${hidden} earlier`}</Text>)
-    for (const r of rows) {
-      const color = r.failed ? C.crit : r.kind === 'job' ? C.warn : r.kind === 'agent' ? C.info : r.running ? C.mid : C.soft
-      const b = bars ? span(r.from, r.to, col.bar) : { before: '', filled: '', after: '' }
-      const isOpen = opened.includes(r.id)
-      body.push(
-        <Box key={`r-${r.id}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
-          <Box flexShrink={0}>
-            <Text color={r.failed ? C.crit : C.mid}>{`${fit(r.failed ? `✕ ${r.tool}` : r.tool, TOOL)} `}</Text>
-            <Button key={`row:${r.id}`} plain onPress={() => toggle(r.id)}>
-              {fit(r.target || r.tool, col.target)}
-            </Button>
-            {bars && (
-              <Text color={C.track}>
-                {` ${b.before}`}
-                <Text color={color}>{b.filled}</Text>
-                {b.after}
-                {r.over ? <Text color={color}>⇢</Text> : ''}
-              </Text>
-            )}
-          </Box>
-          <Text color={r.running ? C.mid : C.faint} wrap="truncate-end">
-            {` ${timing(r)}`}
-            {(r.added || r.removed) ? <Text color={C.info}>{`  +${r.added ?? 0}`}</Text> : ''}
-            {(r.added || r.removed) ? <Text color={C.crit}>{` −${r.removed ?? 0}`}</Text> : ''}
-            {r.children !== undefined ? <Text color={C.info}>{`  ${r.children} tools ${isOpen ? '▾' : '▸'}`}</Text> : ''}
-          </Text>
-        </Box>,
-      )
-      if (!isOpen) continue
-      if (r.kind === 'agent') {
-        const agentId = (await read($, agents)).find(a => a.callId === r.id)?.id
-        const kids = Object.values(allCalls)
-          .filter(c => c.agentId !== undefined && c.agentId === agentId)
-          .sort((x, y) => x.startedAt - y.startedAt)
-        for (const [i, c] of kids.entries()) {
-          body.push(<Text key={`k-${r.id}-${i}`} color={C.mid} wrap="truncate-end">{`${' '.repeat(TOOL - 2)}└ ${fit(c.tool, TOOL)} ${c.target ?? ''}`}</Text>)
+    // The turn's tool rows, the last `room` rows of them: an "earlier" marker and the axis count in `room`.
+    const toolRows = async (room: number) => {
+      const body: RenderElement[] = []
+      if (all.length === 0) return [<Text key="empty" color={C.faint}>no tools this turn</Text>]
+      const axis = bars ? 1 : 0
+      const fitsAll = all.length + axis <= room
+      const count = fitsAll ? all.length : Math.max(0, room - 1 - axis)
+      const hidden = all.length - count
+      if (hidden) body.push(<Text key="earlier" color={C.faint}>{`${' '.repeat(TOOL + 1)}${hidden} earlier`}</Text>)
+      for (const r of all.slice(hidden)) {
+        const color = r.failed ? C.crit : r.kind === 'job' ? C.warn : r.kind === 'agent' ? C.info : r.running ? C.mid : C.soft
+        const b = bars ? span(r.from, r.to, col.bar) : { before: '', filled: '', after: '' }
+        const isOpen = opened.includes(r.id)
+        body.push(
+          <Box key={`r-${r.id}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
+            <Box flexShrink={0}>
+              <Text color={r.failed ? C.crit : C.mid}>{`${fit(r.failed ? `✕ ${r.tool}` : r.tool, TOOL)} `}</Text>
+              <Button key={`row:${r.id}`} plain onPress={() => toggle(r.id)}>
+                {fit(r.target || r.tool, col.target)}
+              </Button>
+              {bars && (
+                <Text color={C.track}>
+                  {` ${b.before}`}
+                  <Text color={color}>{b.filled}</Text>
+                  {b.after}
+                  {r.over ? <Text color={color}>⇢</Text> : ''}
+                </Text>
+              )}
+            </Box>
+            <Text color={r.running ? C.mid : C.faint} wrap="truncate-end">
+              {` ${timing(r)}`}
+              {(r.added || r.removed) ? <Text color={C.info}>{`  +${r.added ?? 0}`}</Text> : ''}
+              {(r.added || r.removed) ? <Text color={C.crit}>{` −${r.removed ?? 0}`}</Text> : ''}
+              {r.children !== undefined ? <Text color={C.info}>{`  ${r.children} tools ${isOpen ? '▾' : '▸'}`}</Text> : ''}
+            </Text>
+          </Box>,
+        )
+        if (!isOpen) continue
+        if (r.kind === 'agent') {
+          const agentId = (await read($, agents)).find(a => a.callId === r.id)?.id
+          const kids = Object.values(allCalls)
+            .filter(c => c.agentId !== undefined && c.agentId === agentId)
+            .sort((x, y) => x.startedAt - y.startedAt)
+          for (const [i, c] of kids.entries()) {
+            body.push(<Text key={`k-${r.id}-${i}`} color={C.mid} wrap="truncate-end">{`${' '.repeat(TOOL - 2)}└ ${fit(c.tool, TOOL)} ${c.target ?? ''}`}</Text>)
+          }
+        }
+        for (const [i, line] of (allCalls[r.id]?.detail ?? []).entries()) {
+          body.push(<Text key={`d-${r.id}-${i}`} color={C.faint} wrap="truncate-end">{`${' '.repeat(TOOL + 1)}${line}`}</Text>)
         }
       }
-      for (const [i, line] of (allCalls[r.id]?.detail ?? []).entries()) {
-        body.push(<Text key={`d-${r.id}-${i}`} color={C.faint} wrap="truncate-end">{`${' '.repeat(TOOL + 1)}${line}`}</Text>)
+      // The time axis closes the timeline.
+      if (bars && count > 0) {
+        const label = fmtShort(end - start)
+        body.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
       }
+      return body
     }
 
-    // The time axis closes the timeline, above the plan section.
-    if (bars && rows.length > 0) {
-      const label = fmtShort(end - start)
-      body.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
+    // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
+    const turnLine = (lead: string) =>
+      !turn ? (
+        <Text color={C.faint}>{`${lead}no turns yet`}</Text>
+      ) : (
+        <Box flexDirection="row" height={1} hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>
+          <Box flexShrink={0}>
+            <Text color={C.ink} bold>{`${lead}turn ${list.indexOf(turn) + 1}`}</Text>
+            {state && <Text color={state === 'live' ? C.accent : C.warn}>{` · ${state}`}</Text>}
+            <Text color={C.ink}>{` · ${fmtShort(end - start)}`}</Text>
+          </Box>
+          {turn.prompt && <Text color={C.faint} wrap="truncate-end">{`  ${turn.prompt}`}</Text>}
+        </Box>
+      )
+
+    if (isInline) {
+      // Above the prompt the rail follows the live turn: its last few rows, no sections.
+      return surface('rail', [brand, <Box key="title">{turnLine('')}</Box>, <Box key="rows" flexDirection="column" marginTop={1}>{await toolRows(INLINE_ROWS + 1 + (bars ? 1 : 0))}</Box>])
     }
-    return surface('rail', [
-      brand,
-      title,
-      <Box key="rows" flexDirection="column" marginTop={isInline || fits.margins ? 1 : 0}>{body}</Box>,
-      ...pin(section),
-    ])
+
+    // Docked: timeline, plan and files sections, each under a header that collapses it (hooks/rail.ts sections).
+    const showAll = await read($, planAll)
+    const collapsed = await read($, railCollapsed)
+    const flip = async (name: SectionName) => {
+      const flipped = collapsed.includes(name) ? collapsed.filter(n => n !== name) : [...collapsed, name]
+      await update($, railCollapsed, () => flipped)
+      await $.store.set('rail-collapsed', flipped)
+    }
+    const plan = await planData($, new Set(all.filter(r => r.kind === 'agent').map(r => r.id)))
+    const root = await $.session.root().catch(() => '')
+    const turnIds = new Set(all.map(r => r.id))
+    const files = fileRows(Object.entries(allCalls).filter(([id]) => turnIds.has(id)).sort(([, x], [, y]) => x.startedAt - y.startedAt), root)
+    const rows = sections({
+      bodyRows: p.scroll.bodyRows,
+      asks: { timeline: turn ? (all.length === 0 ? 1 : all.length + (bars ? 1 : 0)) : 0, plan: plan?.ask ?? 0, files: files.length },
+      open: { timeline: !collapsed.includes('timeline'), plan: !collapsed.includes('plan'), files: !collapsed.includes('files') },
+      all: showAll,
+    })
+
+    const out: RenderElement[] = [brand]
+    // Timeline.
+    out.push(
+      <Box key="sec-timeline" flexDirection="row" height={1}>
+        <Button key="sec:timeline" plain onPress={() => flip('timeline')}>{`${rows.timeline ? '▾ ' : '▸ '}timeline`}</Button>
+        {turnLine(' · ')}
+      </Box>,
+    )
+    if (rows.timeline) out.push(<Box key="timeline" flexDirection="column">{await toolRows(rows.timeline)}</Box>)
+
+    // Plan.
+    const planOpen = rows.plan > 0
+    if (plan && plan.showTasks) {
+      const body = planOpen && !plan.doneAt ? planBody(ui, C, plan.d, rows.plan) : { rows: [], hidden: 0 }
+      out.push(
+        <Box key="sec-plan" flexDirection="row" height={1}>
+          <Button key="sec:plan" plain onPress={() => flip('plan')}>{planOpen ? '▾' : '▸'}</Button>
+          {planHeader(ui, C, { ...plan.d, tasks: plan.list }, {
+            surface: e.surface,
+            columns: width,
+            toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
+          })}
+        </Box>,
+      )
+      if (planOpen && plan.doneAt !== undefined && rows.plan >= DONE_ROWS) {
+        // The crab's frames are blitted by features/tasks.tsx for DONE_MS after the plan finishes; this draws the frame due now.
+        const { Raster } = ui as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
+        const crab = <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(plan.at - plan.doneAt, C))} />
+        out.push(doneCard(ui, C, plan.list, crab))
+      }
+      out.push(...body.rows)
+    } else {
+      out.push(<Button key="sec:plan" plain onPress={() => flip('plan')}>{`${planOpen ? '▾ ' : '▸ '}plan · no tasks`}</Button>)
+      if (planOpen && plan) out.push(...planBody(ui, C, plan.d, rows.plan).rows)
+    }
+
+    // Files.
+    const added = files.reduce((n, f) => n + f.added, 0)
+    const removed = files.reduce((n, f) => n + f.removed, 0)
+    out.push(
+      <Button key="sec:files" plain onPress={() => flip('files')}>
+        {files.length === 0 ? '▸ files · none this turn' : `${rows.files ? '▾ ' : '▸ '}files · ${files.length} changed · +${added} −${removed}`}
+      </Button>,
+    )
+    if (rows.files) {
+      const shown = files.length <= rows.files ? files : files.slice(0, Math.max(0, rows.files - 1))
+      for (const f of shown) {
+        const counts = `  +${f.added} −${f.removed}`
+        out.push(
+          <Box key={`f-${f.path}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
+            <Text>{'  '}</Text>
+            <Button key={`file:${f.path}`} plain onPress={() => update($, diffFile, () => ({ turnId: turn?.turnId ?? '', path: f.path }))}>
+              {relPath(f.path, root, Math.max(8, width - counts.length - 2))}
+            </Button>
+            <Box flexShrink={0}><Text color={C.info}>{`  +${f.added}`}</Text><Text color={C.crit}>{` −${f.removed}`}</Text></Box>
+          </Box>,
+        )
+      }
+      if (shown.length < files.length) out.push(<Text key="files-more" color={C.faint}>{`  +${files.length - shown.length} more`}</Text>)
+    }
+    return surface('rail', out)
   })
 
   on('command.run', { command: RAIL_ID }, async $ => {

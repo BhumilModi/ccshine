@@ -164,6 +164,10 @@ declare module 'claude-code' {
       railOpen: string[]
       railNow: number
       anchorsSeen: Record<string, boolean>
+      // Docked-rail sections the person collapsed, kept in the store as `rail-collapsed`.
+      railCollapsed: ('timeline' | 'plan' | 'files')[]
+      // The file the diff pane shows: a turn's id and the file's absolute path.
+      diffFile: { turnId: string; path: string } | null
     }
   }
 }

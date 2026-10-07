@@ -7,28 +7,29 @@ Claude Code tracks a lot it never shows you: when each tool ran and for how long
 ![Tidepool with the Warm Claude theme and Maple Mono NF: the chat on the left with the crab's dock above the prompt, the Tide rail on the right with the turn's timeline, the plan at 2/3 with its time left and a running shell, and the status line](docs/screenshot.png)
 
 ```
-▌ you  fix the login bug                    │ ≈ tidepool  turn 4 · 52s
-                                            │ Read  auth.ts         ╸─────────── 0.4s
-  ◇ 14 tools · 1 agent · 52s · 1 error ▸ rail│ ✕ Bash npm test     ─━━━━━━━╸─── 41s
-                                            │ Agent Explore auth    ──━━━━━━━─── 30s  9 tools ▸
-◆ claude                                    │ Bash  npm run dev     ─━━━━━━━━━━━⇢ running · 1m 5s
+▌ you  fix the login bug                    │ ≈ tidepool                following scroll
+                                            │ ▾ timeline · turn 4 · 52s  fix the login bug
+  ◇ 14 tools · 1 agent · 52s · 1 error ▸ rail│ Read  auth.ts         ╸─────────── 0.4s
+                                            │ ✕ Bash npm test     ─━━━━━━━╸─── 41s
+◆ claude                                    │ Agent Explore auth    ──━━━━━━━─── 30s  9 tools ▸
   Found it: the token check compared expiry │ Edit  auth.ts         ─────────╺── 0.1s  +12 −3
   with < instead of <=.                     │                       0s        52s
-                                            │ ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
-                                            │  Plan  2/3 ━━━━━━━━────  ~4m left  ▾ show all
+                                            │ ▾  Plan  2/3 ━━━━━━━━────  ~4m left  ▾ show all
                                             │ ✓ 1. Find the expiry check        3m
                                             │ ▶ 2. Fix the comparison           52s
                                             │     ▸ add a regression test       12s
                                             │         ▶ $ npm test -- auth      8s
-                                            │     ▶ bg npm run dev              1m 5s
                                             │ · 3. Run the full suite
+                                            │ ▾ files · 2 changed · +32 −3
+                                            │   src/auth.ts                +12 −3
+                                            │   src/auth.test.ts           +20 −0
 ```
 
 ## What you get
 
 | Where | Before | With Tidepool |
 |---|---|---|
-| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. Under the timeline: **the plan** (see the tasks band below), with each shell, background job and subagent under the task it started in. The rail follows your scroll. |
+| Beside the chat | Tool calls stacked between your prompt and the answer | **The Tide rail.** A timeline for the turn you are reading: one row per tool call with a bar for when it ran, so slow steps and parallel calls show at a glance. Subagents show their tool count and open into their own calls. Background shells keep running past the turn's end (`⇢`) until they finish. Press a row for its command, output or error. The rail has three sections, each under a header you press to fold it away: the **timeline**, **the plan** (see the tasks band below) with each shell, background job and subagent under the task it started in, and the **files** the turn changed with their `+ −` counts. Press a file to open its diff. The rail follows your scroll. |
 | In the chat | Every tool call and its output | **One anchor line per turn:** `◇ 14 tools · 1 agent · 52s · 1 error  ▸ rail`. Press it to pin that turn in the rail. |
 | Above the prompt | Nothing | **Tasks band.** Every task with done, running or waiting, how long each took, and the time left. The estimate learns from your past plans in each project, so it shows before the first task finishes. Steps inside a task nest under it as sub-items. Subagents, shell commands and background jobs nest under the task or sub-item that was running when they started: agents with a live timer and their tokens once done, shells with how long each has run, `~40s left` once the same command has run before, and a background job's latest output line. Anything still running stays under its task; finished work folds away after 30 seconds. Work started outside any task closes the plan under `outside the plan`. When not every row fits, `▾ show all` on the Plan header shows the rest. A finished plan shows its total for 30 seconds (in the rail, a done card with the crab's finish), then folds away. While the Tide rail is docked, the plan and the shells move into the rail, and this band keeps only the usage line and the prompt dock. |
 | Above the prompt | Nothing | **Usage line, only when it matters:** a warning when a turn re-sent your context at full price because the prompt cache had gone cold, and tokens split by agent when subagents ran. Tokens, cache rate and the cache countdown live in the status line. |
@@ -349,7 +350,7 @@ The rail opens by itself when a session starts.
 - **Fullscreen, 110 columns or wider:** it docks beside the chat, 44 columns wide unless you drag it, and shows the turn you are reading. Scroll the chat and it follows; press an anchor line to pin a turn until you scroll again. Claude Code sets the width floor. The rail that opens by itself at startup needs 144 columns the first time; once you have opened it with `/tidepool-rail` (and not closed it by hand since), 110 is enough. Narrower, it waits until the window widens or you open it.
 - **Anything else** (the main screen, or a window under 110 columns when you open it yourself): Claude Code places it above the prompt. There it shows the turn that is running, six rows at most, and between turns shrinks to one line: `≈ tidepool  turn 4 · 52s · 14 tools`.
 - `/tidepool-rail` hides or shows it for the session. Switch it off for good with the Tide rail setting; tool rows then go back to one line each in the chat.
-- **While it is docked, the rail owns the plan.** Top to bottom: the turn's timeline, then the plan with its sub-items, agents and shells (up to 60% of the rail). Rows the plan leaves go to the timeline. `▾ show all` lifts the plan's cap and the rail scrolls. When the last task finishes, the plan becomes a done card: a small crab runs in and does victory hops beside `✓ Plan complete`, the count of tasks and sub-items with the total time, and the fastest and longest task. The card stays for 30 seconds, then folds away and the timeline gets its rows back. While the rail owns the plan, the tasks band above the prompt draws none of it, so the prompt dock keeps its room. A rail above the prompt leaves the plan to the band.
+- **While it is docked, the rail owns the plan.** Top to bottom: timeline, plan, files. Open sections share the rail in thirds; a section that needs fewer rows, or is folded (pressed, or with nothing to show), leaves its rows to the others, the plan first. Folded sections stay folded in later sessions. `▾ show all` gives the plan every row it needs and the rail scrolls. When the last task finishes, the plan becomes a done card: a small crab runs in and does victory hops beside `✓ Plan complete`, the count of tasks and sub-items with the total time, and the fastest and longest task. The card stays for 30 seconds, then folds away and the timeline gets its rows back. While the rail owns the plan, the tasks band above the prompt draws none of it, so the prompt dock keeps its room. A rail above the prompt leaves the plan to the band.
 
 ## Settings
 

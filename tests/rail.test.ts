@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { CallTiming, Job, PlanAgent, TurnSpan } from '../types'
-import { callDetail, pickTurn, railBudget, railRows, railSummary, sectionCap, sections, showBars, turnOfCall } from '../hooks/rail'
+import { callDetail, pickTurn, railRows, railSummary, sections, showBars, turnOfCall } from '../hooks/rail'
 import { gauge, span } from '../hooks/theme'
 
 const SPAN: TurnSpan = { turnId: 't1', startedAt: 1000, endedAt: 11000, ctxStart: 38, ctxEnd: 52, costStart: 1, costEnd: 1.31 }
@@ -138,48 +138,6 @@ test('gauge splits a meter into what the turn started with and what it added', a
   expect(gauge(0.5, 0.5, 4)).toEqual({ base: '━━', added: '', track: '──' })
 })
 
-
-// Rows the docked rail draws for a budget: brand, title, two margins when kept, the plan section, the axis under
-// shown tool rows, then the tool rows or the "no tools" line, and the marker.
-const drawn = (a: { tools: number; bars: boolean }, b: ReturnType<typeof railBudget>) =>
-  2 + (b.margins ? 2 : 0) + b.section + (a.bars && b.shown > 0 ? 1 : 0) + (a.tools === 0 ? 1 : b.shown + (b.shown < a.tools ? 1 : 0))
-
-test('the docked rail fits its rows for any mix of tools', async () => {
-  for (let bodyRows = 7; bodyRows <= 60; bodyRows++) {
-    for (const tools of [0, 1, 5, 40]) {
-      const a = { bodyRows, tools, bars: true }
-      const b = railBudget({ ...a, section: sectionCap(bodyRows, 4, false) })
-      expect(drawn(a, b)).toBeLessThanOrEqual(bodyRows)
-    }
-  }
-})
-
-test('every tool row shows when there is room, with no marker', async () => {
-  const a = { bodyRows: 40, tools: 6, bars: true }
-  const b = railBudget({ ...a, section: 8 })
-  expect(b.shown).toBe(6)
-  expect(drawn(a, b)).toBe(2 + 2 + 8 + 1 + 6)
-})
-
-test('the plan takes up to 60% of the rail, and the tool rows keep the rest', async () => {
-  expect(sectionCap(40, 4, false)).toBe(24)
-  const b = railBudget({ bodyRows: 40, tools: 30, bars: true, section: 24 })
-  // 40 - brand, title, two margins - plan 24 = 12, marker and axis included.
-  expect(b.shown).toBe(10)
-})
-
-test('show all lifts the section cap', async () => {
-  expect(sectionCap(30, 4, true)).toBe(Number.MAX_SAFE_INTEGER)
-  expect(sectionCap(8, 4, false)).toBe(3)
-})
-
-test('a short rail drops its two margins rather than overflow', async () => {
-  const a = { bodyRows: 6, tools: 5, bars: true }
-  const b = railBudget({ ...a, section: sectionCap(6, 4, false) })
-  expect(b.margins).toBe(false)
-  expect(drawn(a, b)).toBeLessThanOrEqual(6)
-  expect(railBudget({ ...a, bodyRows: 30, section: sectionCap(30, 4, false) }).margins).toBe(true)
-})
 
 const asks = (timeline: number, plan: number, files: number) => ({ timeline, plan, files })
 const allOpen = { timeline: true, plan: true, files: true }

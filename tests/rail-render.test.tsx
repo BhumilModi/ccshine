@@ -5,9 +5,9 @@ const OFF = { options: { dock: false, installAssets: false, chrome: false, theme
 
 type Result = { result: unknown; isError?: true; text?: string }
 
-function world(on: any) {
+function world(on: any, stored?: Record<string, unknown>) {
   const clock = mock.clock(on, { now: 1000 })
-  mock.store(on)
+  mock.store(on, stored)
   const usage = { startedAt: 1, context: { window: 200_000, percent: 38 }, rateLimits: [], cost: { usd: 1 } }
   const results: Record<string, Result> = {}
   const waits: Record<string, number> = {}
@@ -270,7 +270,7 @@ async function bashes($: any, w: World, n: number) {
   for (let i = 0; i < n; i++) await call($, w, `sh${i}`, 'Bash', { command: `echo ${i}`, description: `step ${i}` }, 10)
 }
 
-test('rail draws the plan under the tool rows, with no cost footer', OFF, async ($, on) => {
+test('rail draws the plan section under the timeline, with no cost footer', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 3, 2)
@@ -286,13 +286,13 @@ test('rail draws the plan under the tool rows, with no cost footer', OFF, async 
   expect(axis).toBeLessThan(text.indexOf(' Plan '))
 })
 
-test('rail plan stays within 60% of its height', OFF, async ($, on) => {
+test('with no files changed, the plan section shares the rail with the timeline and windows the rest', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 20)
   const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
-  // 60% of 24 rows is 14: rule, header, then twelve lines and markers.
-  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(12)
+  // 24 rows - brand and three headers = 20, halved with the timeline: ten plan lines, markers included.
+  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(10)
   expect(text).toContain('more')
 })
 
@@ -411,4 +411,75 @@ test('plan and shell rows keep their marks and times whole in a narrow rail', OF
   expect(await fixed('  6s')).toBe(true)
   await w.clock.advance(2000)
   await pending
+})
+
+// A turn that reads a file and edits it (+2 −1), with an Edit result that carries its patch.
+async function editTurn($: any, w: World, file = '/repo/src/a.ts') {
+  await $.turn.start({ text: 'fix it', turnId: 't1' })
+  await call($, w, 'r1', 'Read', { file_path: file }, 400)
+  const patch = [{ oldStart: 40, oldLines: 1, newStart: 40, newLines: 2, lines: ['-x', '+y', '+z'] }]
+  await call($, w, 'e1', 'Edit', { file_path: file, old_string: 'x', new_string: 'y\nz' }, 100, { result: { filePath: file, structuredPatch: patch } })
+}
+
+const sectionKeys = async (ui: any) => (await ui.findAll({ type: 'Button' })).map((b: any) => b.key).filter((k: unknown) => typeof k === 'string' && k.startsWith('sec:'))
+
+test('docked rail draws timeline, plan and files headers in order', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  await plan($, w, 3, 2)
+  const ui = await $.ui.mount(pane())
+  expect(await sectionKeys(ui)).toEqual(['sec:timeline', 'sec:plan', 'sec:files'])
+  const text = await textOf(ui)
+  expect(text).toContain('▾ timeline')
+  expect(text).toContain(' Plan ')
+  expect(text).toContain('▾ files · 1 changed · +2 −1')
+  expect(text).toContain('src/a.ts')
+})
+
+test('pressing a header collapses its section and the others take its rows', OFF, async ($, on) => {
+  const written: Record<string, unknown> = {}
+  on('state.set', async (_$: unknown, e: any, next: any) => {
+    if (e.plugin === 'tidepool') written[e.key] = e.value
+    return next(e)
+  })
+  const w = world(on)
+  await editTurn($, w)
+  await plan($, w, 3, 2)
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'sec:timeline' })
+  let text = await textOf(ui)
+  expect(text).toContain('▸ timeline')
+  expect(text).not.toContain('Read ')
+  expect(written.railCollapsed).toEqual(['timeline'])
+  await ui.press({ key: 'sec:timeline' })
+  text = await textOf(ui)
+  expect(text).toContain('▾ timeline')
+  expect(text).toContain('Read ')
+})
+
+test('a collapsed section stays collapsed in the next session', OFF, async ($, on) => {
+  const w = world(on, { 'rail-collapsed': ['files'] })
+  startup(on, [])
+  await start($)
+  await editTurn($, w)
+  const ui = await $.ui.mount(pane())
+  expect(await textOf(ui)).toContain('▸ files · 1 changed')
+  expect(await ui.find({ type: 'Button', key: 'file:/repo/src/a.ts' })).toBeUndefined()
+})
+
+test('an empty files section folds', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  const text = await textOf(await $.ui.mount(pane()))
+  expect(text).toContain('▸ files · none this turn')
+})
+
+test('a long path keeps its counts whole', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w, '/repo/a/very/long/path/to/some/deeply/nested/file.ts')
+  const ui = await $.ui.mount(pane('dock', 46))
+  const row = await ui.find({ type: 'Button', key: 'file:/repo/a/very/long/path/to/some/deeply/nested/file.ts' })
+  expect(row?.text).toContain('file.ts')
+  expect(row?.text.startsWith('…/')).toBe(true)
+  expect(await textOf(ui)).toContain('+2 −1')
 })
