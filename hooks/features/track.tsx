@@ -10,6 +10,8 @@ import { addCall, closeSpan, closeTurn, endCall, totalTokens } from '../timing'
 import { callDetail } from '../rail'
 import { currentTaskId } from '../plan'
 import { describeCall, editStats } from '../tools'
+import { cutPatch, editPatch } from '../files'
+import type { Hunk } from '../../types'
 
 export const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
 export const turns = atom({ plugin: 'tidepool', key: 'turns' } as const, [])
@@ -101,10 +103,16 @@ export function registerTrack(on: On) {
     let failed = true
     let backgrounded = false
     let detail: string[] = []
+    // An Edit or Write's change, for the rail's files section (hooks/files.ts).
+    let edit: { file: string; patch: Hunk[]; patchCut?: number } | undefined
     try {
       const ran = await next(e)
       failed = ran.isError === true
       detail = callDetail(tool, input, ran as { result?: unknown; isError?: boolean; text?: string })
+      if ((tool === 'Edit' || tool === 'Write') && agentId === undefined && !failed && typeof input.file_path === 'string') {
+        const { patch, cut } = cutPatch(editPatch(tool, input, ran.result))
+        edit = { file: input.file_path, patch, ...(cut > 0 ? { patchCut: cut } : {}) }
+      }
       const result = ran.result as { backgroundTaskId?: string; task_id?: string } | undefined
       if (agentId === undefined && result?.backgroundTaskId) {
         backgrounded = true
@@ -138,7 +146,7 @@ export function registerTrack(on: On) {
       await update($, calls, list => {
         const ended = endCall(list, id, at, failed)
         const call = ended[id]
-        return call && detail.length ? { ...ended, [id]: { ...call, detail } } : ended
+        return call && (detail.length || edit) ? { ...ended, [id]: { ...call, ...(detail.length ? { detail } : {}), ...edit } } : ended
       })
       if (agentId === undefined) await update($, dock, t => (t ? { ...t, calls: t.calls.map(c => (c.id === id ? { ...c, done: true } : c)) } : t))
       // A shell that finished in the foreground teaches the band's ETA; a backgrounded one teaches it when its job ends.

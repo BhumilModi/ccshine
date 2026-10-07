@@ -43,7 +43,15 @@ export type CallTiming = {
   detail?: string[]
   // The plan task running when the call started (hooks/plan.ts currentTaskId): its shell nests under it.
   taskId?: string
+  // An Edit or Write: the file it changed, its patch (hooks/files.ts, at most MAX_PATCH_LINES lines), and how
+  // many patch lines were dropped past that.
+  file?: string
+  patch?: Hunk[]
+  patchCut?: number
 }
+
+// One hunk of a unified diff, as the Edit and Write tools report it (`structuredPatch`).
+export type Hunk = { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] }
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
 
