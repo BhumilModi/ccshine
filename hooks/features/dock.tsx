@@ -1,3 +1,4 @@
+import { imageNumbers, imagePaths } from '../images'
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, Timer } from 'claude-code'
 
@@ -8,6 +9,8 @@ import { palette } from '../theme'
 import { openSpan, promptLabel } from '../timing'
 
 // The main turn the dock draws; the tracker (features/track.tsx) adds its tool calls and its end.
+// Attached images' paths by number (features/transcript.tsx draws them under the prompt).
+const images = atom({ plugin: 'tidepool', key: 'images' } as const, {})
 const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 // Bumped to redraw the band (features/tasks.tsx): on a change of layout, and once a second for the clock.
 const tick = atom({ plugin: 'tidepool', key: 'tick' } as const, 0)
@@ -97,6 +100,15 @@ export function registerDock(on: On) {
     const at = await $.clock.now()
     const level = await gauges($)
     await update($, spans, list => openSpan(list, { turnId: e.turnId, at, prompt: promptLabel(e.text), ...level }))
+    // The prompt's attached images now sit in the conversation with their source paths (hooks/images.ts).
+    if (opts.transcript && imageNumbers(e.text).length > 0) {
+      try {
+        const found = imagePaths(await $.session.messages({ as: 'api' }))
+        await update($, images, known => ({ ...known, ...found }))
+      } catch {
+        // No conversation to read: the rows draw without open lines.
+      }
+    }
     if (!opts.dock) return started
     // Subagent runs raise no turn.start, so every one is a main turn: always start fresh.
     const now = await $.clock.now()
