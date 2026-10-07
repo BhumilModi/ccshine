@@ -483,3 +483,63 @@ test('a long path keeps its counts whole', OFF, async ($, on) => {
   expect(row?.text.startsWith('…/')).toBe(true)
   expect(await textOf(ui)).toContain('+2 −1')
 })
+
+const diffPane = { plugin: 'tidepool', surface: 'terminal', component: 'Pane', requestId: 'tidepool-diff', props: { title: 'diff', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} } } as const
+
+test('pressing a file opens the diff pane with its edits', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  expect(w.opened.map(o => [o.id, o.title])).toContainEqual(['tidepool-diff', 'src/a.ts'])
+  const diff = await $.ui.mount(diffPane)
+  expect(await textOf(diff)).toContain('edit 1 of 1')
+  const code = await diff.find({ type: 'Code' })
+  expect(code?.props.format).toBe('diff')
+  expect(code?.text).toContain('@@ -40,1 +40,2 @@')
+})
+
+test('pressing another file re-targets the open pane', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  const patch = [{ oldStart: 7, oldLines: 0, newStart: 7, newLines: 1, lines: ['+bee'] }]
+  await call($, w, 'e2', 'Edit', { file_path: '/repo/src/b.ts', old_string: '', new_string: 'bee' }, 100, { result: { filePath: '/repo/src/b.ts', structuredPatch: patch } })
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  await ui.press({ key: 'file:/repo/src/b.ts' })
+  const code = await (await $.ui.mount(diffPane)).find({ type: 'Code' })
+  expect(code?.text).toContain('+bee')
+  expect(code?.text).not.toContain('+y')
+})
+
+test('the diff pane keeps its turn when the rail moves to another', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  await $.turn.complete(complete('t1'))
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  await $.turn.start({ text: 'next', turnId: 't2' })
+  await call($, w, 'r9', 'Read', { file_path: '/repo/src/a.ts' }, 10)
+  const code = await (await $.ui.mount(diffPane)).find({ type: 'Code' })
+  expect(code?.text).toContain('+y')
+})
+
+test('an edit with no patch says so', OFF, async ($, on) => {
+  const w = world(on)
+  await $.turn.start({ text: 'fix it', turnId: 't1' })
+  await call($, w, 'e1', 'Edit', { file_path: '/repo/src/a.ts', old_string: 'x', new_string: 'y' }, 100, { result: { filePath: '/repo/src/a.ts', structuredPatch: [] } })
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  expect(await textOf(await $.ui.mount(diffPane))).toContain('no diff recorded')
+})
+
+test('/clear closes the diff pane', OFF, async ($, on) => {
+  const w = world(on)
+  await $.prompt.submit({ text: 'first', origin: { kind: 'composer' } } as never)
+  await editTurn($, w)
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  w.usage.startedAt = 2
+  await $.prompt.submit({ text: 'after clear', origin: { kind: 'composer' } } as never)
+  expect(w.closed).toContain('tidepool-diff')
+})

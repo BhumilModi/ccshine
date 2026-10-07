@@ -57,3 +57,19 @@ export function relPath(path: string, root: string, width: number): string {
   }
   return `…${rel.slice(-(width - 1))}`
 }
+
+const sinceTurn = (ms: number) => {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+// One file's edits in a turn, in call order: a label with the time into the turn, the hunks as unified diff
+// text ('' when none were recorded), and how many patch lines were cut when kept.
+export function diffEdits(turnCalls: [string, CallTiming][], path: string, turnStart: number): { label: string; source: string; cut: number }[] {
+  const mine = turnCalls.filter(([, c]) => (c.tool === 'Edit' || c.tool === 'Write') && c.agentId === undefined && !c.failed && c.file === path)
+  return mine.map(([, c], i) => ({
+    label: `edit ${i + 1} of ${mine.length} · ${sinceTurn(c.startedAt - turnStart)} into the turn`,
+    source: (c.patch ?? []).map(h => [`@@ -${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@`, ...h.lines].join('\n')).join('\n'),
+    cut: c.patchCut ?? 0,
+  }))
+}

@@ -27,6 +27,8 @@ const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 export const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 export const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const chat = atom({ plugin: 'tidepool', key: 'chat' } as const, 0)
+// The file the rail's diff pane shows (features/rail.tsx); /clear closes the pane.
+const diffFile = atom({ plugin: 'tidepool', key: 'diffFile' } as const, null)
 // The plan (features/tasks.tsx): a main-loop call records the task running when it starts.
 const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
 // Past shell durations by command (read by the band in features/tasks.tsx), kept in the store across sessions.
@@ -63,6 +65,11 @@ async function syncChat($: EngineInterface) {
   await update($, chat, () => startedAt)
   await update($, spans, () => [])
   await update($, jobs, () => [])
+  // The diff pane shows a turn that is gone.
+  if ((await read($, diffFile)) !== null) {
+    await update($, diffFile, () => null)
+    await $.ui.close({ id: 'tidepool-diff' }).catch(() => undefined)
+  }
 }
 
 export function registerTrack(on: On) {

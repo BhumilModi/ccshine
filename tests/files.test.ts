@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import type { CallTiming, Hunk } from '../types'
-import { cutPatch, editPatch, fileRows, relPath } from '../hooks/files'
+import { cutPatch, diffEdits, editPatch, fileRows, relPath } from '../hooks/files'
 
 const hunk = (n: number, at = 1): Hunk => ({ oldStart: at, oldLines: n, newStart: at, newLines: n, lines: Array.from({ length: n }, (_, i) => ` line ${i}`) })
 
@@ -66,4 +66,19 @@ test('relPath is relative to the root and cut from the left', async () => {
   expect(cut.startsWith('…/')).toBe(true)
   expect(cut.endsWith('rail.tsx')).toBe(true)
   expect(relPath('/elsewhere/x.ts', '/r', 40)).toBe('/elsewhere/x.ts')
+})
+
+test('diffEdits labels each edit by its time into the turn and writes its hunks', async () => {
+  const h1: Hunk = { oldStart: 40, oldLines: 7, newStart: 40, newLines: 7, lines: ['-a', '+b'] }
+  const h2: Hunk = { oldStart: 3, oldLines: 1, newStart: 3, newLines: 2, lines: ['+c'] }
+  const edits = diffEdits([
+    ['e1', edit('/r/a.ts', 1, 1, { startedAt: 42_000, patch: [h1] })],
+    ['x', edit('/r/b.ts', 1, 0, { startedAt: 50_000, patch: [h2] })],
+    ['e2', edit('/r/a.ts', 1, 0, { startedAt: 65_000, patch: [h2], patchCut: 50 })],
+    ['e3', edit('/r/a.ts', 0, 0, { startedAt: 70_000 })],
+  ], '/r/a.ts', 0)
+  expect(edits.map(e => e.label)).toEqual(['edit 1 of 3 · 0:42 into the turn', 'edit 2 of 3 · 1:05 into the turn', 'edit 3 of 3 · 1:10 into the turn'])
+  expect(edits[0]!.source).toBe('@@ -40,7 +40,7 @@\n-a\n+b')
+  expect(edits[1]!.cut).toBe(50)
+  expect(edits[2]!.source).toBe('')
 })

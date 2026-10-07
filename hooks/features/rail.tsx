@@ -8,13 +8,15 @@ import { doneCard, planBody, planHeader, planLines } from '../planview'
 import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
 import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
-import { RAIL_COLUMNS, pickTurn, railRows, railSeat, railSummary, sections, showBars, turnWindow } from '../rail'
+import { RAIL_COLUMNS, pickTurn, railRows, railSeat, railSummary, sections, showBars, turnOfCall, turnWindow } from '../rail'
 import type { SectionName } from '../rail'
-import { fileRows, relPath } from '../files'
+import { diffEdits, fileRows, relPath } from '../files'
 import { palette, span } from '../theme'
 import { fmtShort } from '../tools'
 
 export const RAIL_ID = 'tidepool-rail'
+// The diff pane: a second tab in the rail's dock (the dock shows one pane at a time).
+export const DIFF_ID = 'tidepool-diff'
 
 // Written by the tracker (features/track.tsx), the dock (turn starts) and the agent band (features/tasks.tsx).
 const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
@@ -91,8 +93,37 @@ async function planData($: EngineInterface, shown: ReadonlySet<string>) {
   return { d, list, at, doneAt: finished ? doneAt : undefined, showTasks, ask }
 }
 
+// Shows a file's diff for a turn in the diff pane, opening it or re-targeting the open one.
+async function openDiff($: EngineInterface, turnId: string, path: string, title: string) {
+  await update($, diffFile, () => ({ turnId, path }))
+  await $.ui.open({ id: DIFF_ID, title })
+}
+
+// The diff pane: each of the turn's edits to the file, a dim label then its hunks as a diff.
+async function drawDiff($: EngineInterface, e: PaneInput) {
+  const { Box, Code, Text } = $.ui.resolve(e)
+  const C = palette()
+  const shown = await read($, diffFile)
+  if (!shown) return <Text color={C.faint}>no file chosen: press a file in the rail</Text>
+  const turnList = await read($, spans)
+  const turn = turnList.find(t => t.turnId === shown.turnId)
+  const turnCalls = Object.entries(await read($, calls))
+    .filter(([, c]) => turnOfCall(turnList, c.startedAt)?.turnId === shown.turnId)
+    .sort(([, x], [, y]) => x.startedAt - y.startedAt)
+  const edits = diffEdits(turnCalls, shown.path, turn?.startedAt ?? 0)
+  const out: RenderElement[] = []
+  for (const [i, d] of edits.entries()) {
+    out.push(<Text key={`l${i}`} color={C.faint}>{d.label}</Text>)
+    out.push(d.source ? <Code key={`c${i}`} format="diff" source={d.source} /> : <Text key={`n${i}`} color={C.faint}>no diff recorded</Text>)
+    if (d.cut) out.push(<Text key={`m${i}`} color={C.faint}>{`… ${d.cut} more lines`}</Text>)
+  }
+  if (out.length === 0) out.push(<Text key="none" color={C.faint}>no edits to this file in that turn</Text>)
+  return <Box flexDirection="column">{out}</Box>
+}
+
 export function registerRail(on: On) {
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (e.requestId === DIFF_ID) return drawDiff($, e)
     if (e.requestId !== RAIL_ID) return next(e)
     const ui = $.ui.resolve(e)
     const { Box, Button, Text } = ui
@@ -298,7 +329,7 @@ export function registerRail(on: On) {
         out.push(
           <Box key={`f-${f.path}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
             <Text>{'  '}</Text>
-            <Button key={`file:${f.path}`} plain onPress={() => update($, diffFile, () => ({ turnId: turn?.turnId ?? '', path: f.path }))}>
+            <Button key={`file:${f.path}`} plain onPress={() => openDiff($, turn?.turnId ?? '', f.path, f.rel)}>
               {relPath(f.path, root, Math.max(8, width - counts.length - 2))}
             </Button>
             <Box flexShrink={0}><Text color={C.info}>{`  +${f.added}`}</Text><Text color={C.crit}>{` −${f.removed}`}</Text></Box>
