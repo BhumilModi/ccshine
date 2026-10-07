@@ -330,7 +330,9 @@ test('a docked rail with only a shell shows the shell section', OFF, async ($, o
   const text = await textOf(await $.ui.mount(pane()))
   expect(text).toContain('shell')
   expect(text).toContain('Dev server')
-  expect(text).not.toContain(' Plan ')
+  // The plan section's pill says there are no tasks; there is no plan bar.
+  expect(text).toContain(' no tasks ')
+  expect(text).not.toMatch(/ \d+\/\d+ /)
 })
 
 test('a short rail keeps the plan header and the running task', OFF, async ($, on) => {
@@ -360,7 +362,10 @@ test('a finished plan shows the done card with its crab, then folds away after 3
   expect((await ui.findAll({ type: 'Raster' })).map((r: any) => [r.props.columns, r.props.rows])).toEqual([[14, 4]])
   await w.clock.advance(31_000)
   await ui.unmount()
-  expect(await textOf(await $.ui.mount(pane()))).not.toContain('Plan')
+  // Folded away: the section is back to its no-tasks pill, the done card and its counts gone.
+  const after = await textOf(await $.ui.mount(pane()))
+  expect(after).toContain(' no tasks ')
+  expect(after).not.toContain('★ 2 tasks')
 })
 
 test('finishing the plan plays the crab in the rail for 2.4s, then stops', OFF, async ($, on) => {
@@ -598,4 +603,18 @@ test('a folded section\'s name is muted, an open one is in the accent colour', O
   const name = async (label: string) => (await ui.findAll({ type: 'Text' })).find((t: any) => t.text === ` ${label} `)?.props.backgroundColor
   expect(await name('Timeline')).toBeDefined()
   expect(await name('Timeline')).not.toBe(await name('Files'))
+})
+
+test('the plan header with no tasks is a pill like the other headers', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  expect(await header(await $.ui.mount(pane()), 'plan')).toContain('▸  Plan  no tasks ')
+})
+
+test('the turn\'s prompt sits on its own line under the timeline header', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  const ui = await $.ui.mount(pane())
+  expect(await header(ui, 'timeline')).not.toContain('fix it')
+  expect((await ui.findAll({ type: 'Text' })).some((t: any) => t.text.trim() === 'fix it')).toBe(true)
 })

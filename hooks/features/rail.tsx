@@ -45,6 +45,8 @@ const diffFile = atom({ plugin: 'tidepool', key: 'diffFile' } as const, null)
 const TOOL = 6
 const META = 13
 const INLINE_ROWS = 6
+// Rows the timeline gives its turn's prompt at most.
+const PROMPT_ROWS = 2
 
 const fit = (text: string, width: number) => (text.length <= width ? text.padEnd(width) : `${text.slice(0, width - 1)}…`)
 
@@ -300,9 +302,11 @@ export function registerRail(on: On) {
     const root = await $.session.root().catch(() => '')
     const turnIds = new Set(all.map(r => r.id))
     const files = fileRows(Object.entries(allCalls).filter(([id]) => turnIds.has(id)).sort(([, x], [, y]) => x.startedAt - y.startedAt), root)
+    // The turn's prompt, on one row, or two when it does not fit one; a longer prompt is cut at the end of the second.
+    const promptRows = !turn?.prompt ? 0 : turn.prompt.length <= width ? 1 : PROMPT_ROWS
     const rows = sections({
       bodyRows: p.scroll.bodyRows,
-      asks: { timeline: turn ? (all.length === 0 ? 1 : all.length + (bars ? 1 : 0)) : 0, plan: plan?.ask ?? 0, files: files.length },
+      asks: { timeline: turn ? promptRows + (all.length === 0 ? 1 : all.length + (bars ? 1 : 0)) : 0, plan: plan?.ask ?? 0, files: files.length },
       open: { timeline: !collapsed.includes('timeline'), plan: !collapsed.includes('plan'), files: !collapsed.includes('files') },
       all: showAll,
     })
@@ -317,11 +321,19 @@ export function registerRail(on: On) {
           ...(state === 'stopped' ? [{ bg: C.seg, parts: [{ text: 'stopped ', color: C.warn }] }] : []),
           { bg: C.segAlt, parts: [{ text: ` ${fmtShort(end - start)} `, color: C.ink }] },
         ]
-    const prompt = turn?.prompt ? <Text key="prompt" color={C.faint} wrap="truncate-end">{`  ${turn.prompt}`}</Text> : null
-    const timelineHeader = header('timeline', 'Timeline', rows.timeline > 0, !turn, timelineSegs, prompt)
+    const timelineHeader = header('timeline', 'Timeline', rows.timeline > 0, !turn, timelineSegs)
     // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
     out.push(turn ? <Box key="sec-timeline-hover" hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>{timelineHeader}</Box> : timelineHeader)
-    if (rows.timeline) out.push(<Box key="timeline" flexDirection="column">{await toolRows(rows.timeline)}</Box>)
+    if (rows.timeline) {
+      // The turn's prompt opens the section, on up to PROMPT_ROWS rows of its own, before the tool rows.
+      const lines = Math.min(promptRows, Math.max(0, rows.timeline - 1))
+      out.push(
+        <Box key="timeline" flexDirection="column">
+          {lines > 0 && turn?.prompt ? <Box key="prompt" height={lines}><Text color={C.soft} italic wrap="wrap">{turn.prompt}</Text></Box> : null}
+          {await toolRows(rows.timeline - lines)}
+        </Box>,
+      )
+    }
 
     // Plan.
     const planOpen = rows.plan > 0
@@ -345,7 +357,7 @@ export function registerRail(on: On) {
       }
       out.push(...body.rows)
     } else {
-      out.push(<Button key="sec:plan" plain onPress={() => flip('plan', !plan)}>{`${planOpen ? '▾ ' : '▸ '}plan · no tasks`}</Button>)
+      out.push(header('plan', 'Plan', planOpen, !plan, [{ bg: C.seg, parts: [{ text: ' no tasks ', color: C.faint }] }]))
       if (planOpen && plan) out.push(...planBody(ui, C, plan.d, rows.plan).rows)
     }
 
