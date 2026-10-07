@@ -111,7 +111,7 @@ async function drawDiff($: EngineInterface, e: PaneInput) {
     return (
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={C.faint}>no file chosen: press a file in the rail</Text>
-        <Button key="diff:close" plain dimColor hotkey="x" onPress={() => $.ui.close({ id: DIFF_ID })}>{'  ✕ close'}</Button>
+        <Button key="diff:close" plain dimColor onPress={() => $.ui.close({ id: DIFF_ID })}>{'✕ close'}</Button>
       </Box>
     )
   }
@@ -132,7 +132,7 @@ async function drawDiff($: EngineInterface, e: PaneInput) {
     <Box key="head" flexDirection="row" height={1} justifyContent="space-between" marginBottom={1}>
       <Text color={C.ink} bold wrap="truncate-start">{relPath(shown.path, root, width - 10)}</Text>
       <Box flexShrink={0}>
-        <Button key="diff:close" plain dimColor hotkey="x" onPress={close}>{'  ✕ close'}</Button>
+        <Button key="diff:close" plain dimColor onPress={close}>{'✕ close'}</Button>
       </Box>
     </Box>,
   ]
@@ -193,7 +193,8 @@ export function registerRail(on: On) {
         <Text color={C.accent} bold>≈ tidepool</Text>
         <Box flexShrink={0}>
           <Text color={C.faint}>{follow}</Text>
-          <Button key="rail:close" plain dimColor hotkey="x" onPress={() => $.ui.close({ id: RAIL_ID })}>{'  ✕'}</Button>
+          <Text>{'   '}</Text>
+          <Button key="rail:close" plain dimColor onPress={() => $.ui.close({ id: RAIL_ID })}>{'✕'}</Button>
         </Box>
       </Box>
     )
