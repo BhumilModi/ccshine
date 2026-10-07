@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Frozen, On, RenderElement, RenderInput, Timer } from 'claude-code'
+import type { EngineInterface, Frozen, On, RenderElement, RenderInput, Timer, ToolCallInput } from 'claude-code'
 
 import type { PlanAgent, PlanTask } from '../../types'
 import {
@@ -131,10 +131,18 @@ function parentOf(metadata: Record<string, unknown> | undefined): string | null 
 }
 type TodoWriteInput = { todos: Parameters<typeof syncTodos>[1] }
 
+// TaskCreate and TaskUpdate open Claude Code's own task panel through the progress callback the session's
+// call hands them (todoFeatureEnabled does not stop it), duplicating this plan. Run as Tidepool's own call
+// instead of next(), which hands them none.
+function ownCall($: EngineInterface, raw: Frozen<ToolCallInput>) {
+  const { tool_use_id: _id, ...args } = raw
+  return $.tool.call(args)
+}
+
 export function registerTasks(on: On) {
-  on('tool.call', { tool: 'TaskCreate' }, async ($, raw, next) => {
+  on('tool.call', { tool: 'TaskCreate' }, async ($, raw) => {
     const e = raw as typeof raw & TaskCreateInput
-    const ran = await next(raw)
+    const ran = await ownCall($, raw)
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
     const task: PlanTask = { id: (ran.result as { task: { id: string } }).task.id, subject: e.subject, status: 'pending', createdAt: now }
@@ -146,9 +154,9 @@ export function registerTasks(on: On) {
     return ran
   })
 
-  on('tool.call', { tool: 'TaskUpdate' }, async ($, raw, next) => {
+  on('tool.call', { tool: 'TaskUpdate' }, async ($, raw) => {
     const e = raw as typeof raw & TaskUpdateInput
-    const ran = await next(raw)
+    const ran = await ownCall($, raw)
     if (ran.deny !== undefined || ran.isError) return ran
     const now = await $.clock.now()
     const status = e.status

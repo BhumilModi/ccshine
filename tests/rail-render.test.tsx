@@ -11,6 +11,7 @@ function world(on: any) {
   const usage = { startedAt: 1, context: { window: 200_000, percent: 38 }, rateLimits: [], cost: { usd: 1 } }
   const results: Record<string, Result> = {}
   const waits: Record<string, number> = {}
+  const sent = { id: '' }
   const closed: string[] = []
   const opened: { id: string; title?: string }[] = []
   on('session.usage', () => ({ value: usage }))
@@ -20,8 +21,10 @@ function world(on: any) {
   on('prompt.submit', (_$: unknown, e: { text: string }) => ({ text: e.text }))
   on('agent.spawn', () => ({ model: 'm', agentId: 'ag1' }))
   on('tool.call', async (_$: unknown, e: { tool_use_id: string }) => {
-    if (waits[e.tool_use_id]) await clock.sleep(waits[e.tool_use_id]!)
-    return results[e.tool_use_id] ?? { result: {} }
+    // Tidepool re-runs task calls as its own, under a fresh id: those answer for the call the test made.
+    const id = e.tool_use_id in waits ? e.tool_use_id : sent.id
+    if (waits[id]) await clock.sleep(waits[id]!)
+    return results[id] ?? { result: {} }
   })
   on('ui.close', (_$: unknown, e: { id: string }) => {
     closed.push(e.id)
@@ -31,7 +34,7 @@ function world(on: any) {
     opened.push(e)
     return { value: { isPlaced: true } }
   })
-  return { clock, usage, results, waits, closed, opened }
+  return { clock, usage, results, waits, sent, closed, opened }
 }
 
 type World = ReturnType<typeof world>
@@ -39,6 +42,7 @@ type World = ReturnType<typeof world>
 async function call($: any, w: World, id: string, tool: string, input: Record<string, unknown>, ms = 0, result?: Result) {
   if (result) w.results[id] = result
   w.waits[id] = ms
+  w.sent.id = id
   const pending = $.tool.call({ tool, tool_use_id: id, ...input })
   if (ms) await w.clock.advance(ms)
   await pending

@@ -10,14 +10,17 @@ function world(on: any, placed = true) {
   mock.store(on)
   const results: Record<string, Result> = {}
   const waits: Record<string, number> = {}
+  const sent = { id: '' }
   on('session.usage', () => ({ value: { startedAt: 1, context: { window: 200_000, percent: 10 }, rateLimits: [], cost: { usd: 0 } } }))
   on('session.root', () => ({ value: '/repo' }))
   on('turn.start', (_$: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: 'ok' }))
   on('agent.spawn', () => ({ model: 'm', agentId: 'ag1' }))
   on('tool.call', async (_$: unknown, e: { tool_use_id: string }) => {
-    if (waits[e.tool_use_id]) await clock.sleep(waits[e.tool_use_id]!)
-    return results[e.tool_use_id] ?? { result: {} }
+    // Tidepool re-runs task calls as its own, under a fresh id: those answer for the call the test made.
+    const id = e.tool_use_id in waits ? e.tool_use_id : sent.id
+    if (waits[id]) await clock.sleep(waits[id]!)
+    return results[id] ?? { result: {} }
   })
   const asked = { panes: 0 }
   on('ui.panes', () => {
@@ -31,7 +34,7 @@ function world(on: any, placed = true) {
   on('settings.read', () => ({ value: {} }))
   on('command.register', (_$: unknown, e: { name: string }) => ({ value: { command: e.name, agent: '' } }))
   on('session.start', () => ({ cwd: '/repo' }))
-  return { clock, results, waits, asked }
+  return { clock, results, waits, sent, asked }
 }
 
 type World = ReturnType<typeof world>
@@ -39,6 +42,7 @@ type World = ReturnType<typeof world>
 async function call($: any, w: World, id: string, tool: string, input: Record<string, unknown>, ms = 0, result?: Result) {
   if (result) w.results[id] = result
   w.waits[id] = ms
+  w.sent.id = id
   const pending = $.tool.call({ tool, tool_use_id: id, ...input })
   if (ms) await w.clock.advance(ms)
   await pending

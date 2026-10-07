@@ -63,7 +63,8 @@ async function syncChat($: EngineInterface) {
 export function registerTrack(on: On) {
   on('tool.call', async ($, e, next) => {
     const id = e.tool_use_id
-    if (id === undefined) return next(e)
+    // Tidepool's own re-run of a call (TaskUpdate, features/tasks.tsx) is already tracked as the model's call.
+    if (id === undefined || next.origin.plugin === 'tidepool') return next(e)
     const { tool, tool_use_id: _id, agentId, ...rest } = e as typeof e & { agentId?: string; consent?: string }
     const { consent: _consent, ...input } = rest as Record<string, unknown>
     const startedAt = await $.clock.now()
