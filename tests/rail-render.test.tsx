@@ -618,3 +618,26 @@ test('the turn\'s prompt sits on its own line under the timeline header', OFF, a
   expect(await header(ui, 'timeline')).not.toContain('fix it')
   expect((await ui.findAll({ type: 'Text' })).some((t: any) => t.text.trim() === 'fix it')).toBe(true)
 })
+
+test('each open section holds its third, and a blank row sits above every header', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 2)
+  const ui = await $.ui.mount(pane('dock', 46, 40))
+  // 40 - brand, three gaps, three headers = 33; files is empty, so timeline and plan split it 16 / 17.
+  expect((await ui.find({ type: 'Box', key: 'timeline' }))?.props.height).toBe(16)
+  expect((await ui.find({ type: 'Box', key: 'plan-body' }))?.props.height).toBe(17)
+  for (const key of ['sec-timeline-gap', 'sec-plan-gap', 'sec-files-gap']) expect((await ui.find({ type: 'Box', key }))?.props.marginTop).toBe(1)
+})
+
+test('a folded plan header turns muted like the other folded headers', OFF, async ($, on) => {
+  const w = world(on)
+  await twoCallTurn($, w)
+  await plan($, w, 2)
+  const ui = await $.ui.mount(pane())
+  const planBg = async () => (await ui.findAll({ type: 'Text' })).find((t: any) => t.text === ' Plan ')?.props.backgroundColor
+  const open = await planBg()
+  await ui.press({ key: 'sec:plan' })
+  expect(await header(ui, 'plan')).toContain('▸')
+  expect(await planBg()).not.toBe(open)
+})

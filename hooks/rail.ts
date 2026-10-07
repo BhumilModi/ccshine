@@ -143,10 +143,15 @@ export type SectionName = 'timeline' | 'plan' | 'files'
 // Who gets the odd row and the rows another section leaves.
 const SECTION_ORDER: SectionName[] = ['plan', 'timeline', 'files']
 
-// Body rows for each docked-rail section, headers excluded: the rows past the brand line and three headers,
-// split in thirds among the open sections that ask for any, the odd rows to the first in plan, timeline, files
-// order. A section takes no more than it asks; what it leaves goes to the others in that order. A collapsed or
-// empty section gets 0. With `all`, the plan gets its whole ask and the others split as if it took its third.
+// Rows the docked rail spends besides the sections' bodies: the brand line, then a blank row and a header for each
+// of the three sections.
+export const RAIL_FIXED_ROWS = 7
+
+// Body rows for each docked-rail section, headers and gaps excluded: the rest of the rail split in fixed thirds among
+// the open sections that have something to show, the odd rows to the first in plan, timeline, files order. An open
+// section keeps its third even when it needs fewer rows, so the split never moves; a collapsed or empty section gets
+// 0 and the open ones share its third. With `all`, the plan gets its whole tree (at least its third) and the rail
+// scrolls.
 export function sections(a: {
   bodyRows: number
   asks: Record<SectionName, number>
@@ -154,23 +159,12 @@ export function sections(a: {
   all: boolean
 }): Record<SectionName, number> {
   const out: Record<SectionName, number> = { timeline: 0, plan: 0, files: 0 }
-  const avail = Math.max(0, a.bodyRows - 4)
+  const avail = Math.max(0, a.bodyRows - RAIL_FIXED_ROWS)
   const live = SECTION_ORDER.filter(s => a.open[s] && a.asks[s] > 0)
   if (live.length === 0) return out
   const share = Math.floor(avail / live.length)
   const odd = avail - share * live.length
-  const shared = a.all ? live.filter(s => s !== 'plan') : live
-  if (a.all && live.includes('plan')) out.plan = a.asks.plan
-  // Under show all the plan's third counts as taken, less what a short plan leaves of it.
-  let left = a.all && live.includes('plan') ? avail - Math.min(share, a.asks.plan) : avail
-  for (const s of shared) {
-    out[s] = Math.min(a.asks[s], share + (s === live[0] ? odd : 0))
-    left -= out[s]
-  }
-  for (const s of shared) {
-    const more = Math.min(a.asks[s] - out[s], left)
-    out[s] += more
-    left -= more
-  }
+  for (const s of live) out[s] = share + (s === live[0] ? odd : 0)
+  if (a.all && live.includes('plan')) out.plan = Math.max(out.plan, a.asks.plan)
   return out
 }

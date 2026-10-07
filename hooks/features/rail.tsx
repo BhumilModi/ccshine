@@ -312,6 +312,11 @@ export function registerRail(on: On) {
     })
 
     const out: RenderElement[] = [brand]
+    // A blank row above each section header, so the sections read apart.
+    const gap = (name: SectionName, el: RenderElement) => <Box key={`sec-${name}-gap`} marginTop={1} flexDirection="column">{el}</Box>
+    // Each open section's body holds its whole share, so the split stays put however little it shows.
+    const body = (key: string, rowsHeld: number, children: RenderChildren) => <Box key={key} flexDirection="column" height={rowsHeld} overflow="hidden">{children}</Box>
+
     // Timeline.
     const timelineSegs: Segment[] = !turn
       ? [{ bg: C.seg, parts: [{ text: ' no turns yet ', color: C.faint }] }]
@@ -323,70 +328,77 @@ export function registerRail(on: On) {
         ]
     const timelineHeader = header('timeline', 'Timeline', rows.timeline > 0, !turn, timelineSegs)
     // The turn line shares a hover group with its anchor in the chat: pointing at either lights both.
-    out.push(turn ? <Box key="sec-timeline-hover" hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>{timelineHeader}</Box> : timelineHeader)
+    out.push(gap('timeline', turn ? <Box key="sec-timeline-hover" hover={{ scope: `tidepool-turn-${turn.turnId}`, backgroundColor: C.seg }}>{timelineHeader}</Box> : timelineHeader))
     if (rows.timeline) {
       // The turn's prompt opens the section, on up to PROMPT_ROWS rows of its own, before the tool rows.
       const lines = Math.min(promptRows, Math.max(0, rows.timeline - 1))
       out.push(
-        <Box key="timeline" flexDirection="column">
-          {lines > 0 && turn?.prompt ? <Box key="prompt" height={lines}><Text color={C.soft} italic wrap="wrap">{turn.prompt}</Text></Box> : null}
-          {await toolRows(rows.timeline - lines)}
-        </Box>,
+        body('timeline', rows.timeline, [
+          lines > 0 && turn?.prompt ? <Box key="prompt" height={lines}><Text color={C.soft} italic wrap="wrap">{turn.prompt}</Text></Box> : null,
+          ...(await toolRows(rows.timeline - lines)),
+        ]),
       )
     }
 
     // Plan.
     const planOpen = rows.plan > 0
     if (plan && plan.showTasks) {
-      const body = planOpen && !plan.doneAt ? planBody(ui, C, plan.d, rows.plan) : { rows: [], hidden: 0 }
+      const lines = planOpen && !plan.doneAt ? planBody(ui, C, plan.d, rows.plan) : { rows: [], hidden: 0 }
       out.push(
-        <Box key="sec-plan" flexDirection="row" height={1}>
-          <Button key="sec:plan" plain onPress={() => flip('plan', !plan)}>{planOpen ? '▾' : '▸'}</Button>
-          {planHeader(ui, C, { ...plan.d, tasks: plan.list }, {
-            surface: e.surface,
-            columns: width,
-            toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
-          })}
-        </Box>,
+        gap('plan',
+          <Box key="sec-plan" flexDirection="row" height={1}>
+            <Box flexShrink={0}>
+              <Button key="sec:plan" plain onPress={() => flip('plan', false)}>{planOpen ? '▾' : '▸'}</Button>
+              <Text> </Text>
+            </Box>
+            {planHeader(ui, planOpen ? C : muted, { ...plan.d, tasks: plan.list }, {
+              surface: e.surface,
+              columns: width - 2,
+              toggle: { hidden: lines.hidden, onPress: () => update($, planAll, v => !v) },
+              keys: 'pill-plan-',
+            })}
+          </Box>,
+        ),
       )
-      if (planOpen && plan.doneAt !== undefined && rows.plan >= DONE_ROWS) {
+      if (planOpen) {
+        const card = plan.doneAt !== undefined && rows.plan >= DONE_ROWS
         // The crab's frames are blitted by features/tasks.tsx for DONE_MS after the plan finishes; this draws the frame due now.
         const { Raster } = ui as unknown as { Raster: (props: Record<string, unknown>) => RenderElement }
-        const crab = <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(plan.at - plan.doneAt, C))} />
-        out.push(doneCard(ui, C, plan.list, crab))
+        const crab = card && plan.doneAt !== undefined ? <Raster key="plan-crab" columns={DONE_COLS} rows={DONE_ROWS} cells={encodeCells(doneCrabCells(plan.at - plan.doneAt, C))} /> : null
+        out.push(body('plan-body', rows.plan, [crab ? doneCard(ui, C, plan.list, crab) : null, ...lines.rows]))
       }
-      out.push(...body.rows)
     } else {
-      out.push(header('plan', 'Plan', planOpen, !plan, [{ bg: C.seg, parts: [{ text: ' no tasks ', color: C.faint }] }]))
-      if (planOpen && plan) out.push(...planBody(ui, C, plan.d, rows.plan).rows)
+      out.push(gap('plan', header('plan', 'Plan', planOpen, !plan, [{ bg: C.seg, parts: [{ text: ' no tasks ', color: C.faint }] }])))
+      if (planOpen && plan) out.push(body('plan-body', rows.plan, planBody(ui, C, plan.d, rows.plan).rows))
     }
 
     // Files.
     const added = files.reduce((n, f) => n + f.added, 0)
     const removed = files.reduce((n, f) => n + f.removed, 0)
     out.push(
-      header('files', 'Files', rows.files > 0, files.length === 0, files.length === 0
+      gap('files', header('files', 'Files', rows.files > 0, files.length === 0, files.length === 0
         ? [{ bg: C.seg, parts: [{ text: ' none this turn ', color: C.faint }] }]
         : [
             { bg: C.seg, parts: [{ text: ` ${files.length} changed `, color: C.ink }] },
             { bg: C.segAlt, parts: [{ text: ` +${added}`, color: C.info }, { text: ` −${removed} `, color: C.crit }] },
-          ]),
+          ])),
     )
     if (rows.files) {
       const shown = files.length <= rows.files ? files : files.slice(0, Math.max(0, rows.files - 1))
-      for (const f of shown) {
+      const fileLines: RenderElement[] = shown.map(f => {
         const counts = `  +${f.added} −${f.removed}`
-        out.push(
+        return (
           <Box key={`f-${f.path}`} flexDirection="row" height={1} hover={{ backgroundColor: C.seg }}>
             <Text>{'  '}</Text>
             <Button key={`file:${f.path}`} plain onPress={() => openDiff($, turn?.turnId ?? '', f.path, f.rel)}>
               {relPath(f.path, root, Math.max(8, width - counts.length - 2))}
             </Button>
             <Box flexShrink={0}><Text color={C.info}>{`  +${f.added}`}</Text><Text color={C.crit}>{` −${f.removed}`}</Text></Box>
-          </Box>,
+          </Box>
         )
-      }
-      if (shown.length < files.length) out.push(<Text key="files-more" color={C.faint}>{`  +${files.length - shown.length} more`}</Text>)
+      })
+      if (shown.length < files.length) fileLines.push(<Text key="files-more" color={C.faint}>{`  +${files.length - shown.length} more`}</Text>)
+      out.push(body('files-body', rows.files, fileLines))
     }
     return surface('rail', out)
   })
