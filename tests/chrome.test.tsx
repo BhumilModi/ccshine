@@ -68,7 +68,7 @@ function configEngine(on: any, rows: unknown) {
   const toasts: string[] = []
   on('ui.toast', (_$: unknown, e: { text: string }) => {
     toasts.push(e.text)
-    return {}
+    return { value: undefined }
   })
   on('config.list', () => {
     if (rows instanceof Error) throw rows
