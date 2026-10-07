@@ -168,8 +168,6 @@ declare module 'claude-code' {
       railCollapsed: ('timeline' | 'plan' | 'files')[]
       // The file the diff pane shows: a turn's id and the file's absolute path.
       diffFile: { turnId: string; path: string } | null
-      // Attached images whose thumbnail under the prompt was made larger, by image number.
-      imageBig: number[]
     }
   }
 }

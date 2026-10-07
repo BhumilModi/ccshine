@@ -1,7 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { imageNumbers, imagePaths } from '../hooks/images'
-import { bmp, toBase64 } from './bmp'
 
 const text = (t: string) => ({ type: 'text', text: t })
 const image = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: '' } }
@@ -37,19 +36,10 @@ function world(on: any, terminal?: string) {
   // A queued prompt: no turn starts for it, the row finds its image in the conversation by itself.
   on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }, { role: 'user', content: [text(`[Image: source: ${SHOT}]`)] }] }))
   const ran: string[][] = []
-  // macOS sips: a 400×200 image, shrunk to whatever size the thumbnail asks for.
-  let made = { w: 0, h: 0 }
   on('process.run', (_$: unknown, e: { argv: readonly string[] }) => {
     ran.push([...e.argv])
-    const argv = e.argv
-    if (argv[0] === 'sips' && argv.includes('-g')) return { value: { exitCode: 0, stdout: `${argv.at(-1)}\n  pixelWidth: 400\n  pixelHeight: 200\n`, stderr: '' } as never }
-    if (argv[0] === 'sips') {
-      const at = argv.indexOf('--resampleHeightWidth')
-      made = { h: Number(argv[at + 1]), w: Number(argv[at + 2]) }
-    }
     return { value: { exitCode: 0, stdout: '', stderr: '' } as never }
   })
-  on('fs.read', () => ({ value: { base64: toBase64(bmp(made.w, made.h, () => 0x336699)) } }))
   return ran
 }
 
@@ -82,27 +72,4 @@ test('a prompt whose image has no known path draws no open line', async ($, on) 
   on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }] }))
   const ui = await $.ui.mount(row)
   expect(await ui.find({ type: 'Button', key: 'img:10' })).toBeUndefined()
-})
-
-test('an attached image draws a thumbnail under its line, and larger toggles a bigger one', async ($, on) => {
-  world(on, 'Orca')
-  const ui = await $.ui.mount(row)
-  const sizes = async () => (await ui.findAll({ type: 'Raster' })).map((r: any) => [r.props.columns, r.props.rows])
-  // 400×200 inside 40×10 cells: 40 wide, 10 tall (two pixels a cell).
-  expect(await sizes()).toEqual([[40, 10]])
-  expect((await ui.find({ type: 'Button', key: 'thumb:10' }))?.text).toContain('larger')
-  await ui.press({ key: 'thumb:10' })
-  const [big] = await sizes()
-  expect(big![0]).toBeGreaterThan(40)
-  expect((await ui.find({ type: 'Button', key: 'thumb:10' }))?.text).toContain('smaller')
-})
-
-test('without sips the line keeps open and draws no thumbnail', async ($, on) => {
-  mock.clock(on, { now: 0 })
-  mock.store(on)
-  on('session.messages', () => ({ value: [{ role: 'user', content: [text('what happened? [Image #10]'), image] }, { role: 'user', content: [text(`[Image: source: ${SHOT}]`)] }] }))
-  on('process.run', () => ({ value: { exitCode: 127, stdout: '', stderr: 'sips: not found' } as never }))
-  const ui = await $.ui.mount(row)
-  expect(await ui.findAll({ type: 'Raster' })).toEqual([])
-  expect((await ui.find({ type: 'Button', key: 'img:10' }))?.text).toContain('open ↗')
 })
