@@ -161,7 +161,8 @@ export function sections(a: {
   const odd = avail - share * live.length
   const shared = a.all ? live.filter(s => s !== 'plan') : live
   if (a.all && live.includes('plan')) out.plan = a.asks.plan
-  let left = a.all && live.includes('plan') ? avail - share : avail
+  // Under show all the plan's third counts as taken, less what a short plan leaves of it.
+  let left = a.all && live.includes('plan') ? avail - Math.min(share, a.asks.plan) : avail
   for (const s of shared) {
     out[s] = Math.min(a.asks[s], share + (s === live[0] ? odd : 0))
     left -= out[s]

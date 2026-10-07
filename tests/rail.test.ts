@@ -170,3 +170,8 @@ test('a rail too short for three headers draws no bodies, and no split passes th
     }
   }
 })
+
+test('show all with a short plan leaves no rows unused', async () => {
+  // Every row is used; what the plan leaves goes to the timeline first, as without show all.
+  expect(sections({ bodyRows: 40, asks: asks(99, 2, 99), open: allOpen, all: true })).toEqual(asks(22, 2, 12))
+})

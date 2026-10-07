@@ -12,7 +12,9 @@ export function cutPatch(hunks: Hunk[], max = MAX_PATCH_LINES): { patch: Hunk[];
     const kept = h.lines.slice(0, Math.max(0, left))
     cut += h.lines.length - kept.length
     left -= kept.length
-    if (kept.length > 0) patch.push(kept.length === h.lines.length ? h : { ...h, lines: kept })
+    // A cut hunk's header counts its kept lines, so it still parses as a hunk.
+    const cutHunk = () => ({ ...h, oldLines: kept.filter(l => !l.startsWith('+')).length, newLines: kept.filter(l => !l.startsWith('-')).length, lines: kept })
+    if (kept.length > 0) patch.push(kept.length === h.lines.length ? h : cutHunk())
   }
   return { patch, cut }
 }

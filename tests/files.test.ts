@@ -82,3 +82,9 @@ test('diffEdits labels each edit by its time into the turn and writes its hunks'
   expect(edits[1]!.cut).toBe(50)
   expect(edits[2]!.source).toBe('')
 })
+
+test('a hunk cut at the limit gets header counts that match its lines', async () => {
+  const h: Hunk = { oldStart: 1, oldLines: 3, newStart: 1, newLines: 4, lines: [' a', '-b', '+c', '+d', ' e'] }
+  const { patch } = cutPatch([h], 3)
+  expect(patch).toEqual([{ oldStart: 1, oldLines: 2, newStart: 1, newLines: 2, lines: [' a', '-b', '+c'] }])
+})

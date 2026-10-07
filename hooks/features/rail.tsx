@@ -262,7 +262,9 @@ export function registerRail(on: On) {
     // Docked: timeline, plan and files sections, each under a header that collapses it (hooks/rail.ts sections).
     const showAll = await read($, planAll)
     const collapsed = await read($, railCollapsed)
-    const flip = async (name: SectionName) => {
+    // An empty section folds by itself; pressing it while open would only hide it from later turns.
+    const flip = async (name: SectionName, empty: boolean) => {
+      if (empty && !collapsed.includes(name)) return
       const flipped = collapsed.includes(name) ? collapsed.filter(n => n !== name) : [...collapsed, name]
       await update($, railCollapsed, () => flipped)
       await $.store.set('rail-collapsed', flipped)
@@ -282,7 +284,7 @@ export function registerRail(on: On) {
     // Timeline.
     out.push(
       <Box key="sec-timeline" flexDirection="row" height={1}>
-        <Button key="sec:timeline" plain onPress={() => flip('timeline')}>{`${rows.timeline ? '▾ ' : '▸ '}timeline`}</Button>
+        <Button key="sec:timeline" plain onPress={() => flip('timeline', !turn)}>{`${rows.timeline ? '▾ ' : '▸ '}timeline`}</Button>
         {turnLine(' · ')}
       </Box>,
     )
@@ -294,7 +296,7 @@ export function registerRail(on: On) {
       const body = planOpen && !plan.doneAt ? planBody(ui, C, plan.d, rows.plan) : { rows: [], hidden: 0 }
       out.push(
         <Box key="sec-plan" flexDirection="row" height={1}>
-          <Button key="sec:plan" plain onPress={() => flip('plan')}>{planOpen ? '▾' : '▸'}</Button>
+          <Button key="sec:plan" plain onPress={() => flip('plan', !plan)}>{planOpen ? '▾' : '▸'}</Button>
           {planHeader(ui, C, { ...plan.d, tasks: plan.list }, {
             surface: e.surface,
             columns: width,
@@ -310,7 +312,7 @@ export function registerRail(on: On) {
       }
       out.push(...body.rows)
     } else {
-      out.push(<Button key="sec:plan" plain onPress={() => flip('plan')}>{`${planOpen ? '▾ ' : '▸ '}plan · no tasks`}</Button>)
+      out.push(<Button key="sec:plan" plain onPress={() => flip('plan', !plan)}>{`${planOpen ? '▾ ' : '▸ '}plan · no tasks`}</Button>)
       if (planOpen && plan) out.push(...planBody(ui, C, plan.d, rows.plan).rows)
     }
 
@@ -318,7 +320,7 @@ export function registerRail(on: On) {
     const added = files.reduce((n, f) => n + f.added, 0)
     const removed = files.reduce((n, f) => n + f.removed, 0)
     out.push(
-      <Button key="sec:files" plain onPress={() => flip('files')}>
+      <Button key="sec:files" plain onPress={() => flip('files', files.length === 0)}>
         {files.length === 0 ? '▸ files · none this turn' : `${rows.files ? '▾ ' : '▸ '}files · ${files.length} changed · +${added} −${removed}`}
       </Button>,
     )

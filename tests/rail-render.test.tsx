@@ -543,3 +543,41 @@ test('/clear closes the diff pane', OFF, async ($, on) => {
   await $.prompt.submit({ text: 'after clear', origin: { kind: 'composer' } } as never)
   expect(w.closed).toContain('tidepool-diff')
 })
+
+test('a file edited in two turns lists and diffs only the rail\'s turn', OFF, async ($, on) => {
+  const w = world(on)
+  await editTurn($, w)
+  await $.turn.complete(complete('t1'))
+  // A real turn starts after the last one ended.
+  await w.clock.advance(1000)
+  await $.turn.start({ text: 'again', turnId: 't2' })
+  const patch = [{ oldStart: 90, oldLines: 1, newStart: 90, newLines: 1, lines: ['-q', '+r'] }]
+  await call($, w, 'e2', 'Edit', { file_path: '/repo/src/a.ts', old_string: 'q', new_string: 'r' }, 100, { result: { filePath: '/repo/src/a.ts', structuredPatch: patch } })
+  await $.turn.complete(complete('t2'))
+  // Pin the rail to turn 1 through the anchor on its first tool row.
+  await (await $.ui.mount(pane())).unmount()
+  const anchor = await $.ui.mount({ plugin: 'tidepool', surface: 'terminal', component: 'ToolUse', requestId: 'r1',
+    props: { tool_use_id: 'r1', tool: 'Read', input: { file_path: '/repo/src/a.ts' }, isRunning: false, isErrored: false, isInterrupted: false } } as const)
+  await anchor.press({ key: 'anchor' })
+  const ui = await $.ui.mount(pane())
+  expect(await textOf(ui)).toContain('pinned')
+  expect(await textOf(ui)).toContain('▾ files · 1 changed · +2 −1')
+  await ui.press({ key: 'file:/repo/src/a.ts' })
+  const diff = await $.ui.mount(diffPane)
+  expect(await textOf(diff)).toContain('edit 1 of 1')
+  expect((await diff.find({ type: 'Code' }))?.text).not.toContain('+r')
+})
+
+test('pressing an empty section\'s header does not collapse it', OFF, async ($, on) => {
+  const written: Record<string, unknown> = {}
+  on('state.set', async (_$: unknown, e: any, next: any) => {
+    if (e.plugin === 'tidepool') written[e.key] = e.value
+    return next(e)
+  })
+  const w = world(on)
+  await twoCallTurn($, w)
+  const ui = await $.ui.mount(pane())
+  await ui.press({ key: 'sec:files' })
+  expect(written.railCollapsed).toBeUndefined()
+  expect(await textOf(ui)).toContain('▸ files · none this turn')
+})
