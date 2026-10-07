@@ -103,12 +103,14 @@ export function window(tasks: PlanTask[], room: number) {
   return { start, shown, after: tasks.length - start - shown.length }
 }
 
-// The task a new agent belongs to: the most recently started task still running.
-// ponytail: ignores which loop spawned the agent; match on parentAgentId if parallel controllers mix up.
+// The task new work (an agent, a shell) belongs to: the running sub-item started last, else the running task
+// started last. Sub-items whose parent is gone count as tasks.
+// ponytail: ignores which loop spawned the work; match on parentAgentId if parallel controllers mix up.
 export function currentTaskId(tasks: PlanTask[]): string | undefined {
-  return tasks
-    .filter(t => t.status === 'in_progress')
-    .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0]?.id
+  const ids = new Set(tasks.map(t => t.id))
+  const newest = (list: PlanTask[]) => list.sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0]?.id
+  const running = tasks.filter(t => t.status === 'in_progress')
+  return newest(running.filter(t => t.parent !== undefined && ids.has(t.parent))) ?? newest(running)
 }
 
 // Finished agents stay visible this long before folding away.
@@ -133,10 +135,9 @@ export function agentRows(agents: PlanAgent[], turns: TurnRecord[]): AgentRow[] 
   })
 }
 
-export function visibleAgents(agents: AgentRow[], taskId: string | undefined, now: number): AgentRow[] {
-  return agents.filter(
-    a => a.taskId === taskId && (a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS),
-  )
+// Running agents, and finished ones until they fade.
+export function visibleAgents(agents: AgentRow[], now: number): AgentRow[] {
+  return agents.filter(a => a.status === 'running' || now - (a.endedAt ?? now) < AGENT_LINGER_MS)
 }
 
 // Clock-style duration for live rows, like Claude Code's own agent list: 47s, 2m 47s, 1h 37m.

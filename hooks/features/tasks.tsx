@@ -16,7 +16,7 @@ import {
   syncTodos,
   topLevel,
 } from '../plan'
-import { planBody, planHeader, planWanted, shellBody } from '../planview'
+import { planBody, planHeader, planWanted } from '../planview'
 import type { PlanData } from '../planview'
 import { fitBand } from '../layout'
 import { railSeat } from '../rail'
@@ -283,7 +283,8 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     tasks: showTasks && !finished ? list : [],
     agents: agentRows(await read($, agents), turnList),
     shells,
-    tails: {},
+    // Output lines are rows of the plan's tree, so they are read before it is fitted (cached for 2s per file).
+    tails: await shellTails(shells, readTail($), now),
     shellHistory: (await read($, shellHistory)) ?? {},
     planHistory: historyFor(await loadHistory($), await $.session.root()),
     now,
@@ -301,11 +302,8 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     usage: usageRows.length,
     expanded: d.all,
   })
-  // The newest shells when not all fit; the section's label takes one of its rows. Output files are read only
-  // for the shells drawn, and only when their output rows fit.
-  const drawn = shells.slice(-(fit.shell - 1))
-  const tails = fit.shell > 1 && fit.tails ? await shellTails(drawn, readTail($), now) : {}
-  const shell = fit.shell > 1 ? <Box key="shell" flexDirection="column">{shellBody(ui, C, { ...d, shells: drawn, tails }, fit.tails)}</Box> : null
+  // With no plan, running shells and agents draw alone in the shell slot, their label included.
+  const shell = !fit.header && fit.shell > 1 ? <Box key="shell" flexDirection="column">{planBody(ui, C, d, fit.shell).rows}</Box> : null
   const usage = fit.usage && usageRows.length ? <Box key="usage" flexDirection="column">{usageRows}</Box> : null
   const band = (rows: (RenderElement | null | undefined)[]) => ({
     fit,
@@ -324,7 +322,7 @@ async function planBand($: EngineInterface, e: Band, dockKind: 'none' | 'idle' |
     columns: e.props.bodyColumns,
     toggle: { hidden: body.hidden, onPress: () => update($, planAll, v => !v) },
   })
-  return band([header, ...body.rows, shell, usage])
+  return band([header, ...body.rows, usage])
 }
 
 // A background job's output file for shellTails (shell.ts); a file too big for one read shows nothing.

@@ -139,10 +139,8 @@ export function callDetail(tool: string, input: unknown, ran: { result?: unknown
   return lines
 }
 
-// The docked rail splits about 40-45-15: the turn's tool rows, the plan section, the footer (rule, cost,
-// failures, files). Plan and footer shares are caps; rows they leave go to the tool rows.
-const PLAN_SHARE = 0.45
-const FOOT_SHARE = 0.15
+// The docked rail gives the plan section up to 60% of its rows; the turn's tool rows take the rest.
+const PLAN_SHARE = 0.6
 
 // The plan section's rows: its share of the rail (all of it when showing all), never less than its header and
 // running task, and never more than the `fixed` rows above it leave.
@@ -151,21 +149,15 @@ export function sectionCap(bodyRows: number, fixed: number, all: boolean): numbe
   return Math.min(Math.floor(bodyRows * PLAN_SHARE), Math.max(2, bodyRows - fixed - 1))
 }
 
-// Shares the docked rail's rows once the plan section is laid out. Fixed: brand, title, and the footer's rule and
-// cost line; the two margins only while they leave a row for the timeline. Failures, then files, fill the rest of
-// the footer's share; the tool rows take what is left, the axis and an "earlier" marker included. `shown` below
-// `tools` means the marker draws.
-// ponytail: a rail under 7 rows still passes bodyRows by a row or two; nothing seats a rail that short today.
-export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; files: number; failures: number; section: number }) {
-  const base = 2
-  let extra = Math.max(0, Math.floor(a.bodyRows * FOOT_SHARE) - base)
-  const failures = Math.min(a.failures, extra)
-  extra -= failures
-  const files = Math.min(a.files, extra)
-  const room = a.bodyRows - 2 - base - failures - files - a.section
+// Shares the docked rail's rows once the plan section is laid out. Fixed: brand and title; the two margins only
+// while they leave a row for the timeline. The tool rows take what is left, the axis and an "earlier" marker
+// included. `shown` below `tools` means the marker draws.
+// ponytail: a rail under 6 rows still passes bodyRows by a row or two; nothing seats a rail that short today.
+export function railBudget(a: { bodyRows: number; tools: number; bars: boolean; section: number }) {
+  const room = a.bodyRows - 2 - a.section
   const margins = room >= 3
   const left = margins ? room - 2 : room
-  const fits = { section: a.section, files, failures, margins }
+  const fits = { section: a.section, margins }
   if (a.tools === 0) return { ...fits, shown: 0 }
   if (a.tools + (a.bars ? 1 : 0) <= left) return { ...fits, shown: a.tools }
   // The marker takes a row; the axis draws only under shown rows.

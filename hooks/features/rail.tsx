@@ -5,7 +5,7 @@ import type { RailRow } from '../../types'
 import { fitBand } from '../layout'
 import { opts } from '../options'
 import { agentRows, finishedAt, historyFor, planShows, topLevel } from '../plan'
-import { doneCard, planBody, planHeader, planWanted, shellBody } from '../planview'
+import { doneCard, planBody, planHeader, planWanted } from '../planview'
 import { DONE_COLS, DONE_ROWS, doneCrabCells, encodeCells } from '../dock'
 import type { PlanData } from '../planview'
 import { MAX_TAIL_BYTES, shellRows, shellTails } from '../shell'
@@ -60,8 +60,8 @@ const readTail = ($: EngineInterface) => async (path: string) =>
 
 type PaneInput = Frozen<RenderInput<'Pane'>>
 
-// The plan section, pinned above the docked rail's footer: a rule, the Plan header, the plan's lines around the
-// running task, then the shells, in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
+// The plan section, pinned to the docked rail's foot: a rule, the Plan header and the plan's tree around the
+// running task (or, with no plan, the running shells and agents), in at most `cap` rows (hooks/rail.ts sectionCap). Null when there is nothing.
 // Agents whose Agent call is in `shown`, the tool rows of the turn on screen, are left to those rows.
 async function planSection($: EngineInterface, e: PaneInput, width: number, cap: number, shown: ReadonlySet<string> = new Set()): Promise<{ el: RenderElement; rows: number } | null> {
   await read($, tick)
@@ -78,7 +78,8 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
     tasks: showTasks && doneAt === undefined ? list : [],
     agents: agentRows(await read($, agents), await read($, turns)).filter(a => a.callId === undefined || !shown.has(a.callId)),
     shells,
-    tails: {},
+    // Output lines are rows of the plan's tree, so they are read before it is fitted (cached for 2s per file).
+    tails: await shellTails(shells, readTail($), at),
     shellHistory: (await read($, shellHistory)) ?? {},
     planHistory: historyFor(await $.store.get('history-by-project'), await $.session.root()),
     now: at,
@@ -119,12 +120,8 @@ async function planSection($: EngineInterface, e: PaneInput, width: number, cap:
       ...body.rows,
     )
   }
-  if (fit.shell > 1) {
-    // Output files are read only for the shells drawn, and only when their output rows fit.
-    const drawn = shells.slice(-(fit.shell - 1))
-    const tails = fit.tails ? await shellTails(drawn, readTail($), at) : {}
-    out.push(...shellBody(ui, C, { ...d, shells: drawn, tails }, fit.tails))
-  }
+  // With no plan, running shells and agents draw alone, their label included.
+  if (!fit.header && fit.shell > 1) out.push(...planBody(ui, C, d, fit.shell).rows)
   // The done card is one element four rows tall.
   if (out.length === 0) return null
   return { el: <Box key="plan" flexDirection="column">{out}</Box>, rows: out.length + (card ? DONE_ROWS - 1 : 0) }
@@ -187,17 +184,14 @@ export function registerRail(on: On) {
     const { start, end } = turnWindow(turn, turn.endedAt ?? clock)
     const allCalls = await read($, calls)
     const all = railRows(allCalls, await read($, agents), await read($, jobs), turn, clock)
-    const sum = railSummary(all, turn, clock)
-    // Docked, the plan section takes its share (hooks/rail.ts); the footer's lists and the tool rows share the rest.
-    // Fixed rows above and below it: brand, title, two margins, the footer's rule and cost line.
+    // Docked, the plan section takes its share (hooks/rail.ts); the tool rows take the rest.
+    // Fixed rows above it: brand, title and two margins.
     const agentCalls = new Set(all.filter(r => r.kind === 'agent').map(r => r.id))
-    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 6, showAll), agentCalls)
+    const section = isInline ? null : await planSection($, e, width, sectionCap(p.scroll.bodyRows, 4, showAll), agentCalls)
     const fits = railBudget({
       bodyRows: p.scroll.bodyRows,
       tools: all.length,
       bars: showBars(p.bodyColumns),
-      files: sum.files.length,
-      failures: sum.failures.length,
       section: section?.rows ?? 0,
     })
     const hidden = isInline ? Math.max(0, all.length - INLINE_ROWS) : all.length - fits.shown
@@ -271,45 +265,11 @@ export function registerRail(on: On) {
       const label = fmtShort(end - start)
       body.push(<Text key="axis" color={C.faint}>{`${' '.repeat(TOOL + col.target + 2)}0s${label.padStart(col.bar - 2)}`}</Text>)
     }
-    const foot = []
-    if (!isInline) {
-      const label = (text: string, color = C.faint) => <Box flexShrink={0}><Text color={color}>{text.padEnd(TOOL)}</Text></Box>
-      foot.push(<Text key="rule" color={C.track}>{'╌'.repeat(width)}</Text>)
-      foot.push(
-        <Box key="cost" flexDirection="row" height={1}>
-          {label('cost')}
-          {sum.cost !== undefined && <Box flexShrink={0}><Text color={C.ink}>{`$${sum.cost.toFixed(2)}  `}</Text></Box>}
-          <Text color={C.faint} wrap="truncate-end">{[`${sum.tools} tool${sum.tools === 1 ? '' : 's'}`, sum.agents ? `${sum.agents} agent${sum.agents === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</Text>
-        </Box>,
-      )
-      for (const [i, f] of sum.files.slice(0, fits.files).entries()) {
-        foot.push(
-          <Box key={`file-${i}`} flexDirection="row" height={1}>
-            {label(i === 0 ? 'files' : '')}
-            <Text color={C.ink} wrap="truncate-end">
-              {f.path.split('/').pop()}
-              <Text color={C.info}>{`  +${f.added}`}</Text>
-              <Text color={C.crit}>{` −${f.removed}`}</Text>
-            </Text>
-          </Box>,
-        )
-      }
-      for (const [i, f] of sum.failures.slice(0, fits.failures).entries()) {
-        foot.push(
-          <Box key={`fail-${i}`} flexDirection="row" height={1}>
-            {label(i === 0 ? 'fail' : '', C.crit)}
-            <Text color={C.crit} wrap="truncate-end">{`${f.label}${f.times > 1 ? ` ×${f.times}` : ''}`}</Text>
-          </Box>,
-        )
-      }
-    }
-
     return surface('rail', [
       brand,
       title,
       <Box key="rows" flexDirection="column" marginTop={isInline || fits.margins ? 1 : 0}>{body}</Box>,
       ...pin(section),
-      <Box key="foot" flexDirection="column" marginTop={isInline || fits.margins ? 1 : 0}>{foot}</Box>,
     ])
   })
 

@@ -69,12 +69,13 @@ async function twoCallTurn($: any, w: World) {
   await $.turn.complete(complete('t1'))
 }
 
-test('docked pane draws header, rows with span bars, axis and summary', OFF, async ($, on) => {
+test('docked pane draws header, rows with span bars and axis, and no cost summary', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   const ui = await $.ui.mount(pane())
   const text = await textOf(ui)
-  for (const part of ['turn 1', 'Read', 'src/a.ts', 'npm test', '━', '✕', '0s', '$0.31']) expect(text).toContain(part)
+  for (const part of ['turn 1', 'Read', 'src/a.ts', 'npm test', '━', '✕', '0s']) expect(text).toContain(part)
+  expect(text).not.toContain('$0.31')
   // The status line shows context; the rail does not repeat it.
   expect(text).not.toContain('ctx')
   expect(text).not.toContain('live')
@@ -253,8 +254,8 @@ test('fixed-width pieces never shrink, so a narrow rail truncates instead of wra
   const title = await ui.find({ type: 'Text', text: 'turn 1' })
   expect(title).toBeDefined()
   const fixed = (await ui.findAll({ type: 'Box' })).filter((b: any) => b.props.flexShrink === 0)
-  // The turn line, each tool row, and the summary labels.
-  expect(fixed.length).toBeGreaterThan(4)
+  // The turn line and each tool row.
+  expect(fixed.length).toBeGreaterThan(2)
 })
 
 // A plan of `n` tasks named "task 1".., with task `running` in progress.
@@ -269,7 +270,7 @@ async function bashes($: any, w: World, n: number) {
   for (let i = 0; i < n; i++) await call($, w, `sh${i}`, 'Bash', { command: `echo ${i}`, description: `step ${i}` }, 10)
 }
 
-test('rail draws the plan between the tool rows and the footer', OFF, async ($, on) => {
+test('rail draws the plan under the tool rows, with no cost footer', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 3, 2)
@@ -278,20 +279,20 @@ test('rail draws the plan between the tool rows and the footer', OFF, async ($, 
   expect(text).toContain('▶ |2. task 2')
   // Tool names are Text; targets are Buttons, which textOf lists last.
   expect(text.indexOf(' Plan ')).toBeGreaterThan(text.indexOf('Read'))
-  expect(text.indexOf(' Plan ')).toBeLessThan(text.indexOf('cost'))
+  expect(text).not.toContain('cost')
   // The timeline's axis stays under the tool rows, above the plan.
   const axis = text.search(/\| {4,}0s +\d/)
   expect(axis).toBeGreaterThan(-1)
   expect(axis).toBeLessThan(text.indexOf(' Plan '))
 })
 
-test('rail plan stays within 45% of its height', OFF, async ($, on) => {
+test('rail plan stays within 60% of its height', OFF, async ($, on) => {
   const w = world(on)
   await twoCallTurn($, w)
   await plan($, w, 20)
   const text = await textOf(await $.ui.mount(pane('dock', 46, 24)))
-  // 45% of 24 rows is 10: rule, header, then eight lines and markers.
-  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(8)
+  // 60% of 24 rows is 14: rule, header, then twelve lines and markers.
+  expect((text.match(/\d+\. task/g) ?? []).length).toBeLessThanOrEqual(12)
   expect(text).toContain('more')
 })
 

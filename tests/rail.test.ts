@@ -139,57 +139,44 @@ test('gauge splits a meter into what the turn started with and what it added', a
 })
 
 
-// Rows the docked rail draws for a budget: brand, title, two margins when kept, the footer's rule and cost line, the plan
-// section, failures, files, the axis under shown tool rows, then the tool rows or the "no tools" line, and the marker.
+// Rows the docked rail draws for a budget: brand, title, two margins when kept, the plan section, the axis under
+// shown tool rows, then the tool rows or the "no tools" line, and the marker.
 const drawn = (a: { tools: number; bars: boolean }, b: ReturnType<typeof railBudget>) =>
-  4 + (b.margins ? 2 : 0) + b.section + b.failures + b.files + (a.bars && b.shown > 0 ? 1 : 0) + (a.tools === 0 ? 1 : b.shown + (b.shown < a.tools ? 1 : 0))
+  2 + (b.margins ? 2 : 0) + b.section + (a.bars && b.shown > 0 ? 1 : 0) + (a.tools === 0 ? 1 : b.shown + (b.shown < a.tools ? 1 : 0))
 
-test('a turn that edited many files cannot push the plan section past the rail', async () => {
-  const a = { bodyRows: 30, tools: 5, bars: true, files: 12, failures: 0 }
-  const cap = sectionCap(30, 6, false)
-  expect(cap).toBe(13)
-  const b = railBudget({ ...a, section: cap })
-  expect(drawn(a, b)).toBeLessThanOrEqual(30)
-  expect(b.files).toBeLessThan(12)
-})
-
-test('the docked rail fits its rows for any mix of tools, files and failures', async () => {
+test('the docked rail fits its rows for any mix of tools', async () => {
   for (let bodyRows = 7; bodyRows <= 60; bodyRows++) {
     for (const tools of [0, 1, 5, 40]) {
-      for (const files of [0, 3, 20]) {
-        const a = { bodyRows, tools, bars: true, files, failures: 2 }
-        const b = railBudget({ ...a, section: sectionCap(bodyRows, 6, false) })
-        expect(drawn(a, b)).toBeLessThanOrEqual(bodyRows)
-      }
+      const a = { bodyRows, tools, bars: true }
+      const b = railBudget({ ...a, section: sectionCap(bodyRows, 4, false) })
+      expect(drawn(a, b)).toBeLessThanOrEqual(bodyRows)
     }
   }
 })
 
 test('every tool row shows when there is room, with no marker', async () => {
-  const a = { bodyRows: 40, tools: 6, bars: true, files: 1, failures: 0 }
+  const a = { bodyRows: 40, tools: 6, bars: true }
   const b = railBudget({ ...a, section: 8 })
   expect(b.shown).toBe(6)
-  expect(drawn(a, b)).toBe(6 + 8 + 1 + 1 + 6)
+  expect(drawn(a, b)).toBe(2 + 2 + 8 + 1 + 6)
 })
 
-test('the rail splits 40-45-15: tool rows, the plan, then a footer whose lists stop at 15%', async () => {
-  expect(sectionCap(40, 6, false)).toBe(18)
-  // A 40-row rail's footer share is 6 rows: rule and cost leave 4 for failures, then files.
-  const b = railBudget({ bodyRows: 40, tools: 30, bars: true, files: 30, failures: 2, section: 18 })
-  expect([b.failures, b.files]).toEqual([2, 2])
-  // The tool rows keep the rest: 40 - brand, title, two margins - footer 6 - plan 18 = 12, marker and axis included.
+test('the plan takes up to 60% of the rail, and the tool rows keep the rest', async () => {
+  expect(sectionCap(40, 4, false)).toBe(24)
+  const b = railBudget({ bodyRows: 40, tools: 30, bars: true, section: 24 })
+  // 40 - brand, title, two margins - plan 24 = 12, marker and axis included.
   expect(b.shown).toBe(10)
 })
 
 test('show all lifts the section cap', async () => {
-  expect(sectionCap(30, 6, true)).toBe(Number.MAX_SAFE_INTEGER)
-  expect(sectionCap(8, 6, false)).toBe(2)
+  expect(sectionCap(30, 4, true)).toBe(Number.MAX_SAFE_INTEGER)
+  expect(sectionCap(8, 4, false)).toBe(3)
 })
 
 test('a short rail drops its two margins rather than overflow', async () => {
-  const a = { bodyRows: 8, tools: 5, bars: true, files: 0, failures: 0 }
-  const b = railBudget({ ...a, section: sectionCap(8, 6, false) })
+  const a = { bodyRows: 6, tools: 5, bars: true }
+  const b = railBudget({ ...a, section: sectionCap(6, 4, false) })
   expect(b.margins).toBe(false)
-  expect(drawn(a, b)).toBeLessThanOrEqual(8)
-  expect(railBudget({ ...a, bodyRows: 30, section: sectionCap(30, 6, false) }).margins).toBe(true)
+  expect(drawn(a, b)).toBeLessThanOrEqual(6)
+  expect(railBudget({ ...a, bodyRows: 30, section: sectionCap(30, 4, false) }).margins).toBe(true)
 })

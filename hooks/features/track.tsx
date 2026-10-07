@@ -8,6 +8,7 @@ import { addJob, endJob, parseNotifications } from '../jobs'
 import { commandKey, parseHistory, parseOutputPath, recordRun } from '../shell'
 import { addCall, closeSpan, closeTurn, endCall, totalTokens } from '../timing'
 import { callDetail } from '../rail'
+import { currentTaskId } from '../plan'
 import { describeCall, editStats } from '../tools'
 
 export const calls = atom({ plugin: 'tidepool', key: 'calls' } as const, {})
@@ -24,6 +25,8 @@ const dock = atom({ plugin: 'tidepool', key: 'dock' } as const, null)
 export const spans = atom({ plugin: 'tidepool', key: 'spans' } as const, [])
 export const jobs = atom({ plugin: 'tidepool', key: 'jobs' } as const, [])
 const chat = atom({ plugin: 'tidepool', key: 'chat' } as const, 0)
+// The plan (features/tasks.tsx): a main-loop call records the task running when it starts.
+const tasks = atom({ plugin: 'tidepool', key: 'tasks' } as const, [])
 // Past shell durations by command (read by the band in features/tasks.tsx), kept in the store across sessions.
 const shellHistory = atom({ plugin: 'tidepool', key: 'shellHistory' } as const, null)
 
@@ -72,6 +75,7 @@ export function registerTrack(on: On) {
     root ??= await $.session.root().catch(() => '')
     const target = describeCall(tool, input, root)?.target
     const stats = editStats(tool, input)
+    const taskId = agentId === undefined ? currentTaskId(await read($, tasks)) : undefined
     await update($, calls, list =>
       addCall(list, id, {
         tool,
@@ -79,6 +83,7 @@ export function registerTrack(on: On) {
         ...(agentId === undefined ? {} : { agentId }),
         ...(target === undefined ? {} : { target }),
         ...(stats ? { added: stats.added, removed: stats.removed } : {}),
+        ...(taskId === undefined ? {} : { taskId }),
       }),
     )
     const call: LiveCall = agentId === undefined ? { tool, input } : { tool, input, agentId }
@@ -114,13 +119,14 @@ export function registerTrack(on: On) {
           status: 'running' as const,
           ...(command === undefined ? {} : { command }),
           ...(outputFile === undefined ? {} : { outputFile }),
+          ...(taskId === undefined ? {} : { taskId }),
         }
         await update($, jobs, list => addJob(list, job))
       }
       if (tool === 'TaskStop' && result?.task_id) {
-        const taskId = result.task_id
+        const stopped = result.task_id
         const at = await $.clock.now()
-        await update($, jobs, list => endJob(list, taskId, 'killed', at))
+        await update($, jobs, list => endJob(list, stopped, 'killed', at))
       }
       return ran
     } finally {

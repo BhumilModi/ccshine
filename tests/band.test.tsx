@@ -239,7 +239,7 @@ test('shell rows show elapsed, the ETA from past runs and a background job\'s la
   expect(shown).toContain('shell')
   expect(shown).toContain('bg Dev server  40s')
   expect(shown).toContain('✓ 142/310 tests')
-  expect(shown).toContain('▶ Run tests  40s · ~1m left')
+  expect(shown).toContain('▶ $ Run tests  40s · ~1m left')
 
   await clock.advance(80_000)
   expect(await text()).toContain('Run tests  2m 0s · over by 20s')
@@ -248,7 +248,7 @@ test('shell rows show elapsed, the ETA from past runs and a background job\'s la
   await clock.advance(80_000)
   await pending
   shown = await text()
-  expect(shown).toContain('✓ Run tests  3m 20s')
+  expect(shown).toContain('✓ $ Run tests  3m 20s')
   await clock.advance(31_000)
   expect(await text()).not.toContain('Run tests')
 })
@@ -345,7 +345,8 @@ test('band takes the plan back when the rail is no longer placed', { options: { 
   rail.placed = false
   const text = await bandText($, { columns: 140, rows: 40, isFullscreen: true })
   expect(text).toContain('1. schema')
-  expect(text).toContain('shell')
+  // The plan's shells come back with it, nested under their task.
+  expect(text).toContain('Dev server')
 })
 
 test('two task updates sent together both land', { options: { dock: false, usage: false } }, async ($, on) => {

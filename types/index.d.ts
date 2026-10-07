@@ -41,6 +41,8 @@ export type CallTiming = {
   failed?: true
   // What the rail shows when the row is pressed (hooks/rail.ts callDetail).
   detail?: string[]
+  // The plan task running when the call started (hooks/plan.ts currentTaskId): its shell nests under it.
+  taskId?: string
 }
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number }
@@ -102,6 +104,8 @@ export type Job = {
   // The Bash command, for its ETA, and the file its output streams to, for the band's progress line.
   command?: string
   outputFile?: string
+  // The plan task its Bash call started under.
+  taskId?: string
 }
 
 // One rail row. from/to are fractions of the turn's window.

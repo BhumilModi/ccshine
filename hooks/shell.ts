@@ -57,15 +57,17 @@ export type ShellRow = {
   status: 'running' | 'done' | 'error' | 'killed'
   background: boolean
   outputFile?: string
+  // The plan task it started under; the plan draws it there.
+  taskId?: string
 }
 
 // A finished foreground shell this quick is noise in the band; the rail still lists it.
 const SHORT_MS = 5000
-// The band and the docked rail list at most this many shells, the newest.
+// The band and the docked rail list every running shell, and finished ones up to this many in all, the newest.
 const MAX_SHELL_ROWS = 4
 
 // Shells for the band and the rail's plan section: running ones, and finished ones fading out like agents do.
-// The newest MAX_SHELL_ROWS, oldest first.
+// Every running shell, then the newest finished ones up to MAX_SHELL_ROWS in all; oldest first.
 export function shellRows(calls: Record<string, CallTiming>, live: Record<string, LiveCall>, jobs: Job[], now: number): ShellRow[] {
   const rows: ShellRow[] = []
   const jobCalls = new Set(jobs.map(j => j.callId))
@@ -84,6 +86,7 @@ export function shellRows(calls: Record<string, CallTiming>, live: Record<string
       ...(running || c.endedAt === undefined ? {} : { endedAt: c.endedAt }),
       status: running ? 'running' : c.failed ? 'error' : 'done',
       background: false,
+      ...(c.taskId === undefined ? {} : { taskId: c.taskId }),
     })
   }
   for (const j of jobs) {
@@ -97,9 +100,13 @@ export function shellRows(calls: Record<string, CallTiming>, live: Record<string
       status: j.status,
       background: true,
       ...(j.outputFile === undefined ? {} : { outputFile: j.outputFile }),
+      ...(j.taskId === undefined ? {} : { taskId: j.taskId }),
     })
   }
-  return rows.sort((a, b) => a.startedAt - b.startedAt).slice(-MAX_SHELL_ROWS)
+  const running = rows.filter(r => r.status === 'running').length
+  const finished = rows.filter(r => r.status !== 'running').sort((a, b) => a.startedAt - b.startedAt)
+  const dropped = new Set(finished.slice(0, Math.max(0, finished.length - Math.max(0, MAX_SHELL_ROWS - running))))
+  return rows.filter(r => !dropped.has(r)).sort((a, b) => a.startedAt - b.startedAt)
 }
 
 const TAIL_EVERY_MS = 2000
